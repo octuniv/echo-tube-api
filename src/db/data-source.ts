@@ -11,9 +11,9 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.DATABASE_USER,
   password: process.env.DATABASE_PASSWORD,
   database: process.env.DATABASE_DBNAME,
-  synchronize: process.env.NODE_ENV === 'test', // Synchronize in non-production only
-  logging: process.env.NODE_ENV === 'test', // Enable logging in non-production only
-  dropSchema: process.env.NODE_ENV === 'test', // drop Schema in non-production only
+  synchronize: process.env.NODE_ENV === 'test', // Synchronize in testing only
+  logging: process.env.NODE_ENV === 'test', // Enable logging in testing only
+  dropSchema: process.env.NODE_ENV === 'test', // drop Schema in testing only
   entities: ['dist/**/*.entity.js'],
   migrations: ['dist/db/migrations/*.js'],
 };

@@ -48,6 +48,9 @@ importers:
         specifier: ^3.6.3
         version: 3.6.3(typeorm@0.3.20(pg@8.13.1)(ts-node@10.9.2(@types/node@20.17.14)(typescript@5.7.3)))
     devDependencies:
+      '@faker-js/faker':
+        specifier: ^9.4.0
+        version: 9.4.0
       '@nestjs/cli':
         specifier: ^10.0.0
         version: 10.4.9
@@ -329,6 +332,10 @@ packages:
   '@faker-js/faker@8.4.1':
     resolution: {integrity: sha512-XQ3cU+Q8Uqmrbf2e0cIC/QN43sTBSC8KF12u29Mb47tWrt2hAgBXSgpZMj4Ao8Uk0iJcU99QsOCaIL8934obCg==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0, npm: '>=6.14.13'}
+
+  '@faker-js/faker@9.4.0':
+    resolution: {integrity: sha512-85+k0AxaZSTowL0gXp8zYWDIrWclTbRPg/pm/V0dSFZ6W6D4lhcG3uuZl4zLsEKfEvs69xDbLN2cHQudwp95JA==}
+    engines: {node: '>=18.0.0', npm: '>=9.0.0'}
 
   '@humanwhocodes/config-array@0.13.0':
     resolution: {integrity: sha512-DZLEEqFWQFiyK6h5YIeynKx7JlvCYWL0cImfSRXZ9l4Sg2efkFGTuFf6vzXjK1cq6IYkU+Eg/JizXw+TD2vRNw==}
@@ -3355,6 +3362,8 @@ snapshots:
   '@eslint/js@8.57.1': {}
 
   '@faker-js/faker@8.4.1': {}
+
+  '@faker-js/faker@9.4.0': {}
 
   '@humanwhocodes/config-array@0.13.0':
     dependencies:

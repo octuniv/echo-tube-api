@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  NotFoundException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -16,27 +17,34 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  async signUpUser(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.signUpUser(createUserDto);
   }
 
-  @Get()
-  findAll() {
-    return this.usersService.findAll();
+  @Get(':email')
+  async findExistUser(@Param('email') email: string) {
+    return this.usersService.findExistUser(email).then((user) => {
+      if (!user) {
+        throw new NotFoundException(
+          `This email ${email} user could not be found`,
+        );
+      }
+      return user;
+    });
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(+id);
+  // ToDo : Authorization must be applied.
+  @Patch(':email')
+  async updatePassword(
+    @Param('email') email: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.usersService.updatePassword(email, updateUserDto);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(+id, updateUserDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(+id);
+  // ToDo : Authorization must be applied.
+  @Delete(':email')
+  async removeAccount(@Param('email') email: string) {
+    return this.usersService.removeAccount(email);
   }
 }

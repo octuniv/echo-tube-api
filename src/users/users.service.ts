@@ -31,30 +31,44 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
+  async findUser(email: string) {
+    return this.usersRepository
+      .findOne({
+        where: { email: email },
+      })
+      .then((user) => {
+        if (user) {
+          return user;
+        } else {
+          throw new NotFoundException(
+            `This email ${email} user could not be found`,
+          );
+        }
+      });
+  }
+
   async findExistUser(email: string) {
-    return this.usersRepository.findOne({
-      where: { email: email },
-    });
+    return this.findUser(email)
+      .then(() => {
+        return true;
+      })
+      .catch((err) => {
+        if (err instanceof NotFoundException) {
+          return false;
+        } else {
+          throw err;
+        }
+      });
   }
 
   async updatePassword(email: string, updateUserDto: UpdateUserDto) {
-    const user = await this.findExistUser(email);
-    if (!user) {
-      throw new NotFoundException(
-        `This email ${email} user could not be found`,
-      );
-    }
+    const user = await this.findUser(email);
     user.passwordHash = updateUserDto.password;
     return this.usersRepository.save(user);
   }
 
   async removeAccount(email: string) {
-    const user = await this.findExistUser(email);
-    if (!user) {
-      throw new NotFoundException(
-        `This email ${email} user could not be found`,
-      );
-    }
-    return this.usersRepository.delete({ email: email });
+    const user = await this.findUser(email);
+    return this.usersRepository.remove(user);
   }
 }

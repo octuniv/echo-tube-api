@@ -4,22 +4,17 @@ import { UsersService } from './users.service';
 import {
   MakeCreateUserDtoFaker,
   MakeUpdateUserDtoFaker,
-  MakeUserEntityFaker,
 } from './faker/user.faker';
-import { NotFoundException } from '@nestjs/common';
 
-const mockUser = MakeUserEntityFaker();
 const createUserDto = MakeCreateUserDtoFaker();
 const updateUserDto = MakeUpdateUserDtoFaker();
 
-const MockUsersService = () => ({
-  signUpUser: jest.fn().mockResolvedValue(mockUser),
-  findExistUser: jest.fn().mockResolvedValue(mockUser),
-  updatePassword: jest
-    .fn()
-    .mockResolvedValue({ ...mockUser, passwordHash: updateUserDto.password }),
-  removeAccount: jest.fn().mockResolvedValue({ affected: 1 }),
-});
+const MockUsersService = {
+  signUpUser: jest.fn(),
+  findExistUser: jest.fn(),
+  updatePassword: jest.fn(),
+  removeAccount: jest.fn(),
+};
 
 describe('UsersController', () => {
   let usersController: UsersController;
@@ -31,7 +26,7 @@ describe('UsersController', () => {
       providers: [
         {
           provide: UsersService,
-          useValue: MockUsersService(),
+          useValue: MockUsersService,
         },
       ],
     }).compile();
@@ -40,66 +35,41 @@ describe('UsersController', () => {
     usersService = module.get<UsersService>(UsersService);
   });
 
-  it('should be defined', () => {
-    expect(usersController).toBeDefined();
+  it('should call signUpUser method', async () => {
+    await usersController.signUpUser(createUserDto);
+    expect(usersService.signUpUser).toHaveBeenCalledWith(createUserDto);
   });
 
-  describe('signUpUser', () => {
-    it('should create a new user', async () => {
-      const result = await usersController.signUpUser(createUserDto);
-      expect(result).toEqual(mockUser);
-      expect(usersService.signUpUser).toHaveBeenCalledWith(createUserDto);
-    });
+  it('should return email exists message if user exists', async () => {
+    const email = 'test@example.com';
+    MockUsersService.findExistUser.mockResolvedValue(true);
+    await expect(usersController.findExistUser(email)).resolves.toEqual(
+      `${email} is already existed!`,
+    );
+    expect(usersService.findExistUser).toHaveBeenCalledWith(email);
   });
 
-  describe('findExistUser', () => {
-    it('should return a user by email', async () => {
-      const result = await usersController.findExistUser('test@example.com');
-      expect(result).toEqual(mockUser);
-      expect(usersService.findExistUser).toHaveBeenCalledWith(
-        'test@example.com',
-      );
-    });
-
-    it('should throw NotFoundException if user is not found', async () => {
-      jest.spyOn(usersService, 'findExistUser').mockResolvedValue(null);
-      await expect(
-        usersController.findExistUser('notfound@example.com'),
-      ).rejects.toThrow(NotFoundException);
-    });
+  it('should return email not exists message if user does not exist', async () => {
+    const email = 'notfound@example.com';
+    MockUsersService.findExistUser.mockResolvedValue(false);
+    await expect(usersController.findExistUser(email)).resolves.toEqual(
+      `${email} does not exist.`,
+    );
+    expect(usersService.findExistUser).toHaveBeenCalledWith(email);
   });
 
-  describe('updatePassword', () => {
-    it('should update the user password', async () => {
-      const result = await usersController.updatePassword(
-        'test@example.com',
-        updateUserDto,
-      );
-      expect(result.passwordHash).toEqual(updateUserDto.password);
-      expect(usersService.updatePassword).toHaveBeenCalledWith(
-        'test@example.com',
-        updateUserDto,
-      );
-    });
+  it('should call updatePassword method', async () => {
+    const email = 'test@example.com';
+    await usersController.updatePassword(email, updateUserDto);
+    expect(usersService.updatePassword).toHaveBeenCalledWith(
+      email,
+      updateUserDto,
+    );
   });
 
-  describe('removeAccount', () => {
-    it('should delete the user account', async () => {
-      const result = await usersController.removeAccount('test@example.com');
-      expect(result.affected).toBe(1);
-      expect(usersService.removeAccount).toHaveBeenCalledWith(
-        'test@example.com',
-      );
-    });
-
-    it('should handle failed deletion', async () => {
-      jest
-        .spyOn(usersService, 'removeAccount')
-        .mockResolvedValue({ raw: [], affected: 0 });
-      const result = await usersController.removeAccount(
-        'notfound@example.com',
-      );
-      expect(result.affected).toBe(0);
-    });
+  it('should call removeAccount method', async () => {
+    const email = 'test@example.com';
+    await usersController.removeAccount(email);
+    expect(usersService.removeAccount).toHaveBeenCalledWith(email);
   });
 });

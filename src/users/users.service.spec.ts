@@ -8,7 +8,7 @@ import {
   MakeUpdateUserDtoFaker,
   MakeUserEntityFaker,
 } from './faker/user.faker';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -42,7 +42,7 @@ describe('UsersService', () => {
     };
 
     it('should create a new user successfully', async () => {
-      jest.spyOn(service, 'findExistUser').mockResolvedValue(null); // Mock findExistUser to return null (not found)
+      jest.spyOn(service, 'findExistUser').mockResolvedValue(false);
       jest.spyOn(repository, 'create').mockReturnValue(user as User);
       jest.spyOn(repository, 'save').mockResolvedValue(user as User);
 
@@ -54,22 +54,24 @@ describe('UsersService', () => {
     });
 
     it('should throw an error if email already exists', async () => {
-      jest.spyOn(service, 'findExistUser').mockResolvedValue(user as User);
+      jest.spyOn(service, 'findExistUser').mockResolvedValue(true);
 
       await expect(service.signUpUser(createUserDto)).rejects.toThrow(
-        `This email ${createUserDto.email} is already existed!`,
+        new BadRequestException(
+          `This email ${createUserDto.email} is already existed!`,
+        ),
       );
     });
   });
 
-  describe('findExistUser', () => {
+  describe('findUser', () => {
     it('should return a user if found', async () => {
       const mockUser = MakeUserEntityFaker();
       const email = mockUser.email;
 
       jest.spyOn(repository, 'findOne').mockResolvedValue(mockUser);
 
-      const result = await service.findExistUser(email);
+      const result = await service.findUser(email);
 
       expect(result).toEqual(mockUser);
       expect(repository.findOne).toHaveBeenCalledWith({ where: { email } });
@@ -78,9 +80,43 @@ describe('UsersService', () => {
     it('should return null if no user is found', async () => {
       jest.spyOn(repository, 'findOne').mockResolvedValue(null);
 
+      await expect(service.findUser('nonexistent@example.com')).rejects.toThrow(
+        new NotFoundException(
+          'This email nonexistent@example.com user could not be found',
+        ),
+      );
+    });
+  });
+
+  describe('findExistUser', () => {
+    it('should return true if user exists', async () => {
+      jest
+        .spyOn(service, 'findUser')
+        .mockResolvedValue({ email: 'test@example.com' } as User);
+
+      const result = await service.findExistUser('test@example.com');
+
+      expect(result).toBe(true);
+    });
+
+    it('should return false if user does not exist', async () => {
+      jest
+        .spyOn(service, 'findUser')
+        .mockRejectedValue(new NotFoundException());
+
       const result = await service.findExistUser('nonexistent@example.com');
 
-      expect(result).toBeNull();
+      expect(result).toBe(false);
+    });
+
+    it('should throw error if an unexpected error occurs', async () => {
+      jest
+        .spyOn(service, 'findUser')
+        .mockRejectedValue(new Error('Database error'));
+
+      await expect(service.findExistUser('error@example.com')).rejects.toThrow(
+        'Database error',
+      );
     });
   });
 
@@ -90,7 +126,7 @@ describe('UsersService', () => {
       const user = MakeUserEntityFaker();
       const email = user.email;
 
-      jest.spyOn(service, 'findExistUser').mockResolvedValue(user);
+      jest.spyOn(service, 'findUser').mockResolvedValue(user);
       jest
         .spyOn(repository, 'save')
         .mockResolvedValue({ ...user, passwordHash: updateUserDto.password });
@@ -105,7 +141,9 @@ describe('UsersService', () => {
     });
 
     it('should throw NotFoundException if user does not exist', async () => {
-      jest.spyOn(service, 'findExistUser').mockResolvedValue(null);
+      jest
+        .spyOn(service, 'findUser')
+        .mockRejectedValue(new NotFoundException());
 
       await expect(
         service.updatePassword('nonexistent@example.com', {
@@ -117,22 +155,23 @@ describe('UsersService', () => {
 
   describe('removeAccount', () => {
     it('should remove user account successfully', async () => {
-      const user = MakeUserEntityFaker();
-      const email = user.email;
+      const mockUser = MakeUserEntityFaker();
+      const email = mockUser.email;
 
-      jest.spyOn(service, 'findExistUser').mockResolvedValue(user);
-      jest
-        .spyOn(repository, 'delete')
-        .mockResolvedValue({ affected: 1 } as any);
+      jest.spyOn(service, 'findUser').mockResolvedValue(mockUser);
+      jest.spyOn(repository, 'remove').mockResolvedValue(mockUser);
 
       const result = await service.removeAccount(email);
 
-      expect(result).toEqual({ affected: 1 });
-      expect(repository.delete).toHaveBeenCalledWith({ email });
+      expect(result).toEqual(mockUser);
+      expect(service.findUser).toHaveBeenCalledWith(email);
+      expect(repository.remove).toHaveBeenCalledWith(mockUser);
     });
 
     it('should throw NotFoundException if user does not exist', async () => {
-      jest.spyOn(service, 'findExistUser').mockResolvedValue(null);
+      jest
+        .spyOn(service, 'findUser')
+        .mockRejectedValue(new NotFoundException());
 
       await expect(
         service.removeAccount('nonexistent@example.com'),

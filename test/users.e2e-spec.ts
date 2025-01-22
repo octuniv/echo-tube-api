@@ -93,20 +93,23 @@ describe('User - /users (e2e)', () => {
   });
 
   describe('/users/:email (GET)', () => {
-    it('should return a user by email', async () => {
+    it('should return a message that tells you the ID that exists', async () => {
       const user = await userRepository.save(MakeUserEntityFaker());
 
       const response = await request(app.getHttpServer())
         .get(`/users/${user.email}`)
         .expect(200);
 
-      expect(response.body.email).toBe(user.email);
+      expect(response.text).toBe(`${user.email} is already existed!`);
     });
 
-    it('should return 404 if user does not exist', async () => {
-      await request(app.getHttpServer())
-        .get('/users/nonexistent@example.com')
-        .expect(404);
+    it('should return a message that tells you the ID that does not exist', async () => {
+      const email = `nonexistent@example.com`;
+      const response = await request(app.getHttpServer())
+        .get(`/users/${email}`)
+        .expect(200);
+
+      expect(response.text).toBe(`${email} does not exist.`);
     });
   });
 

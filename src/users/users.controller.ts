@@ -6,7 +6,6 @@ import {
   Patch,
   Param,
   Delete,
-  NotFoundException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -23,13 +22,12 @@ export class UsersController {
 
   @Get(':email')
   async findExistUser(@Param('email') email: string) {
-    return this.usersService.findExistUser(email).then((user) => {
-      if (!user) {
-        throw new NotFoundException(
-          `This email ${email} user could not be found`,
-        );
+    return this.usersService.findExistUser(email).then((value) => {
+      if (value) {
+        return `${email} is already existed!`;
+      } else {
+        return `${email} does not exist.`;
       }
-      return user;
     });
   }
 

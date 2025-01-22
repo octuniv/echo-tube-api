@@ -100,7 +100,8 @@ describe('User - /users (e2e)', () => {
         .get(`/users/${user.email}`)
         .expect(200);
 
-      expect(response.text).toBe(`${user.email} is already existed!`);
+      console.log(response);
+      expect(response.text).toBe('true');
     });
 
     it('should return a message that tells you the ID that does not exist', async () => {
@@ -109,7 +110,7 @@ describe('User - /users (e2e)', () => {
         .get(`/users/${email}`)
         .expect(200);
 
-      expect(response.text).toBe(`${email} does not exist.`);
+      expect(response.text).toBe('false');
     });
   });
 

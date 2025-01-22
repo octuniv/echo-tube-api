@@ -22,13 +22,7 @@ export class UsersController {
 
   @Get(':email')
   async findExistUser(@Param('email') email: string) {
-    return this.usersService.findExistUser(email).then((value) => {
-      if (value) {
-        return `${email} is already existed!`;
-      } else {
-        return `${email} does not exist.`;
-      }
-    });
+    return this.usersService.findExistUser(email);
   }
 
   // ToDo : Authorization must be applied.

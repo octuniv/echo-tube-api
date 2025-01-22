@@ -43,18 +43,14 @@ describe('UsersController', () => {
   it('should return email exists message if user exists', async () => {
     const email = 'test@example.com';
     MockUsersService.findExistUser.mockResolvedValue(true);
-    await expect(usersController.findExistUser(email)).resolves.toEqual(
-      `${email} is already existed!`,
-    );
+    await expect(usersController.findExistUser(email)).resolves.toBe(true);
     expect(usersService.findExistUser).toHaveBeenCalledWith(email);
   });
 
   it('should return email not exists message if user does not exist', async () => {
     const email = 'notfound@example.com';
     MockUsersService.findExistUser.mockResolvedValue(false);
-    await expect(usersController.findExistUser(email)).resolves.toEqual(
-      `${email} does not exist.`,
-    );
+    await expect(usersController.findExistUser(email)).resolves.toBe(false);
     expect(usersService.findExistUser).toHaveBeenCalledWith(email);
   });
 

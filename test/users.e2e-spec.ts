@@ -100,7 +100,6 @@ describe('User - /users (e2e)', () => {
         .get(`/users/${user.email}`)
         .expect(200);
 
-      console.log(response);
       expect(response.text).toBe('true');
     });
 

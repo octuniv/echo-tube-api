@@ -9,6 +9,7 @@ import {
   MakeUserEntityFaker,
 } from './faker/user.faker';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -35,14 +36,16 @@ describe('UsersService', () => {
 
   describe('signUpUser', () => {
     const createUserDto = MakeCreateUserDtoFaker();
+    const hashedPassword = bcrypt.hashSync(createUserDto.password, 10);
     const user = {
       name: createUserDto.name,
       email: createUserDto.email,
-      passwordHash: createUserDto.password,
+      passwordHash: hashedPassword,
     };
 
     it('should create a new user successfully', async () => {
       jest.spyOn(service, 'findExistUser').mockResolvedValue(false);
+      jest.spyOn(bcrypt, 'hash').mockResolvedValue(hashedPassword as never);
       jest.spyOn(repository, 'create').mockReturnValue(user as User);
       jest.spyOn(repository, 'save').mockResolvedValue(user as User);
 

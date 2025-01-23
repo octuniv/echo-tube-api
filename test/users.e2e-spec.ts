@@ -13,6 +13,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DbModule } from '@/db/db.module';
 import { TestE2EDbModule } from './test-db.e2e.module';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
+import * as bcrypt from 'bcrypt';
 
 describe('User - /users (e2e)', () => {
   let app: INestApplication;
@@ -54,7 +55,9 @@ describe('User - /users (e2e)', () => {
 
       expect(response.body).toMatchObject({
         email: createUserDto.email,
+        message: 'Successfully created account',
       });
+      expect(response.body.passwordHash).not.toBeDefined();
 
       const createdUser = await userRepository.findOne({
         where: { email: createUserDto.email },
@@ -75,7 +78,7 @@ describe('User - /users (e2e)', () => {
 
     it('should return 400 if email is already existed', async () => {
       const user = await userRepository.save(MakeUserEntityFaker());
-      const existUserDto = {
+      const existedUserDto = {
         name: user.name,
         email: user.email,
         password: user.passwordHash,
@@ -83,11 +86,11 @@ describe('User - /users (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .post('/users')
-        .send(existUserDto)
+        .send(existedUserDto)
         .expect(400);
 
       expect(response.body.message).toContain(
-        `This email ${existUserDto.email} is already existed!`,
+        `This email ${existedUserDto.email} is already existed!`,
       );
     });
   });
@@ -124,13 +127,16 @@ describe('User - /users (e2e)', () => {
         .send(newPasswordDto)
         .expect(200);
 
-      expect(response.body.passwordHash).toBe(newPasswordDto.password);
+      expect(response.body.passwordHash).not.toBeDefined();
+      expect(response.body.message).toEqual('Passcode change successful.');
 
       const updatedUser = await userRepository.findOne({
         where: { email: user.email },
       });
 
-      expect(updatedUser.passwordHash).toBe(newPasswordDto.password);
+      await expect(
+        bcrypt.compare(newPasswordDto.password, updatedUser.passwordHash),
+      ).resolves.toBeTruthy();
     });
 
     it('should return 404 if user is not found', async () => {
@@ -145,9 +151,12 @@ describe('User - /users (e2e)', () => {
     it('should delete the user account', async () => {
       const user = await userRepository.save(MakeUserEntityFaker());
 
-      await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .delete(`/users/${user.email}`)
         .expect(200);
+
+      expect(response.body.passwordHash).not.toBeDefined();
+      expect(response.body.message).toEqual('Successfully deleted account');
 
       const deletedUser = await userRepository.findOne({
         where: { email: user.email },

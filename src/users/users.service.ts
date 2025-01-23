@@ -65,7 +65,8 @@ export class UsersService {
 
   async updatePassword(email: string, updateUserDto: UpdateUserDto) {
     const user = await this.findUser(email);
-    user.passwordHash = updateUserDto.password;
+    const hashedPassword = await bcrypt.hash(updateUserDto.password, 10);
+    user.passwordHash = hashedPassword;
     return this.usersRepository.save(user);
   }
 

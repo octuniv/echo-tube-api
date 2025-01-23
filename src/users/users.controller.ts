@@ -17,7 +17,12 @@ export class UsersController {
 
   @Post()
   async signUpUser(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.signUpUser(createUserDto);
+    return this.usersService.signUpUser(createUserDto).then((res) => {
+      return {
+        email: res.email,
+        message: 'Successfully created account',
+      };
+    });
   }
 
   @Get(':email')
@@ -31,12 +36,20 @@ export class UsersController {
     @Param('email') email: string,
     @Body() updateUserDto: UpdateUserDto,
   ) {
-    return this.usersService.updatePassword(email, updateUserDto);
+    return this.usersService.updatePassword(email, updateUserDto).then(() => {
+      return {
+        message: 'Passcode change successful.',
+      };
+    });
   }
 
   // ToDo : Authorization must be applied.
   @Delete(':email')
   async removeAccount(@Param('email') email: string) {
-    return this.usersService.removeAccount(email);
+    return this.usersService.removeAccount(email).then(() => {
+      return {
+        message: 'Successfully deleted account',
+      };
+    });
   }
 }

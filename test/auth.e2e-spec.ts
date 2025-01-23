@@ -56,8 +56,6 @@ describe('AuthController (e2e)', () => {
           password: userDto.password,
         } satisfies LoginUserDto);
 
-      console.log(response.body);
-
       expect(response.status).toBe(201);
       expect(response.body).toHaveProperty('access_token');
     });

@@ -126,20 +126,20 @@ describe('UsersService', () => {
   describe('updatePassword', () => {
     it('should update user password successfully', async () => {
       const updateUserDto = MakeUpdateUserDtoFaker();
+      const hashedPassword = await bcrypt.hash(updateUserDto.password, 10);
       const user = MakeUserEntityFaker();
       const email = user.email;
 
       jest.spyOn(service, 'findUser').mockResolvedValue(user);
       jest
         .spyOn(repository, 'save')
-        .mockResolvedValue({ ...user, passwordHash: updateUserDto.password });
+        .mockResolvedValue({ ...user, passwordHash: hashedPassword });
 
       const result = await service.updatePassword(email, updateUserDto);
-
-      expect(result.passwordHash).toBe(updateUserDto.password);
+      expect(result.passwordHash).toBe(hashedPassword);
       expect(repository.save).toHaveBeenCalledWith({
         ...user,
-        passwordHash: updateUserDto.password,
+        passwordHash: hashedPassword,
       });
     });
 

@@ -4,16 +4,18 @@ import { UsersService } from './users.service';
 import {
   MakeCreateUserDtoFaker,
   MakeUpdateUserDtoFaker,
+  MakeUserEntityFaker,
 } from './faker/user.faker';
 
 const createUserDto = MakeCreateUserDtoFaker();
 const updateUserDto = MakeUpdateUserDtoFaker();
+const userEntity = MakeUserEntityFaker();
 
 const MockUsersService = {
-  signUpUser: jest.fn(),
+  signUpUser: jest.fn().mockResolvedValue(userEntity),
   findExistUser: jest.fn(),
-  updatePassword: jest.fn(),
-  removeAccount: jest.fn(),
+  updatePassword: jest.fn().mockResolvedValue(userEntity),
+  removeAccount: jest.fn().mockResolvedValue(userEntity),
 };
 
 describe('UsersController', () => {

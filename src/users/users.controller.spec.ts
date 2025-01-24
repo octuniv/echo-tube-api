@@ -1,26 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
-import {
-  MakeCreateUserDtoFaker,
-  MakeUpdateUserDtoFaker,
-  MakeUserEntityFaker,
-} from './faker/user.faker';
-
-const createUserDto = MakeCreateUserDtoFaker();
-const updateUserDto = MakeUpdateUserDtoFaker();
-const userEntity = MakeUserEntityFaker();
-
-const MockUsersService = {
-  signUpUser: jest.fn().mockResolvedValue(userEntity),
-  findExistUser: jest.fn(),
-  updatePassword: jest.fn().mockResolvedValue(userEntity),
-  removeAccount: jest.fn().mockResolvedValue(userEntity),
-};
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UnauthorizedException } from '@nestjs/common';
+import { CreateUserDto } from './dto/create-user.dto';
 
 describe('UsersController', () => {
   let usersController: UsersController;
-  let usersService: UsersService;
+  // let usersService: UsersService;
+
+  const mockUsersService = {
+    signUpUser: jest.fn((dto: CreateUserDto) =>
+      Promise.resolve({
+        id: 1,
+        ...dto,
+        passwordHash: 'hashedPassword',
+      }),
+    ),
+    findExistUser: jest.fn((email: string) =>
+      Promise.resolve(email === 'exists@example.com' ? true : false),
+    ),
+    updatePassword: jest.fn().mockResolvedValue(undefined),
+    removeAccount: jest.fn().mockResolvedValue(undefined),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -28,46 +30,73 @@ describe('UsersController', () => {
       providers: [
         {
           provide: UsersService,
-          useValue: MockUsersService,
+          useValue: mockUsersService,
         },
       ],
     }).compile();
 
     usersController = module.get<UsersController>(UsersController);
-    usersService = module.get<UsersService>(UsersService);
+    // usersService = module.get<UsersService>(UsersService);
   });
 
-  it('should call signUpUser method', async () => {
-    await usersController.signUpUser(createUserDto);
-    expect(usersService.signUpUser).toHaveBeenCalledWith(createUserDto);
+  it('should be defined', () => {
+    expect(usersController).toBeDefined();
   });
 
-  it('should return email exists message if user exists', async () => {
-    const email = 'test@example.com';
-    MockUsersService.findExistUser.mockResolvedValue(true);
-    await expect(usersController.findExistUser(email)).resolves.toBe(true);
-    expect(usersService.findExistUser).toHaveBeenCalledWith(email);
+  it('should create a new user', async () => {
+    const result = await usersController.signUpUser({
+      name: 'test',
+      email: 'test@example.com',
+      password: '1234',
+    } satisfies CreateUserDto);
+    expect(result).toEqual({
+      email: 'test@example.com',
+      message: 'Successfully created account',
+    });
   });
 
-  it('should return email not exists message if user does not exist', async () => {
-    const email = 'notfound@example.com';
-    MockUsersService.findExistUser.mockResolvedValue(false);
-    await expect(usersController.findExistUser(email)).resolves.toBe(false);
-    expect(usersService.findExistUser).toHaveBeenCalledWith(email);
+  it('should find an existing user', async () => {
+    const result = await usersController.findExistUser('exists@example.com');
+    expect(result).toBeTruthy();
   });
 
-  it('should call updatePassword method', async () => {
-    const email = 'test@example.com';
-    await usersController.updatePassword(email, updateUserDto);
-    expect(usersService.updatePassword).toHaveBeenCalledWith(
-      email,
-      updateUserDto,
+  it('should return false if user not found', async () => {
+    const result = await usersController.findExistUser('notfound@example.com');
+    expect(result).toBeFalsy();
+  });
+
+  it('should update password when authorized', async () => {
+    const updateDto: UpdateUserDto = { password: 'newpassword' };
+    const req = { user: { email: 'exists@example.com' } };
+    const result = await usersController.updatePassword(
+      'exists@example.com',
+      updateDto,
+      req,
     );
+    expect(result).toEqual({ message: 'Passcode change successful.' });
   });
 
-  it('should call removeAccount method', async () => {
-    const email = 'test@example.com';
-    await usersController.removeAccount(email);
-    expect(usersService.removeAccount).toHaveBeenCalledWith(email);
+  it('should throw UnauthorizedException when updating another user', async () => {
+    const updateDto: UpdateUserDto = { password: 'newpassword' };
+    const req = { user: { email: 'wrong@example.com' } };
+    await expect(
+      usersController.updatePassword('exists@example.com', updateDto, req),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('should delete account when authorized', async () => {
+    const req = { user: { email: 'exists@example.com' } };
+    const result = await usersController.removeAccount(
+      'exists@example.com',
+      req,
+    );
+    expect(result).toEqual({ message: 'Successfully deleted account' });
+  });
+
+  it('should throw UnauthorizedException when deleting another user account', async () => {
+    const req = { user: { email: 'wrong@example.com' } };
+    await expect(
+      usersController.removeAccount('exists@example.com', req),
+    ).rejects.toThrow(UnauthorizedException);
   });
 });

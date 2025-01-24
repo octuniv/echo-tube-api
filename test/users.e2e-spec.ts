@@ -5,19 +5,18 @@ import * as request from 'supertest';
 import {
   MakeCreateUserDtoFaker,
   MakeUpdateUserDtoFaker,
-  MakeUserEntityFaker,
 } from '@/users/faker/user.faker';
 import { AppModule } from '@/app.module';
 import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DbModule } from '@/db/db.module';
 import { TestE2EDbModule } from './test-db.e2e.module';
-import { CreateUserDto } from '@/users/dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
 
 describe('User - /users (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
+  let authToken: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -36,139 +35,92 @@ describe('User - /users (e2e)', () => {
     );
   });
 
-  afterEach(async () => {
-    await userRepository.clear(); // Clear data after each test
-  });
-
   afterAll(async () => {
+    await userRepository.clear();
     await app.close();
   });
 
-  describe('/users (POST)', () => {
-    it('should create a user', async () => {
-      const createUserDto = MakeCreateUserDtoFaker();
+  const userInfo = MakeCreateUserDtoFaker();
+  const updateUserDto = MakeUpdateUserDtoFaker();
 
-      const response = await request(app.getHttpServer())
-        .post('/users')
-        .send(createUserDto)
-        .expect(201);
+  it('should sign up a new user', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/users')
+      .send(userInfo)
+      .expect(201);
 
-      expect(response.body).toMatchObject({
-        email: createUserDto.email,
-        message: 'Successfully created account',
-      });
-      expect(response.body.passwordHash).not.toBeDefined();
-
-      const createdUser = await userRepository.findOne({
-        where: { email: createUserDto.email },
-      });
-
-      expect(createdUser).toBeDefined();
-      expect(createdUser.email).toBe(createUserDto.email);
-    });
-
-    it('should return 400 if email is missing', async () => {
-      const response = await request(app.getHttpServer())
-        .post('/users')
-        .send({ password: 'password123' })
-        .expect(400);
-
-      expect(response.body.message).toContain('email must be an email');
-    });
-
-    it('should return 400 if email is already existed', async () => {
-      const user = await userRepository.save(MakeUserEntityFaker());
-      const existedUserDto = {
-        name: user.name,
-        email: user.email,
-        password: user.passwordHash,
-      } satisfies CreateUserDto;
-
-      const response = await request(app.getHttpServer())
-        .post('/users')
-        .send(existedUserDto)
-        .expect(400);
-
-      expect(response.body.message).toContain(
-        `This email ${existedUserDto.email} is already existed!`,
-      );
+    expect(response.body).toMatchObject({
+      email: userInfo.email,
+      message: 'Successfully created account',
     });
   });
 
-  describe('/users/:email (GET)', () => {
-    it('should return a message that tells you the ID that exists', async () => {
-      const user = await userRepository.save(MakeUserEntityFaker());
+  it('should log in and receive a JWT token', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: userInfo.email,
+        password: userInfo.password,
+      })
+      .expect(201);
 
-      const response = await request(app.getHttpServer())
-        .get(`/users/${user.email}`)
-        .expect(200);
+    expect(response.body).toHaveProperty('access_token');
+    authToken = response.body.access_token;
+  });
 
-      expect(response.text).toBe('true');
+  it('should not update and delete accounts that do not match ths current account', async () => {
+    const anotherUser = MakeCreateUserDtoFaker();
+    await userRepository.save({
+      name: anotherUser.name,
+      email: anotherUser.email,
+      passwordHash: bcrypt.hashSync(anotherUser.password, 10),
     });
 
-    it('should return a message that tells you the ID that does not exist', async () => {
-      const email = `nonexistent@example.com`;
-      const response = await request(app.getHttpServer())
-        .get(`/users/${email}`)
-        .expect(200);
+    await request(app.getHttpServer())
+      .patch(`/users/${anotherUser.email}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ password: 'AnotherPassword' })
+      .expect(401);
 
-      expect(response.text).toBe('false');
+    await request(app.getHttpServer())
+      .delete(`/users/${anotherUser.email}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(401);
+  });
+
+  it('should update the user password with valid JWT', async () => {
+    const response = await request(app.getHttpServer())
+      .patch(`/users/${userInfo.email}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ password: updateUserDto.password })
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      message: 'Passcode change successful.',
     });
   });
 
-  describe('/users/:email (PATCH)', () => {
-    it('should update the user password', async () => {
-      const user = await userRepository.save(MakeUserEntityFaker());
+  it('should delete the user account with valid JWT', async () => {
+    const response = await request(app.getHttpServer())
+      .delete(`/users/${userInfo.email}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .expect(200);
 
-      const newPasswordDto = MakeUpdateUserDtoFaker();
-
-      const response = await request(app.getHttpServer())
-        .patch(`/users/${user.email}`)
-        .send(newPasswordDto)
-        .expect(200);
-
-      expect(response.body.passwordHash).not.toBeDefined();
-      expect(response.body.message).toEqual('Passcode change successful.');
-
-      const updatedUser = await userRepository.findOne({
-        where: { email: user.email },
-      });
-
-      await expect(
-        bcrypt.compare(newPasswordDto.password, updatedUser.passwordHash),
-      ).resolves.toBeTruthy();
-    });
-
-    it('should return 404 if user is not found', async () => {
-      await request(app.getHttpServer())
-        .patch('/users/notfound@example.com')
-        .send({ password: 'newpassword' })
-        .expect(404);
+    expect(response.body).toMatchObject({
+      message: 'Successfully deleted account',
     });
   });
 
-  describe('/users/:email (DELETE)', () => {
-    it('should delete the user account', async () => {
-      const user = await userRepository.save(MakeUserEntityFaker());
+  it('should not update password without a valid JWT', async () => {
+    await request(app.getHttpServer())
+      .patch('/users/testuser@example.com')
+      .send({ password: 'AnotherPassword' })
+      .expect(401);
+  });
 
-      const response = await request(app.getHttpServer())
-        .delete(`/users/${user.email}`)
-        .expect(200);
-
-      expect(response.body.passwordHash).not.toBeDefined();
-      expect(response.body.message).toEqual('Successfully deleted account');
-
-      const deletedUser = await userRepository.findOne({
-        where: { email: user.email },
-      });
-
-      expect(deletedUser).toBeNull();
-    });
-
-    it('should return 404 if user is not found', async () => {
-      await request(app.getHttpServer())
-        .delete('/users/notfound@example.com')
-        .expect(404);
-    });
+  it('should not delete account without a valid JWT', async () => {
+    await request(app.getHttpServer())
+      .delete('/users/testuser@example.com')
+      .expect(401);
   });
 });

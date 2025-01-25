@@ -43,6 +43,16 @@ describe('User - /users (e2e)', () => {
   const userInfo = MakeCreateUserDtoFaker();
   const updateUserDto = MakeUpdateUserDtoFaker();
 
+  it('should return BadRequest when some of the information is not included in the signUp', async () => {
+    await request(app.getHttpServer())
+      .post('/users')
+      .send({
+        email: userInfo.email,
+        password: userInfo.password,
+      })
+      .expect(400);
+  });
+
   it('should sign up a new user', async () => {
     const response = await request(app.getHttpServer())
       .post('/users')

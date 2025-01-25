@@ -12,6 +12,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DbModule } from '@/db/db.module';
 import { TestE2EDbModule } from './test-db.e2e.module';
 import * as bcrypt from 'bcrypt';
+import { CreateUserDto } from '@/users/dto/create-user.dto';
 
 describe('User - /users (e2e)', () => {
   let app: INestApplication;
@@ -62,6 +63,21 @@ describe('User - /users (e2e)', () => {
     expect(response.body).toMatchObject({
       email: userInfo.email,
       message: 'Successfully created account',
+    });
+  });
+
+  it('should return BadRequest if you put an existed Email', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/users')
+      .send({
+        name: 'John Doe',
+        email: userInfo.email,
+        password: userInfo.password,
+      } satisfies CreateUserDto)
+      .expect(400);
+
+    expect(response.body).toMatchObject({
+      message: `This email ${userInfo.email} is already existed!`,
     });
   });
 

@@ -41,7 +41,7 @@ describe('AuthController (e2e)', () => {
   });
 
   describe('/auth/login (POST)', () => {
-    it('should return 201 and a JWT token when credentials are valid', async () => {
+    it('should return 200 and a JWT token when credentials are valid', async () => {
       const userDto = MakeCreateUserDtoFaker();
       await userRepository.save({
         name: userDto.name,
@@ -56,7 +56,7 @@ describe('AuthController (e2e)', () => {
           password: userDto.password,
         } satisfies LoginUserDto);
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('access_token');
     });
 

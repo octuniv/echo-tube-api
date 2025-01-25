@@ -62,7 +62,7 @@ describe('User - /users (e2e)', () => {
         email: userInfo.email,
         password: userInfo.password,
       })
-      .expect(201);
+      .expect(200);
 
     expect(response.body).toHaveProperty('access_token');
     authToken = response.body.access_token;

@@ -1,5 +1,6 @@
 import { UsersService } from '@/users/users.service';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
@@ -8,28 +9,43 @@ export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
-  async validateUser(email: string, pass: string): Promise<any> {
-    const user = await this.usersService.findUser(email).catch((err) => {
-      if (err instanceof NotFoundException) {
-        return null;
-      } else {
-        throw err;
-      }
+  async validateUser(email: string, password: string): Promise<any> {
+    const user = await this.usersService.findUser(email).catch(() => {
+      throw new UnauthorizedException('Invalid credentials');
     });
-    if (user && (await bcrypt.compare(pass, user.passwordHash))) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { passwordHash, ...result } = user;
-      return result;
+    if (user && (await bcrypt.compare(password, user.passwordHash))) {
+      return user;
     }
-    return null;
   }
 
   async login(user: any) {
     const payload = { email: user.email, sub: user.id };
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
+      refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
     };
+  }
+
+  async refreshToken(token: string) {
+    try {
+      const decoded = this.jwtService.verify(token, {
+        secret: this.configService.get<string>('JWT_SECRET', 'mysecretkey'),
+      });
+
+      const user = await this.usersService.findUser(decoded.email).catch(() => {
+        throw new UnauthorizedException('User not found');
+      });
+
+      const payload = { sub: user.id, email: user.email };
+
+      return {
+        access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
   }
 }

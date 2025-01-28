@@ -58,9 +58,10 @@ describe('AuthController (e2e)', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('access_token');
+      expect(response.body).toHaveProperty('refresh_token');
     });
 
-    it('should return 401 when credentials are invalid', async () => {
+    it('should return 401 Unauthorized if credentials are invalid', async () => {
       const response = await request(app.getHttpServer())
         .post('/auth/login')
         .send({
@@ -70,6 +71,63 @@ describe('AuthController (e2e)', () => {
 
       expect(response.status).toBe(401);
       expect(response.body.message).toBe('Invalid credentials');
+    });
+  });
+
+  describe('POST /auth/refresh', () => {
+    const userDto = MakeCreateUserDtoFaker();
+    let jwt_token: {
+      access_token: string;
+      refresh_token: string;
+    };
+
+    beforeEach(async () => {
+      await userRepository.save({
+        name: userDto.name,
+        email: userDto.email,
+        passwordHash: bcrypt.hashSync(userDto.password, 10),
+      });
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: userDto.email,
+          password: userDto.password,
+        } satisfies LoginUserDto);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('access_token');
+      expect(response.body).toHaveProperty('refresh_token');
+
+      jwt_token = {
+        access_token: response.body.access_token,
+        refresh_token: response.body.refresh_token,
+      };
+    });
+
+    it('should return a new access_token if refresh_token is valid', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: jwt_token.refresh_token })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('access_token');
+    });
+
+    it('should return 401 Unauthorized if refresh_token is invalid', async () => {
+      const refreshToken = 'invalid_refresh_token';
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: refreshToken })
+        .expect(401);
+    });
+
+    it('should return 401 Unauthorized if refresh_token is missing', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({})
+        .expect(401);
     });
   });
 });

@@ -18,8 +18,8 @@ import { JwtStrategy } from './jwt.strategy';
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET', 'mysecretkey'), // Load secret from env
         signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRES_IN', '1h'),
-        }, // Load expiry from env
+          expiresIn: configService.get<string>('JWT_EXPIRES_IN', '15m'),
+        }, // Load expiration from env
       }),
     }),
   ],

@@ -19,9 +19,15 @@ export class AuthController {
       loginUserDto.email,
       loginUserDto.password,
     );
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
     return this.authService.login(user);
+  }
+
+  @Post('refresh')
+  @HttpCode(200)
+  async refreshToken(@Body('refresh_token') refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token is required');
+    }
+    return this.authService.refreshToken(refreshToken);
   }
 }

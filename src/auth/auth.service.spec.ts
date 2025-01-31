@@ -6,12 +6,14 @@ import * as bcrypt from 'bcrypt';
 import { MakeUserEntityFaker } from '@/users/faker/user.faker';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { RefreshTokenRepository } from './refresh-token.repository';
 
 describe('AuthService', () => {
   let authService: AuthService;
   let usersService: UsersService;
   let jwtService: JwtService;
-  let configService: ConfigService;
+  // let configService: ConfigService;
+  let refreshTokenRepo: RefreshTokenRepository;
 
   const mockUsersService = {
     findUser: jest.fn(),
@@ -23,6 +25,12 @@ describe('AuthService', () => {
     verify: jest.fn(),
   };
 
+  const mockRefreshTokenRepo = {
+    saveToken: jest.fn(),
+    findValidToken: jest.fn(),
+    revokeToken: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -30,13 +38,17 @@ describe('AuthService', () => {
         ConfigService,
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: RefreshTokenRepository, useValue: mockRefreshTokenRepo },
       ],
     }).compile();
 
     authService = module.get<AuthService>(AuthService);
     usersService = module.get<UsersService>(UsersService);
     jwtService = module.get<JwtService>(JwtService);
-    configService = module.get<ConfigService>(ConfigService);
+    // configService = module.get<ConfigService>(ConfigService);
+    refreshTokenRepo = module.get<RefreshTokenRepository>(
+      RefreshTokenRepository,
+    );
   });
 
   it('should be defined', () => {
@@ -67,6 +79,16 @@ describe('AuthService', () => {
         authService.validateUser('test@example.com', 'password123'),
       ).rejects.toThrow(UnauthorizedException);
     });
+
+    it('should handle unexpected errors during user validation', async () => {
+      mockUsersService.findUser.mockRejectedValue(
+        new Error('Database connection failed'),
+      );
+
+      await expect(
+        authService.validateUser('test@example.com', 'password123'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
   });
 
   describe('login', () => {
@@ -77,8 +99,8 @@ describe('AuthService', () => {
         refresh_token: 'refresh-token',
       };
 
-      mockJwtService.sign.mockReturnValueOnce(mockTokens.access_token);
       mockJwtService.sign.mockReturnValueOnce(mockTokens.refresh_token);
+      mockJwtService.sign.mockReturnValueOnce(mockTokens.access_token);
 
       const result = await authService.login(mockUser);
 
@@ -88,43 +110,87 @@ describe('AuthService', () => {
   });
 
   describe('refreshToken', () => {
-    it('should return a new access token when refresh token is valid', async () => {
-      const mockPayload = { sub: 1, email: 'test@example.com' };
-      const mockNewAccessToken = { access_token: 'new-access-token' };
+    it('should save a new refresh token and revoke the old one', async () => {
+      const mockUser = { id: 1, email: 'test@example.com' };
+      const mockOldToken = 'old-refresh-token';
 
-      mockJwtService.verify.mockReturnValue(mockPayload);
-      mockUsersService.findUser.mockResolvedValue(mockPayload);
-
-      mockJwtService.sign.mockReturnValue(mockNewAccessToken.access_token);
-
-      const result = await authService.refreshToken('valid-refresh-token');
-
-      expect(jwtService.verify).toHaveBeenCalledWith('valid-refresh-token', {
-        secret: configService.get<string>('JWT_SECRET', 'mysecretkey'),
+      // Mocking repository methods
+      mockRefreshTokenRepo.findValidToken.mockResolvedValue({
+        id: 'token-id',
+        userEmail: mockUser.email,
       });
-      expect(result).toEqual(mockNewAccessToken);
+      mockRefreshTokenRepo.revokeToken.mockResolvedValue(undefined);
+      mockRefreshTokenRepo.saveToken.mockResolvedValue(undefined);
+      mockUsersService.findUser.mockResolvedValue(mockUser);
+
+      // Call the method
+      const result = await authService.refreshToken(mockOldToken);
+
+      // Assertions
+      expect(refreshTokenRepo.findValidToken).toHaveBeenCalledWith(
+        mockOldToken,
+      );
+      expect(refreshTokenRepo.revokeToken).toHaveBeenCalledWith('token-id');
+      expect(refreshTokenRepo.saveToken).toHaveBeenCalledWith(
+        mockUser.email,
+        expect.any(String), // New token
+        expect.any(Date), // Expiration date
+      );
+      expect(result).toHaveProperty('access_token');
+      expect(result).toHaveProperty('refresh_token');
     });
 
-    it('should throw UnauthorizedException if refresh token is invalid', async () => {
-      mockJwtService.verify.mockImplementation(() => {
-        throw new Error();
-      });
-
-      await expect(
-        authService.refreshToken('invalid-refresh-token'),
-      ).rejects.toThrow(UnauthorizedException);
+    it('should throw UnauthorizedException if token is invalid', async () => {
+      const mockWrongToken = 'wrong-token';
+      mockRefreshTokenRepo.findValidToken.mockResolvedValue(null);
+      expect(authService.refreshToken(mockWrongToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
-    it('should throw UnauthorizedException if user does not exist', async () => {
+    it('should throw UnauthorizedException if token is expired', async () => {
+      const mockExpiredToken = 'expired-token';
+      const expireDate = new Date();
+      expireDate.setDate(expireDate.getDate() - 2);
+      const expiredToken = {
+        revoked: false,
+        expiresAt: expireDate,
+      };
+      mockRefreshTokenRepo.findValidToken.mockResolvedValue(expiredToken);
+      expect(authService.refreshToken(mockExpiredToken)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
+
+  describe('validateAccessToken', () => {
+    it('should return true for a valid access token', async () => {
+      const mockToken = 'valid-access-token';
       mockJwtService.verify.mockReturnValue({
         sub: 1,
         email: 'test@example.com',
       });
-      mockUsersService.findUser.mockResolvedValue(null);
 
-      await expect(
-        authService.refreshToken('valid-refresh-token'),
-      ).rejects.toThrow(UnauthorizedException);
+      const result = await authService.validateAccessToken(mockToken);
+
+      expect(jwtService.verify).toHaveBeenCalledWith(mockToken, {
+        secret: expect.any(String),
+      });
+      expect(result).toBe(true);
+    });
+
+    it('should return false for an invalid access token', async () => {
+      const mockToken = 'invalid-access-token';
+      mockJwtService.verify.mockImplementation(() => {
+        throw new Error();
+      });
+
+      const result = await authService.validateAccessToken(mockToken);
+
+      expect(jwtService.verify).toHaveBeenCalledWith(mockToken, {
+        secret: expect.any(String),
+      });
+      expect(result).toBe(false);
     });
   });
 });

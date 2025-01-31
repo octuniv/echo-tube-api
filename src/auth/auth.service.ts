@@ -3,6 +3,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { RefreshTokenRepository } from './refresh-token.repository';
 
 @Injectable()
 export class AuthService {
@@ -10,6 +11,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly refreshTokenRepo: RefreshTokenRepository,
   ) {}
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -23,29 +25,58 @@ export class AuthService {
 
   async login(user: any) {
     const payload = { email: user.email, sub: user.id };
+
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7일 후 만료
+    await this.refreshTokenRepo.saveToken(user.email, refreshToken, expiresAt);
+
     return {
       access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
-      refresh_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
+      refresh_token: refreshToken,
     };
   }
 
   async refreshToken(token: string) {
     try {
-      const decoded = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET', 'mysecretkey'),
-      });
+      const storedToken = await this.refreshTokenRepo.findValidToken(token);
+      if (!storedToken || new Date() > storedToken.expiresAt) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
 
-      const user = await this.usersService.findUser(decoded.email).catch(() => {
-        throw new UnauthorizedException('User not found');
-      });
+      await this.refreshTokenRepo.revokeToken(storedToken.id);
 
+      const user = await this.usersService.findUser(storedToken.userEmail);
       const payload = { sub: user.id, email: user.email };
+
+      const newRefreshToken = this.jwtService.sign(payload, {
+        expiresIn: '7d',
+      });
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+      await this.refreshTokenRepo.saveToken(
+        user.email,
+        newRefreshToken,
+        expiresAt,
+      );
 
       return {
         access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
+        refresh_token: newRefreshToken, // 새로운 리프레시 토큰 반환
       };
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  async validateAccessToken(token: string): Promise<boolean> {
+    try {
+      const payload = this.jwtService.verify(token, {
+        secret: this.configService.get<string>('JWT_SECRET', 'mysecretkey'),
+      });
+      return !!payload; // 유효한 토큰이면 true 반환
+    } catch (error) {
+      return false; // 토큰이 유효하지 않으면 false 반환
     }
   }
 }

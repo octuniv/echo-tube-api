@@ -10,10 +10,12 @@ import { Repository } from 'typeorm';
 import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
 import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
+  let jwtService: JwtService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -30,6 +32,7 @@ describe('AuthController (e2e)', () => {
     userRepository = moduleFixture.get<Repository<User>>(
       getRepositoryToken(User),
     );
+    jwtService = moduleFixture.get<JwtService>(JwtService);
   });
 
   afterEach(async () => {
@@ -54,9 +57,9 @@ describe('AuthController (e2e)', () => {
         .send({
           email: userDto.email,
           password: userDto.password,
-        } satisfies LoginUserDto);
+        } satisfies LoginUserDto)
+        .expect(200);
 
-      expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('access_token');
       expect(response.body).toHaveProperty('refresh_token');
     });
@@ -112,6 +115,7 @@ describe('AuthController (e2e)', () => {
         .expect(200);
 
       expect(response.body).toHaveProperty('access_token');
+      expect(response.body).toHaveProperty('refresh_token');
     });
 
     it('should return 401 Unauthorized if refresh_token is invalid', async () => {
@@ -127,6 +131,68 @@ describe('AuthController (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/refresh')
         .send({})
+        .expect(401);
+    });
+  });
+
+  describe('/auth/validate-token (GET)', () => {
+    const userDto = MakeCreateUserDtoFaker();
+    let user: User;
+    let jwt_token: {
+      access_token: string;
+      refresh_token: string;
+    };
+
+    beforeEach(async () => {
+      user = await userRepository.save({
+        name: userDto.name,
+        email: userDto.email,
+        passwordHash: bcrypt.hashSync(userDto.password, 10),
+      });
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: userDto.email,
+          password: userDto.password,
+        } satisfies LoginUserDto);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('access_token');
+      expect(response.body).toHaveProperty('refresh_token');
+
+      jwt_token = {
+        access_token: response.body.access_token,
+        refresh_token: response.body.refresh_token,
+      };
+    });
+
+    it('should return { valid: true } for a valid access token', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/auth/validate-token')
+        .set('Authorization', `Bearer ${jwt_token.access_token}`)
+        .expect(200);
+
+      expect(response.body).toEqual({ valid: true });
+    });
+
+    it('should return { valid: false } for an expired or invalid access token', async () => {
+      const expiredToken = jwtService.sign(
+        { sub: user.id, email: user.email },
+        { expiresIn: '-1s' },
+      );
+
+      const response = await request(app.getHttpServer())
+        .get('/auth/validate-token')
+        .set('Authorization', `Bearer ${expiredToken}`)
+        .expect(200);
+
+      expect(response.body).toEqual({ valid: false });
+    });
+
+    it('should throw UnauthorizedException if Authorization header is missing', async () => {
+      await request(app.getHttpServer())
+        .get('/auth/validate-token')
         .expect(401);
     });
   });

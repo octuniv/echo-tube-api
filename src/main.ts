@@ -13,7 +13,10 @@ async function bootstrap() {
   );
   app.enableCors({
     origin: frontEndOrigin,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    // methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'Set-Cookie'],
+    exposedHeaders: ['Set-Cookie'],
   });
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
   await app.listen(port);

@@ -6,9 +6,13 @@ import { UsersModule } from '@/users/users.module';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { RefreshToken } from './entities/refresh-token.entity';
+import { RefreshTokenRepository } from './refresh-token.repository';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([RefreshToken]), // 추가
     ConfigModule.forRoot(),
     UsersModule,
     PassportModule,
@@ -23,7 +27,7 @@ import { JwtStrategy } from './jwt.strategy';
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, RefreshTokenRepository],
   controllers: [AuthController],
   exports: [AuthService],
 })

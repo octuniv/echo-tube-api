@@ -12,6 +12,7 @@ describe('AuthController', () => {
     validateUser: jest.fn(),
     login: jest.fn(),
     refreshToken: jest.fn(),
+    validateAccessToken: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -73,25 +74,54 @@ describe('AuthController', () => {
         UnauthorizedException,
       );
     });
+
+    it('should throw UnauthorizedException if email or password is missing', async () => {
+      const invalidLoginDto = { email: '', password: '' };
+
+      await expect(authController.login(invalidLoginDto)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
   });
 
   describe('refreshToken', () => {
     it('should return new access token when refresh token is valid', async () => {
       const mockRefreshToken = 'valid-refresh-token';
-      const mockAccessToken = { access_token: 'new-access-token' };
+      const mockReturnedToken = {
+        access_token: 'new-access-token',
+        refresh_token: 'new-refresh-token',
+      };
 
-      mockAuthService.refreshToken.mockResolvedValue(mockAccessToken);
+      mockAuthService.refreshToken.mockResolvedValue(mockReturnedToken);
 
       const result = await authController.refreshToken(mockRefreshToken);
 
       expect(authService.refreshToken).toHaveBeenCalledWith(mockRefreshToken);
-      expect(result).toEqual(mockAccessToken);
+      expect(result).toEqual(mockReturnedToken);
     });
 
     it('should throw UnauthorizedException when refresh token is missing', async () => {
       await expect(authController.refreshToken(null)).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+  });
+
+  describe('validate-token', () => {
+    it('should return true when access token is valid', async () => {
+      const mockValidToken = 'Bearer is-valid-token';
+      mockAuthService.validateAccessToken.mockResolvedValue(true);
+      expect(authController.validateToken(mockValidToken)).resolves.toEqual({
+        valid: true,
+      });
+    });
+
+    it('should return false when access token is invalid', async () => {
+      const mockInvalidToken = 'Bearer is-invalid-token';
+      mockAuthService.validateAccessToken.mockResolvedValue(false);
+      expect(authController.validateToken(mockInvalidToken)).resolves.toEqual({
+        valid: false,
+      });
     });
   });
 });

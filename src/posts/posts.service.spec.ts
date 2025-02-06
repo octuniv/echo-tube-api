@@ -1,0 +1,148 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { PostsService } from './posts.service';
+import { Repository } from 'typeorm';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Post } from './entities/post.entity';
+import { User } from '@/users/entities/user.entity';
+import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+
+const mockPostRepository = {
+  create: jest.fn(),
+  save: jest.fn(),
+  find: jest.fn(),
+  findOne: jest.fn(),
+  delete: jest.fn(),
+};
+
+describe('PostsService', () => {
+  let service: PostsService;
+  let postRepository: Repository<Post>;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PostsService,
+        {
+          provide: getRepositoryToken(Post),
+          useValue: mockPostRepository,
+        },
+      ],
+    }).compile();
+
+    service = module.get<PostsService>(PostsService);
+    postRepository = module.get<Repository<Post>>(getRepositoryToken(Post));
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  describe('create', () => {
+    it('should create and return a new post', async () => {
+      const createPostDto = { title: 'Test Post', content: 'Test Content' };
+      const user = { id: 1 } as User;
+      const savedPost = { id: 1, ...createPostDto, createdBy: user } as Post;
+
+      postRepository.create = jest.fn().mockReturnValue(savedPost);
+      postRepository.save = jest.fn().mockResolvedValue(savedPost);
+
+      const result = await service.create(createPostDto, user);
+      expect(result).toEqual(savedPost);
+      expect(postRepository.create).toHaveBeenCalledWith({
+        ...createPostDto,
+        createdBy: user,
+      });
+      expect(postRepository.save).toHaveBeenCalledWith(savedPost);
+    });
+  });
+
+  describe('findAll', () => {
+    it('should return an array of posts', async () => {
+      const posts = [{ id: 1, title: 'Post 1' }] as Post[];
+      postRepository.find = jest.fn().mockResolvedValue(posts);
+
+      const result = await service.findAll();
+      expect(result).toEqual(posts);
+      expect(postRepository.find).toHaveBeenCalledWith({
+        relations: ['createdBy'],
+      });
+    });
+  });
+
+  describe('findByUser', () => {
+    it('should return an array of posts', async () => {
+      const posts = [{ id: 1, title: 'Post 1' }] as Post[];
+      postRepository.find = jest.fn().mockResolvedValue(posts);
+
+      const result = await service.findByUser(1);
+      expect(result).toEqual(posts);
+      expect(postRepository.find).toHaveBeenCalledWith({
+        where: { createdBy: { id: 1 } },
+        relations: ['createdBy'],
+      });
+    });
+
+    it('should return empty array when post is not found', async () => {
+      postRepository.find = jest.fn().mockResolvedValue([]);
+      await expect(service.findByUser(999)).resolves.toEqual([]);
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return a post when found', async () => {
+      const post = { id: 1, title: 'Test Post' } as Post;
+      postRepository.findOne = jest.fn().mockResolvedValue(post);
+
+      const result = await service.findOne(1);
+      expect(result).toEqual(post);
+    });
+
+    it('should throw NotFoundException when post is not found', async () => {
+      postRepository.findOne = jest.fn().mockResolvedValue(null);
+      await expect(service.findOne(1)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('update', () => {
+    it('should update and return the post if authorized', async () => {
+      const post = { id: 1, createdBy: { id: 1 } } as Post;
+      const updatePostDto = { title: 'Updated Title' };
+      postRepository.findOne = jest.fn().mockResolvedValue(post);
+      postRepository.save = jest
+        .fn()
+        .mockResolvedValue({ ...post, ...updatePostDto });
+
+      const result = await service.update(1, updatePostDto, 1, false);
+      expect(result.title).toEqual('Updated Title');
+    });
+
+    it('should throw UnauthorizedException if not the owner or admin', async () => {
+      const post = { id: 1, createdBy: { id: 2 } } as Post;
+      postRepository.findOne = jest.fn().mockResolvedValue(post);
+
+      await expect(service.update(1, {}, 1, false)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
+
+  describe('delete', () => {
+    it('should delete the post if authorized', async () => {
+      const post = { id: 1, createdBy: { id: 1 } } as Post;
+      postRepository.findOne = jest.fn().mockResolvedValue(post);
+      postRepository.delete = jest.fn().mockResolvedValue(undefined);
+
+      await expect(service.delete(1, 1, false)).resolves.toBeUndefined();
+      expect(postRepository.delete).toHaveBeenCalledWith(1);
+    });
+
+    it('should throw UnauthorizedException if not the owner or admin', async () => {
+      const post = { id: 1, createdBy: { id: 2 } } as Post;
+      postRepository.findOne = jest.fn().mockResolvedValue(post);
+
+      await expect(service.delete(1, 1, false)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
+});

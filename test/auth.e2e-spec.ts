@@ -6,7 +6,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from '@/users/entities/user.entity';
 import { TestE2EDbModule } from './test-db.e2e.module';
 import { DbModule } from '@/db/db.module';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
 import * as bcrypt from 'bcrypt';
@@ -16,6 +16,7 @@ describe('AuthController (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
   let jwtService: JwtService;
+  let dataSource: DataSource;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -33,10 +34,26 @@ describe('AuthController (e2e)', () => {
       getRepositoryToken(User),
     );
     jwtService = moduleFixture.get<JwtService>(JwtService);
+    dataSource = moduleFixture.get<DataSource>(DataSource);
   });
 
   afterEach(async () => {
-    await userRepository.clear(); // Clear data after each test
+    const queryRunner = dataSource.createQueryRunner(); // QueryRunner 생성
+    await queryRunner.connect(); // 데이터베이스 연결
+    await queryRunner.startTransaction(); // 트랜잭션 시작
+
+    try {
+      await queryRunner.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE'); // users 테이블 TRUNCATE
+      await queryRunner.query(
+        'TRUNCATE TABLE refresh_token RESTART IDENTITY CASCADE',
+      ); // refresh_token 테이블 TRUNCATE
+      await queryRunner.commitTransaction(); // 트랜잭션 커밋
+    } catch (err) {
+      await queryRunner.rollbackTransaction(); // 오류 발생 시 롤백
+      throw err;
+    } finally {
+      await queryRunner.release(); // QueryRunner 해제
+    }
   });
 
   afterAll(async () => {
@@ -132,6 +149,26 @@ describe('AuthController (e2e)', () => {
         .post('/auth/refresh')
         .send({})
         .expect(401);
+    });
+
+    it('should return 401 for malformed refresh token', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: 'malformed.token' })
+        .expect(401);
+    });
+
+    it('should not handle concurrent refresh token requests', async () => {
+      const responses = await Promise.all([
+        request(app.getHttpServer())
+          .post('/auth/refresh')
+          .send({ refresh_token: jwt_token.refresh_token }),
+        request(app.getHttpServer())
+          .post('/auth/refresh')
+          .send({ refresh_token: jwt_token.refresh_token }),
+      ]);
+
+      expect(responses.every((res) => res.status === 200)).toBeFalsy();
     });
   });
 

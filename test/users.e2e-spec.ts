@@ -7,7 +7,7 @@ import {
   MakeUpdateUserDtoFaker,
 } from '@/users/faker/user.faker';
 import { AppModule } from '@/app.module';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DbModule } from '@/db/db.module';
 import { TestE2EDbModule } from './test-db.e2e.module';
@@ -18,6 +18,7 @@ describe('User - /users (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
   let authToken: string;
+  let dataSource: DataSource;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -34,10 +35,23 @@ describe('User - /users (e2e)', () => {
     userRepository = moduleFixture.get<Repository<User>>(
       getRepositoryToken(User),
     );
+    dataSource = moduleFixture.get<DataSource>(DataSource);
   });
 
   afterAll(async () => {
-    await userRepository.clear();
+    const queryRunner = dataSource.createQueryRunner(); // QueryRunner 생성
+    await queryRunner.connect(); // 데이터베이스 연결
+    await queryRunner.startTransaction(); // 트랜잭션 시작
+
+    try {
+      await queryRunner.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE'); // users 테이블 TRUNCATE
+      await queryRunner.commitTransaction(); // 트랜잭션 커밋
+    } catch (err) {
+      await queryRunner.rollbackTransaction(); // 오류 발생 시 롤백
+      throw err;
+    } finally {
+      await queryRunner.release(); // QueryRunner 해제
+    }
     await app.close();
   });
 

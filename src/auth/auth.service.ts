@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { RefreshTokenRepository } from './refresh-token.repository';
+import { jwtPayloadInterface } from './types/jwt-payload.interface';
+import { User } from '@/users/entities/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -14,7 +16,7 @@ export class AuthService {
     private readonly refreshTokenRepo: RefreshTokenRepository,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<any> {
+  async validateUser(email: string, password: string): Promise<User> {
     const user = await this.usersService.findUser(email).catch(() => {
       throw new UnauthorizedException('Invalid credentials');
     });
@@ -23,8 +25,12 @@ export class AuthService {
     }
   }
 
-  async login(user: any) {
-    const payload = { email: user.email, sub: user.id };
+  async login(user: User) {
+    const payload = {
+      email: user.email,
+      id: user.id,
+      role: user.role,
+    } satisfies jwtPayloadInterface;
 
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
     const expiresAt = new Date();
@@ -47,7 +53,11 @@ export class AuthService {
       await this.refreshTokenRepo.revokeToken(storedToken.id);
 
       const user = await this.usersService.findUser(storedToken.userEmail);
-      const payload = { sub: user.id, email: user.email };
+      const payload = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      } satisfies jwtPayloadInterface;
 
       const newRefreshToken = this.jwtService.sign(payload, {
         expiresIn: '7d',

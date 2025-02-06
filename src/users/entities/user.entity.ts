@@ -4,13 +4,10 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
-
-export enum UserRole {
-  ADMIN = 'admin',
-  USER = 'user',
-  BOT = 'bot',
-}
+import { UserRole } from './user-role.enum';
+import { Post } from '@/posts/entities/post.entity';
 
 @Entity('users') // Matches the table name
 export class User {
@@ -32,6 +29,12 @@ export class User {
     default: UserRole.USER,
   })
   role: UserRole;
+
+  @OneToMany(() => Post, (post) => post.createdBy, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  }) // Post와의 관계 정의
+  posts: Post[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

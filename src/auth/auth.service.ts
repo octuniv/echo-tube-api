@@ -1,5 +1,9 @@
 import { UsersService } from '@/users/users.service';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -27,8 +31,8 @@ export class AuthService {
 
   async login(user: User) {
     const payload = {
-      email: user.email,
       id: user.id,
+      email: user.email,
       role: user.role,
     } satisfies jwtPayloadInterface;
 
@@ -58,7 +62,6 @@ export class AuthService {
         email: user.email,
         role: user.role,
       } satisfies jwtPayloadInterface;
-
       const newRefreshToken = this.jwtService.sign(payload, {
         expiresIn: '7d',
       });
@@ -75,7 +78,11 @@ export class AuthService {
         refresh_token: newRefreshToken, // 새로운 리프레시 토큰 반환
       };
     } catch (error) {
-      throw new UnauthorizedException('Invalid refresh token');
+      if (error.status === 401) {
+        throw error;
+      } else {
+        throw new InternalServerErrorException('Problem with token processing');
+      }
     }
   }
 

@@ -51,6 +51,10 @@ describe('AuthService', () => {
     );
   });
 
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('should be defined', () => {
     expect(authService).toBeDefined();
   });
@@ -93,7 +97,7 @@ describe('AuthService', () => {
 
   describe('login', () => {
     it('should return access and refresh tokens', async () => {
-      const mockUser = { id: 1, email: 'test@example.com' };
+      const mockUser = MakeUserEntityFaker();
       const mockTokens = {
         access_token: 'access-token',
         refresh_token: 'refresh-token',
@@ -111,15 +115,20 @@ describe('AuthService', () => {
 
   describe('refreshToken', () => {
     it('should save a new refresh token and revoke the old one', async () => {
-      const mockUser = { id: 1, email: 'test@example.com' };
+      const mockUser = MakeUserEntityFaker();
       const mockOldToken = 'old-refresh-token';
+      const mockNewToken = 'refresh-token';
 
       // Mocking repository methods
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 1);
       mockRefreshTokenRepo.findValidToken.mockResolvedValue({
-        id: 'token-id',
+        id: mockUser.id,
         userEmail: mockUser.email,
+        expiresAt: expiresAt,
       });
       mockRefreshTokenRepo.revokeToken.mockResolvedValue(undefined);
+      mockJwtService.sign.mockReturnValueOnce(mockNewToken);
       mockRefreshTokenRepo.saveToken.mockResolvedValue(undefined);
       mockUsersService.findUser.mockResolvedValue(mockUser);
 
@@ -130,10 +139,10 @@ describe('AuthService', () => {
       expect(refreshTokenRepo.findValidToken).toHaveBeenCalledWith(
         mockOldToken,
       );
-      expect(refreshTokenRepo.revokeToken).toHaveBeenCalledWith('token-id');
+      expect(refreshTokenRepo.revokeToken).toHaveBeenCalledWith(mockUser.id);
       expect(refreshTokenRepo.saveToken).toHaveBeenCalledWith(
         mockUser.email,
-        expect.any(String), // New token
+        mockNewToken, // New token
         expect.any(Date), // Expiration date
       );
       expect(result).toHaveProperty('access_token');

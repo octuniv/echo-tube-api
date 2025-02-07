@@ -1,5 +1,10 @@
 import { ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
+import { UserRole } from '@/users/entities/user-role.enum';
+import {
+  jwtPayloadInterface,
+  jwtValidatedOutputInterface,
+} from './types/jwt-payload.interface';
 
 describe('JwtStrategy', () => {
   let jwtStrategy: JwtStrategy;
@@ -37,9 +42,17 @@ describe('JwtStrategy', () => {
   });
 
   it('should validate the payload and return the user object', async () => {
-    const payload = { sub: 1, email: 'test@example.com' };
+    const payload = {
+      id: 1,
+      email: 'test@example.com',
+      role: UserRole.USER,
+    } satisfies jwtPayloadInterface;
     const result = await jwtStrategy.validate(payload);
 
-    expect(result).toEqual({ userId: 1, email: 'test@example.com' });
+    expect(result).toEqual({
+      id: 1,
+      email: 'test@example.com',
+      role: UserRole.USER,
+    } satisfies jwtValidatedOutputInterface);
   });
 });

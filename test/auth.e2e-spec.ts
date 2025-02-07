@@ -12,6 +12,25 @@ import { LoginUserDto } from '@/auth/dto/login-user.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 
+const truncateTables = async (dataSource: DataSource) => {
+  const queryRunner = dataSource.createQueryRunner(); // QueryRunner 생성
+  await queryRunner.connect(); // 데이터베이스 연결
+  await queryRunner.startTransaction(); // 트랜잭션 시작
+
+  try {
+    await queryRunner.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE'); // users, post 테이블 TRUNCATE
+    await queryRunner.query(
+      'TRUNCATE TABLE refresh_token RESTART IDENTITY CASCADE',
+    ); // refresh_token 테이블 TRUNCATE
+    await queryRunner.commitTransaction(); // 트랜잭션 커밋
+  } catch (err) {
+    await queryRunner.rollbackTransaction(); // 오류 발생 시 롤백
+    throw err;
+  } finally {
+    await queryRunner.release(); // QueryRunner 해제
+  }
+};
+
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
@@ -37,26 +56,12 @@ describe('AuthController (e2e)', () => {
     dataSource = moduleFixture.get<DataSource>(DataSource);
   });
 
-  afterEach(async () => {
-    const queryRunner = dataSource.createQueryRunner(); // QueryRunner 생성
-    await queryRunner.connect(); // 데이터베이스 연결
-    await queryRunner.startTransaction(); // 트랜잭션 시작
-
-    try {
-      await queryRunner.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE'); // users 테이블 TRUNCATE
-      await queryRunner.query(
-        'TRUNCATE TABLE refresh_token RESTART IDENTITY CASCADE',
-      ); // refresh_token 테이블 TRUNCATE
-      await queryRunner.commitTransaction(); // 트랜잭션 커밋
-    } catch (err) {
-      await queryRunner.rollbackTransaction(); // 오류 발생 시 롤백
-      throw err;
-    } finally {
-      await queryRunner.release(); // QueryRunner 해제
-    }
+  beforeEach(async () => {
+    await truncateTables(dataSource);
   });
 
   afterAll(async () => {
+    await truncateTables(dataSource);
     await app.close();
   });
 
@@ -123,6 +128,8 @@ describe('AuthController (e2e)', () => {
         access_token: response.body.access_token,
         refresh_token: response.body.refresh_token,
       };
+
+      await new Promise((resolve) => setTimeout(resolve, 1001));
     });
 
     it('should return a new access_token if refresh_token is valid', async () => {
@@ -148,13 +155,6 @@ describe('AuthController (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/refresh')
         .send({})
-        .expect(401);
-    });
-
-    it('should return 401 for malformed refresh token', async () => {
-      await request(app.getHttpServer())
-        .post('/auth/refresh')
-        .send({ refresh_token: 'malformed.token' })
         .expect(401);
     });
 

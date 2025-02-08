@@ -4,6 +4,7 @@ import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UnauthorizedException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
+import { MakeCreateUserDtoFaker } from './faker/user.faker';
 
 describe('UsersController', () => {
   let usersController: UsersController;
@@ -44,13 +45,10 @@ describe('UsersController', () => {
   });
 
   it('should create a new user', async () => {
-    const result = await usersController.signUpUser({
-      name: 'test',
-      email: 'test@example.com',
-      password: '1234',
-    } satisfies CreateUserDto);
+    const createUserDto = MakeCreateUserDtoFaker();
+    const result = await usersController.signUpUser(createUserDto);
     expect(result).toEqual({
-      email: 'test@example.com',
+      email: createUserDto.email,
       message: 'Successfully created account',
     });
   });

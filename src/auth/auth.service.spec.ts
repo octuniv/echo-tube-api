@@ -16,7 +16,7 @@ describe('AuthService', () => {
   let refreshTokenRepo: RefreshTokenRepository;
 
   const mockUsersService = {
-    findUser: jest.fn(),
+    findUserByEmail: jest.fn(),
     findExistUser: jest.fn(),
   };
 
@@ -65,19 +65,21 @@ describe('AuthService', () => {
       const password = 'password123';
       mockUser.passwordHash = await bcrypt.hash(password, 10);
 
-      mockUsersService.findUser.mockResolvedValue(mockUser);
+      mockUsersService.findUserByEmail.mockResolvedValue(mockUser);
 
       const result = await authService.validateUser(
         mockUser.email,
         'password123',
       );
 
-      expect(usersService.findUser).toHaveBeenCalledWith(mockUser.email);
+      expect(usersService.findUserByEmail).toHaveBeenCalledWith(mockUser.email);
       expect(result).toEqual(mockUser);
     });
 
     it('should throw UnauthorizedException if credentials are invalid', async () => {
-      mockUsersService.findUser.mockRejectedValue(new NotFoundException());
+      mockUsersService.findUserByEmail.mockRejectedValue(
+        new NotFoundException(),
+      );
 
       await expect(
         authService.validateUser('test@example.com', 'password123'),
@@ -85,7 +87,7 @@ describe('AuthService', () => {
     });
 
     it('should handle unexpected errors during user validation', async () => {
-      mockUsersService.findUser.mockRejectedValue(
+      mockUsersService.findUserByEmail.mockRejectedValue(
         new Error('Database connection failed'),
       );
 
@@ -130,7 +132,7 @@ describe('AuthService', () => {
       mockRefreshTokenRepo.revokeToken.mockResolvedValue(undefined);
       mockJwtService.sign.mockReturnValueOnce(mockNewToken);
       mockRefreshTokenRepo.saveToken.mockResolvedValue(undefined);
-      mockUsersService.findUser.mockResolvedValue(mockUser);
+      mockUsersService.findUserByEmail.mockResolvedValue(mockUser);
 
       // Call the method
       const result = await authService.refreshToken(mockOldToken);

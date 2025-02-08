@@ -21,7 +21,7 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, password: string): Promise<User> {
-    const user = await this.usersService.findUser(email).catch(() => {
+    const user = await this.usersService.findUserByEmail(email).catch(() => {
       throw new UnauthorizedException('Invalid credentials');
     });
     if (user && (await bcrypt.compare(password, user.passwordHash))) {
@@ -56,7 +56,9 @@ export class AuthService {
 
       await this.refreshTokenRepo.revokeToken(storedToken.id);
 
-      const user = await this.usersService.findUser(storedToken.userEmail);
+      const user = await this.usersService.findUserByEmail(
+        storedToken.userEmail,
+      );
       const payload = {
         id: user.id,
         email: user.email,

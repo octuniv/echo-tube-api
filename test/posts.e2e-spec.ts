@@ -13,7 +13,6 @@ import { CreatePostDto } from '@/posts/dto/create-post.dto';
 import { UpdatePostDto } from '@/posts/dto/update-post.dto';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
 
-// const userInfo = MakeCreateUserDtoFaker();
 const userInfos = Array(2)
   .fill('')
   .map(() => MakeCreateUserDtoFaker());

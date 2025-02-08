@@ -8,6 +8,7 @@ import { UserRole } from '../entities/user-role.enum';
 export const MakeCreateUserDtoFaker = () => {
   const createUserDtoFaker: CreateUserDto = {
     name: faker.person.fullName(),
+    nickName: faker.person.firstName(),
     email: faker.internet.email(),
     password: faker.internet.password({ length: 20 }),
   };

@@ -18,22 +18,28 @@ export class UsersService {
   ) {}
 
   async signUpUser(createUserDto: CreateUserDto) {
-    const checkExist = await this.findExistUser(createUserDto.email);
+    const { name, nickName, email, password } = createUserDto;
+    const checkExist = await this.findExistUser(email);
     if (checkExist) {
+      throw new BadRequestException(`This email ${email} is already existed!`);
+    }
+    const nickNameExist = await this.findAbsenseOfNickName(nickName);
+    if (nickNameExist) {
       throw new BadRequestException(
-        `This email ${createUserDto.email} is already existed!`,
+        `This nickName ${nickName} is already existed!`,
       );
     }
-    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
     const user = this.usersRepository.create({
-      name: createUserDto.name,
-      email: createUserDto.email,
+      name: name,
+      nickName: nickName,
+      email: email,
       passwordHash: hashedPassword,
     });
     return this.usersRepository.save(user);
   }
 
-  async findUser(email: string) {
+  async findUserByEmail(email: string) {
     return this.usersRepository
       .findOne({
         where: { email: email },
@@ -50,7 +56,7 @@ export class UsersService {
   }
 
   async findExistUser(email: string) {
-    return this.findUser(email)
+    return this.findUserByEmail(email)
       .then(() => {
         return true;
       })
@@ -63,15 +69,29 @@ export class UsersService {
       });
   }
 
+  async findAbsenseOfNickName(nickName: string) {
+    return this.usersRepository
+      .findOne({
+        where: { nickName: nickName },
+      })
+      .then((user) => {
+        if (user) {
+          return true;
+        } else {
+          return false;
+        }
+      });
+  }
+
   async updatePassword(email: string, updateUserDto: UpdateUserDto) {
-    const user = await this.findUser(email);
+    const user = await this.findUserByEmail(email);
     const hashedPassword = await bcrypt.hash(updateUserDto.password, 10);
     user.passwordHash = hashedPassword;
     return this.usersRepository.save(user);
   }
 
   async removeAccount(email: string) {
-    const user = await this.findUser(email);
+    const user = await this.findUserByEmail(email);
     return this.usersRepository.remove(user);
   }
 }

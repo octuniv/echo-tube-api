@@ -98,6 +98,27 @@ describe('AuthController (e2e)', () => {
       expect(response.status).toBe(401);
       expect(response.body.message).toBe('Invalid credentials');
     });
+
+    it('should return 401 if the password is entered incorrectly.', async () => {
+      const userDto = MakeCreateUserDtoFaker();
+      await userRepository.save({
+        name: userDto.name,
+        nickName: userDto.nickName,
+        email: userDto.email,
+        passwordHash: bcrypt.hashSync(userDto.password, 10),
+      });
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: userDto.email,
+          password: 'wrongpassword@@',
+        } satisfies LoginUserDto)
+        .expect(401);
+
+      expect(response.status).toBe(401);
+      expect(response.body.message).toBe('Invalid credentials');
+    });
   });
 
   describe('POST /auth/refresh', () => {

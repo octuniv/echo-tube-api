@@ -26,6 +26,8 @@ export class AuthService {
     });
     if (user && (await bcrypt.compare(password, user.passwordHash))) {
       return user;
+    } else {
+      throw new UnauthorizedException('Invalid credentials');
     }
   }
 

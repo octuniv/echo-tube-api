@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  AfterLoad,
 } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
 
@@ -33,4 +34,12 @@ export class Post {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Column({ type: 'varchar', length: 255, nullable: true, select: false })
+  nickname?: string;
+
+  @AfterLoad()
+  setNickname() {
+    this.nickname = this.createdBy?.nickName || null;
+  }
 }

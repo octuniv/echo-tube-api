@@ -18,12 +18,16 @@ export class PostsService {
     private readonly postRepository: Repository<Post>,
   ) {}
   // 게시글 생성
-  async create(createPostDto: CreatePostDto, user: User): Promise<Post> {
+  async create(
+    createPostDto: CreatePostDto,
+    user: User,
+  ): Promise<QueryPostDto> {
     const newPost = this.postRepository.create({
       ...createPostDto,
       createdBy: user,
     });
-    return await this.postRepository.save(newPost);
+    const result = await this.postRepository.save(newPost);
+    return QueryPostDto.fromEntity(result);
   }
 
   // 모든 게시글 조회
@@ -64,7 +68,7 @@ export class PostsService {
     updatePostDto: UpdatePostDto,
     userId: number,
     isAdmin: boolean,
-  ): Promise<Post> {
+  ): Promise<QueryPostDto> {
     const post = await this.findById(id);
 
     if (post.createdBy.id !== userId && !isAdmin) {
@@ -74,7 +78,8 @@ export class PostsService {
     }
 
     Object.assign(post, updatePostDto);
-    return await this.postRepository.save(post);
+    const result = await this.postRepository.save(post);
+    return QueryPostDto.fromEntity(result);
   }
 
   // 게시글 삭제

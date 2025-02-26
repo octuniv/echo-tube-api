@@ -16,7 +16,7 @@ export class QueryPostDto {
 
   @IsString()
   @IsOptional()
-  nickname?: string; // 가상 필드
+  nickName?: string; // 가상 필드
 
   @IsDateString()
   createdAt: Date;
@@ -31,7 +31,7 @@ export class QueryPostDto {
     dto.title = post.title;
     dto.content = post.content;
     dto.videoUrl = post.videoUrl || undefined; // 선택적 필드 처리
-    dto.nickname = post.nickname || undefined; // 가상 필드 처리
+    dto.nickName = post.nickName || undefined; // 가상 필드 처리
     dto.createdAt = post.createdAt;
     dto.updatedAt = post.updatedAt;
     return dto;

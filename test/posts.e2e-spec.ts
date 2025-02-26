@@ -169,7 +169,15 @@ describe('Posts - /posts (e2e)', () => {
         .expect(201);
 
       expect(response.body).toHaveProperty('id');
+      expect(response.body).not.toHaveProperty('createdBy');
       expect(response.body.title).toBe(createPostDto.title);
+
+      const postId = response.body.id;
+      const post = await postRepository.findOne({
+        where: { id: postId },
+        relations: ['createdBy'],
+      });
+      expect(post.nickName).toBeTruthy();
     });
 
     it('should return 401 if not authenticated (실패)', async () => {

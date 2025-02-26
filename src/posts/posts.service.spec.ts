@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Post } from './entities/post.entity';
 import { User } from '@/users/entities/user.entity';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { QueryPostDto } from './dto/query-post.dto';
 
 const mockPostRepository = {
   create: jest.fn(),
@@ -47,7 +48,7 @@ describe('PostsService', () => {
       postRepository.save = jest.fn().mockResolvedValue(savedPost);
 
       const result = await service.create(createPostDto, user);
-      expect(result).toEqual(savedPost);
+      expect(result).toEqual(QueryPostDto.fromEntity(savedPost));
       expect(postRepository.create).toHaveBeenCalledWith({
         ...createPostDto,
         createdBy: user,

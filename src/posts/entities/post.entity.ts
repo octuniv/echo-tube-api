@@ -36,10 +36,10 @@ export class Post {
   updatedAt: Date;
 
   @Column({ type: 'varchar', length: 255, nullable: true, select: false })
-  nickname?: string;
+  nickName?: string;
 
   @AfterLoad()
   setNickname() {
-    this.nickname = this.createdBy?.nickName || null;
+    this.nickName = this.createdBy?.nickName || null;
   }
 }

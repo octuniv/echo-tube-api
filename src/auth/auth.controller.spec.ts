@@ -30,22 +30,25 @@ describe('AuthController', () => {
   });
 
   describe('login', () => {
-    it('should return access and refresh tokens when credentials are valid', async () => {
+    it('should return access, refresh tokens and userInfo when credentials are valid', async () => {
       const loginDto: LoginUserDto = {
         email: 'test@example.com',
         password: 'password123',
       };
 
-      const mockTokens = {
+      const mockResult = {
         access_token: 'access-token',
         refresh_token: 'refresh-token',
+        name: 'John',
+        nickName: 'John Doe',
+        email: 'test@example.com',
       };
 
       mockAuthService.validateUser.mockResolvedValue({
         id: 1,
         email: loginDto.email,
       });
-      mockAuthService.login.mockResolvedValue(mockTokens);
+      mockAuthService.login.mockResolvedValue(mockResult);
 
       const result = await authController.login(loginDto);
 
@@ -57,7 +60,7 @@ describe('AuthController', () => {
         id: 1,
         email: loginDto.email,
       });
-      expect(result).toEqual(mockTokens);
+      expect(result).toEqual(mockResult);
     });
 
     it('should throw UnauthorizedException for invalid credentials', async () => {

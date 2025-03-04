@@ -18,6 +18,7 @@ describe('AuthService', () => {
   const mockUsersService = {
     findUserByEmail: jest.fn(),
     findExistUser: jest.fn(),
+    findUserById: jest.fn(),
   };
 
   const mockJwtService = {
@@ -100,18 +101,22 @@ describe('AuthService', () => {
   describe('login', () => {
     it('should return access and refresh tokens', async () => {
       const mockUser = MakeUserEntityFaker();
-      const mockTokens = {
+      const mockResult = {
         access_token: 'access-token',
         refresh_token: 'refresh-token',
+        name: mockUser.name,
+        nickName: mockUser.nickName,
+        email: mockUser.email,
       };
 
-      mockJwtService.sign.mockReturnValueOnce(mockTokens.refresh_token);
-      mockJwtService.sign.mockReturnValueOnce(mockTokens.access_token);
+      mockJwtService.sign.mockReturnValueOnce(mockResult.refresh_token);
+      mockJwtService.sign.mockReturnValueOnce(mockResult.access_token);
+      mockUsersService.findUserById.mockResolvedValue(mockUser);
 
       const result = await authService.login(mockUser);
 
       expect(jwtService.sign).toHaveBeenCalledTimes(2);
-      expect(result).toEqual(mockTokens);
+      expect(result).toEqual(mockResult);
     });
   });
 

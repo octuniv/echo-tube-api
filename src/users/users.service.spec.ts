@@ -79,6 +79,27 @@ describe('UsersService', () => {
     });
   });
 
+  describe('findUserById', () => {
+    it('should return a user if found', async () => {
+      const mockUser = MakeUserEntityFaker();
+
+      jest.spyOn(repository, 'findOne').mockResolvedValue(mockUser);
+
+      const result = await service.findUserById(mockUser.id);
+
+      expect(result).toEqual(mockUser);
+      expect(repository.findOne).toHaveBeenCalledWith({
+        where: { id: mockUser.id },
+      });
+    });
+
+    it('should return null if no user is found', async () => {
+      jest.spyOn(repository, 'findOne').mockResolvedValue(null);
+
+      await expect(service.findUserById(999)).resolves.toBeNull();
+    });
+  });
+
   describe('findUserByEmail', () => {
     it('should return a user if found', async () => {
       const mockUser = MakeUserEntityFaker();
@@ -92,7 +113,7 @@ describe('UsersService', () => {
       expect(repository.findOne).toHaveBeenCalledWith({ where: { email } });
     });
 
-    it('should return null if no user is found', async () => {
+    it('should throw NotFoundException Error if no user is found', async () => {
       jest.spyOn(repository, 'findOne').mockResolvedValue(null);
 
       await expect(

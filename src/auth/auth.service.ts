@@ -37,6 +37,18 @@ export class AuthService {
       email: user.email,
       role: user.role,
     } satisfies jwtPayloadInterface;
+    let userInfo: User | null;
+    try {
+      userInfo = await this.usersService.findUserById(payload.id);
+    } catch (error) {
+      console.error(error);
+      throw new InternalServerErrorException('Internal Server Error');
+    }
+
+    if (!userInfo) {
+      console.error('Calling user in DB is not matching');
+      throw new InternalServerErrorException('Internal Server Error');
+    }
 
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
     const expiresAt = new Date();
@@ -46,6 +58,9 @@ export class AuthService {
     return {
       access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
       refresh_token: refreshToken,
+      name: userInfo.name,
+      nickName: userInfo.nickName,
+      email: userInfo.email,
     };
   }
 

@@ -1,5 +1,6 @@
 import {
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -92,6 +93,9 @@ export class PostsService {
       );
     }
 
-    await this.postRepository.delete(id);
+    const result = await this.postRepository.softDelete(id);
+    if (result.affected !== 1) {
+      throw new InternalServerErrorException('Internal Server Error');
+    }
   }
 }

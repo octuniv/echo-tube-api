@@ -4,6 +4,8 @@ import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { UserRole } from '@/users/entities/user-role.enum';
+import { UnauthorizedException } from '@nestjs/common';
+import { DeletePostResultDto } from './dto/delete-result.dto';
 
 const mockPostsService = {
   create: jest.fn(),
@@ -16,7 +18,6 @@ const mockPostsService = {
 
 describe('PostsController', () => {
   let controller: PostsController;
-  // let service: PostsService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -30,7 +31,6 @@ describe('PostsController', () => {
     }).compile();
 
     controller = module.get<PostsController>(PostsController);
-    // service = module.get<PostsService>(PostsService);
   });
 
   it('should be defined', () => {
@@ -103,8 +103,17 @@ describe('PostsController', () => {
       mockPostsService.delete.mockResolvedValue(undefined);
 
       expect(await controller.delete(1, req)).toEqual({
-        message: 'Post deleted successfully',
-      });
+        message: 'Post deleted successfully.',
+      } satisfies DeletePostResultDto);
+    });
+
+    it('should throw error if delete method of postsService throw error', async () => {
+      const req = { user: { id: 1, role: UserRole.USER } } as any;
+      mockPostsService.delete.mockRejectedValue(
+        new UnauthorizedException('You are not authorized to delete this post'),
+      );
+
+      expect(controller.delete(1, req)).rejects.toThrow(UnauthorizedException);
     });
   });
 });

@@ -413,13 +413,26 @@ describe('Posts - /posts (e2e)', () => {
         createdBy: users[0],
       });
 
-      await request(app.getHttpServer())
+      const deleteResult = await request(app.getHttpServer())
         .delete(`/posts/${post.id}`)
         .set('Authorization', `Bearer ${accessTokens[0]}`)
         .expect(200);
 
+      expect(deleteResult.body).toEqual({
+        message: 'Post deleted successfully.',
+      });
+
       const deletedPost = await postRepository.findOneBy({ id: post.id });
       expect(deletedPost).toBeNull();
+
+      const softDeletedPosts = await postRepository.findOne({
+        where: {
+          id: post.id,
+        },
+        withDeleted: true,
+      });
+
+      expect(softDeletedPosts).not.toBeNull();
     });
 
     it('should return 401 if not authenticated (실패)', async () => {

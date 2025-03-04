@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   AfterLoad,
+  DeleteDateColumn,
 } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
 
@@ -34,6 +35,9 @@ export class Post {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true, select: false })
   nickName?: string;

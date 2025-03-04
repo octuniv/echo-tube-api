@@ -15,6 +15,7 @@ import { UpdatePostDto } from './dto/update-post.dto';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { RequestWithUser } from '@/auth/types/request-with-user.interface';
 import { UserRole } from '@/users/entities/user-role.enum';
+import { DeletePostResultDto } from './dto/delete-result.dto';
 
 @Controller('posts')
 export class PostsController {
@@ -66,9 +67,18 @@ export class PostsController {
   // 게시글 삭제
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  async delete(@Param('id') id: number, @Req() req: RequestWithUser) {
+  async delete(
+    @Param('id') id: number,
+    @Req() req: RequestWithUser,
+  ): Promise<DeletePostResultDto> {
     const isAdmin = req.user.role === UserRole.ADMIN;
-    await this.postsService.delete(id, req.user.id, isAdmin);
-    return { message: 'Post deleted successfully' };
+    try {
+      await this.postsService.delete(id, req.user.id, isAdmin);
+    } catch (error) {
+      throw error;
+    }
+    return {
+      message: 'Post deleted successfully.',
+    };
   }
 }

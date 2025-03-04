@@ -1,10 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PostsService } from './posts.service';
-import { Repository } from 'typeorm';
+import { Repository, UpdateResult } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Post } from './entities/post.entity';
 import { User } from '@/users/entities/user.entity';
-import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  InternalServerErrorException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { QueryPostDto } from './dto/query-post.dto';
 
 const mockPostRepository = {
@@ -131,10 +135,14 @@ describe('PostsService', () => {
     it('should delete the post if authorized', async () => {
       const post = { id: 1, createdBy: { id: 1 } } as Post;
       postRepository.findOne = jest.fn().mockResolvedValue(post);
-      postRepository.delete = jest.fn().mockResolvedValue(undefined);
+      postRepository.softDelete = jest.fn().mockResolvedValue({
+        raw: [],
+        affected: 1,
+        generatedMaps: [],
+      } satisfies UpdateResult);
 
       await expect(service.delete(1, 1, false)).resolves.toBeUndefined();
-      expect(postRepository.delete).toHaveBeenCalledWith(1);
+      expect(postRepository.softDelete).toHaveBeenCalledWith(1);
     });
 
     it('should throw UnauthorizedException if not the owner or admin', async () => {
@@ -143,6 +151,20 @@ describe('PostsService', () => {
 
       await expect(service.delete(1, 1, false)).rejects.toThrow(
         UnauthorizedException,
+      );
+    });
+
+    it('should throw InternalServerErrorException if post uninstall fails', async () => {
+      const post = { id: 1, createdBy: { id: 1 } } as Post;
+      postRepository.findOne = jest.fn().mockResolvedValue(post);
+      postRepository.softDelete = jest.fn().mockResolvedValue({
+        raw: [],
+        affected: 0,
+        generatedMaps: [],
+      } satisfies UpdateResult);
+
+      await expect(service.delete(1, 1, false)).rejects.toThrow(
+        InternalServerErrorException,
       );
     });
   });

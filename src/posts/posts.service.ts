@@ -47,7 +47,7 @@ export class PostsService {
     return posts.map(QueryPostDto.fromEntity);
   }
 
-  // 특정 ID로 게시물 조회
+  // 특정 게시글 조회, (query 전용)
   async findById(id: number): Promise<Post> {
     const post = await this.postRepository.findOne({
       where: { id },
@@ -57,7 +57,7 @@ export class PostsService {
     return post;
   }
 
-  // 특정 게시글 조회, (query 전용)
+  // 특정 ID로 게시물 조회
   async findOne(id: number): Promise<QueryPostDto> {
     const post = await this.findById(id);
     return QueryPostDto.fromEntity(post);

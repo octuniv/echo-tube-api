@@ -1,14 +1,16 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserPasswordRequest } from './dto/update-user-password.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import * as bcrypt from 'bcrypt';
+import { UpdateUserNicknameRequest } from './dto/update-user-nickName.dto';
 
 @Injectable()
 export class UsersService {
@@ -23,7 +25,7 @@ export class UsersService {
     if (checkExist) {
       throw new BadRequestException(`This email ${email} is already existed!`);
     }
-    const nickNameExist = await this.findAbsenseOfNickName(nickName);
+    const nickNameExist = await this.findAbsenseOfNickname(nickName);
     if (nickNameExist) {
       throw new BadRequestException(
         `This nickName ${nickName} is already existed!`,
@@ -77,7 +79,7 @@ export class UsersService {
       });
   }
 
-  async findAbsenseOfNickName(nickName: string) {
+  async findAbsenseOfNickname(nickName: string) {
     return this.usersRepository
       .findOne({
         where: { nickName: nickName },
@@ -91,15 +93,39 @@ export class UsersService {
       });
   }
 
-  async updatePassword(email: string, updateUserDto: UpdateUserDto) {
-    const user = await this.findUserByEmail(email);
-    const hashedPassword = await bcrypt.hash(updateUserDto.password, 10);
+  async updateNickname(
+    id: number,
+    updateNicknameDto: UpdateUserNicknameRequest,
+  ) {
+    const user = await this.findUserById(id);
+    if (!user) {
+      throw new NotFoundException('This user could not be found.');
+    }
+    user.nickName = updateNicknameDto.nickName;
+    return this.usersRepository.save(user);
+  }
+
+  async updatePassword(
+    id: number,
+    updatePasswordDto: UpdateUserPasswordRequest,
+  ) {
+    const user = await this.findUserById(id);
+    if (!user) {
+      throw new NotFoundException('This user could not be found.');
+    }
+    const hashedPassword = await bcrypt.hash(updatePasswordDto.password, 10);
     user.passwordHash = hashedPassword;
     return this.usersRepository.save(user);
   }
 
-  async removeAccount(email: string) {
-    const user = await this.findUserByEmail(email);
-    return this.usersRepository.remove(user);
+  async deleteAccount(id: number) {
+    const user = await this.findUserById(id);
+    if (!user) {
+      throw new NotFoundException('This user could not be found.');
+    }
+    const result = await this.usersRepository.softDelete(id);
+    if (result.affected !== 1) {
+      throw new InternalServerErrorException('Internal Server Error');
+    }
   }
 }

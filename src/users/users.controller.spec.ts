@@ -1,14 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserPasswordRequest } from './dto/update-user-password.dto';
 import { UnauthorizedException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { MakeCreateUserDtoFaker } from './faker/user.faker';
+import { UpdateUserNicknameRequest } from './dto/update-user-nickName.dto';
 
 describe('UsersController', () => {
   let usersController: UsersController;
-  // let usersService: UsersService;
 
   const mockUsersService = {
     signUpUser: jest.fn((dto: CreateUserDto) =>
@@ -21,8 +21,9 @@ describe('UsersController', () => {
     findExistUser: jest.fn((email: string) =>
       Promise.resolve(email === 'exists@example.com' ? true : false),
     ),
+    updateNickname: jest.fn().mockResolvedValue(undefined),
     updatePassword: jest.fn().mockResolvedValue(undefined),
-    removeAccount: jest.fn().mockResolvedValue(undefined),
+    deleteAccount: jest.fn().mockResolvedValue(undefined),
   };
 
   beforeEach(async () => {
@@ -37,7 +38,6 @@ describe('UsersController', () => {
     }).compile();
 
     usersController = module.get<UsersController>(UsersController);
-    // usersService = module.get<UsersService>(UsersService);
   });
 
   it('should be defined', () => {
@@ -63,38 +63,61 @@ describe('UsersController', () => {
     expect(result).toBeFalsy();
   });
 
+  it('should update nickname when authorized', async () => {
+    const updateDto: UpdateUserNicknameRequest = { nickName: 'new' };
+    const req = { user: { id: 1 } };
+    const result = await usersController.updateNickname(updateDto, req);
+    expect(result).toEqual({ message: 'Nickname change successful.' });
+  });
+
+  it('should throw UnauthorizedException when nickname password from an unauthorized user', async () => {
+    const updateDto: UpdateUserNicknameRequest = { nickName: 'wrong' };
+    mockUsersService.updateNickname = jest
+      .fn()
+      .mockRejectedValue(
+        new UnauthorizedException('This user could not be found.'),
+      );
+    const req = { user: { id: 11111 } };
+    await expect(
+      usersController.updateNickname(updateDto, req),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
   it('should update password when authorized', async () => {
-    const updateDto: UpdateUserDto = { password: 'newpassword' };
-    const req = { user: { email: 'exists@example.com' } };
-    const result = await usersController.updatePassword(
-      'exists@example.com',
-      updateDto,
-      req,
-    );
+    const updateDto: UpdateUserPasswordRequest = { password: 'newpassword' };
+    const req = { user: { id: 1 } };
+    const result = await usersController.updatePassword(updateDto, req);
     expect(result).toEqual({ message: 'Passcode change successful.' });
   });
 
-  it('should throw UnauthorizedException when updating another user', async () => {
-    const updateDto: UpdateUserDto = { password: 'newpassword' };
-    const req = { user: { email: 'wrong@example.com' } };
+  it('should throw UnauthorizedException when updating password from an unauthorized user', async () => {
+    const updateDto: UpdateUserPasswordRequest = { password: 'newpassword' };
+    mockUsersService.updatePassword = jest
+      .fn()
+      .mockRejectedValue(
+        new UnauthorizedException('This user could not be found.'),
+      );
+    const req = { user: { id: 11111 } };
     await expect(
-      usersController.updatePassword('exists@example.com', updateDto, req),
+      usersController.updatePassword(updateDto, req),
     ).rejects.toThrow(UnauthorizedException);
   });
 
   it('should delete account when authorized', async () => {
     const req = { user: { email: 'exists@example.com' } };
-    const result = await usersController.removeAccount(
-      'exists@example.com',
-      req,
-    );
+    const result = await usersController.deleteAccount(req);
     expect(result).toEqual({ message: 'Successfully deleted account' });
   });
 
   it('should throw UnauthorizedException when deleting another user account', async () => {
     const req = { user: { email: 'wrong@example.com' } };
-    await expect(
-      usersController.removeAccount('exists@example.com', req),
-    ).rejects.toThrow(UnauthorizedException);
+    mockUsersService.deleteAccount = jest
+      .fn()
+      .mockRejectedValue(
+        new UnauthorizedException('This user could not be found.'),
+      );
+    await expect(usersController.deleteAccount(req)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 });

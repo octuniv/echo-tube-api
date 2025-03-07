@@ -8,11 +8,11 @@ import {
   Delete,
   UseGuards,
   Req,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserPasswordRequest } from './dto/update-user-password.dto';
+import { UpdateUserNicknameRequest } from './dto/update-user-nickName.dto';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 
 @Controller('users')
@@ -35,29 +35,42 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Patch(':email')
-  async updatePassword(
-    @Param('email') email: string,
-    @Body() updateUserDto: UpdateUserDto,
+  @Patch('nickname')
+  async updateNickname(
+    @Body() UpdateUserNicknameRequest: UpdateUserNicknameRequest,
     @Req() req: any,
   ) {
-    if (req.user.email !== email) {
-      throw new UnauthorizedException('You can only update your own account');
-    }
-    return this.usersService.updatePassword(email, updateUserDto).then(() => {
-      return {
-        message: 'Passcode change successful.',
-      };
-    });
+    const userId = Number(req.user.id);
+    return this.usersService
+      .updateNickname(userId, UpdateUserNicknameRequest)
+      .then(() => {
+        return {
+          message: 'Nickname change successful.',
+        };
+      });
   }
 
   @UseGuards(JwtAuthGuard)
-  @Delete(':email')
-  async removeAccount(@Param('email') email: string, @Req() req: any) {
-    return this.usersService.removeAccount(email).then(() => {
-      if (req.user.email !== email) {
-        throw new UnauthorizedException('You can only delete your own account');
-      }
+  @Patch('password')
+  async updatePassword(
+    @Body() UpdateUserPasswordRequest: UpdateUserPasswordRequest,
+    @Req() req: any,
+  ) {
+    const userId = Number(req.user.id);
+    return this.usersService
+      .updatePassword(userId, UpdateUserPasswordRequest)
+      .then(() => {
+        return {
+          message: 'Passcode change successful.',
+        };
+      });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete()
+  async deleteAccount(@Req() req: any) {
+    const userId = Number(req.user.id);
+    return this.usersService.deleteAccount(userId).then(() => {
       return {
         message: 'Successfully deleted account',
       };

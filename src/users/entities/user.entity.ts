@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  DeleteDateColumn,
 } from 'typeorm';
 import { UserRole } from './user-role.enum';
 import { Post } from '@/posts/entities/post.entity';
@@ -44,4 +45,7 @@ export class User {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date | null;
 }

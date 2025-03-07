@@ -198,6 +198,20 @@ describe('User - /users (e2e)', () => {
       expect(response.body).toMatchObject({
         message: 'Successfully deleted account',
       });
+
+      const deletedUser = await userRepository.findOneBy({
+        email: userInfo.email,
+      });
+
+      expect(deletedUser).toBeNull();
+
+      const softDeletedInfoOfUser = await userRepository.findOne({
+        where: {
+          email: userInfo.email,
+        },
+        withDeleted: true,
+      });
+      expect(softDeletedInfoOfUser).not.toBeNull();
     });
   });
 });

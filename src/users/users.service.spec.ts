@@ -41,11 +41,11 @@ describe('UsersService', () => {
 
   describe('signUpUser', () => {
     const createUserDto = MakeCreateUserDtoFaker();
-    const { name, email, nickName, password } = createUserDto;
+    const { name, email, nickname, password } = createUserDto;
     const hashedPassword = bcrypt.hashSync(password, 10);
     const user = {
       name: name,
-      nickName: nickName,
+      nickname: nickname,
       email: email,
       passwordHash: hashedPassword,
     };
@@ -72,13 +72,13 @@ describe('UsersService', () => {
       );
     });
 
-    it('should throw an error if nickName already exists', async () => {
+    it('should throw an error if nickname already exists', async () => {
       jest.spyOn(service, 'findExistUser').mockResolvedValue(false);
       jest.spyOn(service, 'findAbsenseOfNickname').mockResolvedValue(true);
 
       await expect(service.signUpUser(createUserDto)).rejects.toThrow(
         new BadRequestException(
-          `This nickName ${nickName} is already existed!`,
+          `This nickname ${nickname} is already existed!`,
         ),
       );
     });
@@ -168,22 +168,22 @@ describe('UsersService', () => {
       const UpdateUserNicknameRequest = MakeUpdateUserNicknameRequestFaker();
 
       const user = MakeUserEntityFaker();
-      const newNickname = UpdateUserNicknameRequest.nickName;
+      const newNickname = UpdateUserNicknameRequest.nickname;
 
       jest.spyOn(service, 'findUserById').mockResolvedValue(user);
       jest.spyOn(repository, 'save').mockResolvedValue({
         ...user,
-        nickName: newNickname,
+        nickname: newNickname,
       });
 
       const result = await service.updateNickname(
         user.id,
         UpdateUserNicknameRequest,
       );
-      expect(result.nickName).toBe(newNickname);
+      expect(result.nickname).toBe(newNickname);
       expect(repository.save).toHaveBeenCalledWith({
         ...user,
-        nickName: newNickname,
+        nickname: newNickname,
       });
     });
 
@@ -192,7 +192,7 @@ describe('UsersService', () => {
 
       await expect(
         service.updateNickname(1111, {
-          nickName: 'newNickname',
+          nickname: 'newNickname',
         }),
       ).rejects.toThrow(NotFoundException);
     });

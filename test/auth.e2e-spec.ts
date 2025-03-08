@@ -70,7 +70,7 @@ describe('AuthController (e2e)', () => {
       const userDto = MakeCreateUserDtoFaker();
       await userRepository.save({
         name: userDto.name,
-        nickName: userDto.nickName,
+        nickname: userDto.nickname,
         email: userDto.email,
         passwordHash: bcrypt.hashSync(userDto.password, 10),
       });
@@ -86,7 +86,7 @@ describe('AuthController (e2e)', () => {
       expect(response.body).toHaveProperty('access_token');
       expect(response.body).toHaveProperty('refresh_token');
       expect(response.body.name).toEqual(userDto.name);
-      expect(response.body.nickName).toEqual(userDto.nickName);
+      expect(response.body.nickname).toEqual(userDto.nickname);
       expect(response.body.email).toEqual(userDto.email);
     });
 
@@ -106,7 +106,7 @@ describe('AuthController (e2e)', () => {
       const userDto = MakeCreateUserDtoFaker();
       await userRepository.save({
         name: userDto.name,
-        nickName: userDto.nickName,
+        nickname: userDto.nickname,
         email: userDto.email,
         passwordHash: bcrypt.hashSync(userDto.password, 10),
       });
@@ -134,7 +134,7 @@ describe('AuthController (e2e)', () => {
     beforeEach(async () => {
       await userRepository.save({
         name: userDto.name,
-        nickName: userDto.nickName,
+        nickname: userDto.nickname,
         email: userDto.email,
         passwordHash: bcrypt.hashSync(userDto.password, 10),
       });
@@ -209,7 +209,7 @@ describe('AuthController (e2e)', () => {
     beforeEach(async () => {
       user = await userRepository.save({
         name: userDto.name,
-        nickName: userDto.nickName,
+        nickname: userDto.nickname,
         email: userDto.email,
         passwordHash: bcrypt.hashSync(userDto.password, 10),
       });

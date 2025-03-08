@@ -40,7 +40,7 @@ describe('AuthController', () => {
         access_token: 'access-token',
         refresh_token: 'refresh-token',
         name: 'John',
-        nickName: 'John Doe',
+        nickname: 'John Doe',
         email: 'test@example.com',
       };
 

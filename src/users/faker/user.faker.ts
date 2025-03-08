@@ -4,12 +4,12 @@ import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { User } from '../entities/user.entity';
 import * as bcrypt from 'bcrypt';
 import { UserRole } from '../entities/user-role.enum';
-import { UpdateUserNicknameRequest } from '../dto/update-user-nickName.dto';
+import { UpdateUserNicknameRequest } from '../dto/update-user-nickname.dto';
 
 export const MakeCreateUserDtoFaker = () => {
   const createUserDtoFaker: CreateUserDto = {
     name: faker.person.fullName(),
-    nickName: faker.person.firstName(),
+    nickname: faker.person.firstName(),
     email: faker.internet.email(),
     password: faker.internet.password({ length: 20 }),
   };
@@ -26,7 +26,7 @@ export const MakeUpdateUserPasswordRequestFaker = () => {
 
 export const MakeUpdateUserNicknameRequestFaker = () => {
   const UpdateUserNicknameRequestFaker: UpdateUserNicknameRequest = {
-    nickName: faker.person.firstName(),
+    nickname: faker.person.firstName(),
   };
 
   return UpdateUserNicknameRequestFaker;

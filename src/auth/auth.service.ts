@@ -59,7 +59,7 @@ export class AuthService {
       access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
       refresh_token: refreshToken,
       name: userInfo.name,
-      nickName: userInfo.nickName,
+      nickname: userInfo.nickname,
       email: userInfo.email,
     };
   }

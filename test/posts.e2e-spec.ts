@@ -177,7 +177,7 @@ describe('Posts - /posts (e2e)', () => {
         where: { id: postId },
         relations: ['createdBy'],
       });
-      expect(post.nickName).toBeTruthy();
+      expect(post.nickname).toBeTruthy();
     });
 
     it('should return 401 if not authenticated (실패)', async () => {

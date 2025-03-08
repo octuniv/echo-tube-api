@@ -5,7 +5,7 @@ import { UpdateUserPasswordRequest } from './dto/update-user-password.dto';
 import { UnauthorizedException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { MakeCreateUserDtoFaker } from './faker/user.faker';
-import { UpdateUserNicknameRequest } from './dto/update-user-nickName.dto';
+import { UpdateUserNicknameRequest } from './dto/update-user-nickname.dto';
 
 describe('UsersController', () => {
   let usersController: UsersController;
@@ -64,14 +64,14 @@ describe('UsersController', () => {
   });
 
   it('should update nickname when authorized', async () => {
-    const updateDto: UpdateUserNicknameRequest = { nickName: 'new' };
+    const updateDto: UpdateUserNicknameRequest = { nickname: 'new' };
     const req = { user: { id: 1 } };
     const result = await usersController.updateNickname(updateDto, req);
     expect(result).toEqual({ message: 'Nickname change successful.' });
   });
 
   it('should throw UnauthorizedException when nickname password from an unauthorized user', async () => {
-    const updateDto: UpdateUserNicknameRequest = { nickName: 'wrong' };
+    const updateDto: UpdateUserNicknameRequest = { nickname: 'wrong' };
     mockUsersService.updateNickname = jest
       .fn()
       .mockRejectedValue(

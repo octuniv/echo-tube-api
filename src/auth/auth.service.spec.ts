@@ -105,7 +105,7 @@ describe('AuthService', () => {
         access_token: 'access-token',
         refresh_token: 'refresh-token',
         name: mockUser.name,
-        nickName: mockUser.nickName,
+        nickname: mockUser.nickname,
         email: mockUser.email,
       };
 

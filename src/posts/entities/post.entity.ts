@@ -40,10 +40,10 @@ export class Post {
   deletedAt: Date | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true, select: false })
-  nickName?: string;
+  nickname?: string;
 
   @AfterLoad()
   setNickname() {
-    this.nickName = this.createdBy?.nickName || null;
+    this.nickname = this.createdBy?.nickname || null;
   }
 }

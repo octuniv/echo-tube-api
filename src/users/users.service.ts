@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import * as bcrypt from 'bcrypt';
-import { UpdateUserNicknameRequest } from './dto/update-user-nickName.dto';
+import { UpdateUserNicknameRequest } from './dto/update-user-nickname.dto';
 
 @Injectable()
 export class UsersService {
@@ -20,21 +20,21 @@ export class UsersService {
   ) {}
 
   async signUpUser(createUserDto: CreateUserDto) {
-    const { name, nickName, email, password } = createUserDto;
+    const { name, nickname, email, password } = createUserDto;
     const checkExist = await this.findExistUser(email);
     if (checkExist) {
       throw new BadRequestException(`This email ${email} is already existed!`);
     }
-    const nickNameExist = await this.findAbsenseOfNickname(nickName);
-    if (nickNameExist) {
+    const nicknameExist = await this.findAbsenseOfNickname(nickname);
+    if (nicknameExist) {
       throw new BadRequestException(
-        `This nickName ${nickName} is already existed!`,
+        `This nickname ${nickname} is already existed!`,
       );
     }
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = this.usersRepository.create({
       name: name,
-      nickName: nickName,
+      nickname: nickname,
       email: email,
       passwordHash: hashedPassword,
     });
@@ -79,10 +79,10 @@ export class UsersService {
       });
   }
 
-  async findAbsenseOfNickname(nickName: string) {
+  async findAbsenseOfNickname(nickname: string) {
     return this.usersRepository
       .findOne({
-        where: { nickName: nickName },
+        where: { nickname: nickname },
       })
       .then((user) => {
         if (user) {
@@ -101,7 +101,7 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('This user could not be found.');
     }
-    user.nickName = updateNicknameDto.nickName;
+    user.nickname = updateNicknameDto.nickname;
     return this.usersRepository.save(user);
   }
 

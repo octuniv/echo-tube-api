@@ -12,7 +12,7 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserPasswordRequest } from './dto/update-user-password.dto';
-import { UpdateUserNicknameRequest } from './dto/update-user-nickName.dto';
+import { UpdateUserNicknameRequest } from './dto/update-user-nickname.dto';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 
 @Controller('users')

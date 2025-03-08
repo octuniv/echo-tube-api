@@ -85,7 +85,7 @@ describe('User - /users (e2e)', () => {
     expect(response.body).toHaveProperty('access_token');
     expect(response.body).toHaveProperty('refresh_token');
     expect(response.body.name).toEqual(userInfo.name);
-    expect(response.body.nickName).toEqual(userInfo.nickName);
+    expect(response.body.nickname).toEqual(userInfo.nickname);
     expect(response.body.email).toEqual(userInfo.email);
 
     authToken = response.body.access_token;
@@ -108,7 +108,7 @@ describe('User - /users (e2e)', () => {
         .post('/users')
         .send({
           name: 'John Doe',
-          nickName: 'John',
+          nickname: 'John',
           email: userInfo.email,
           password: userInfo.password,
         } satisfies CreateUserDto)
@@ -119,19 +119,19 @@ describe('User - /users (e2e)', () => {
       });
     });
 
-    it('should return BadRequest if you put an existed nickName', async () => {
+    it('should return BadRequest if you put an existed nickname', async () => {
       const response = await request(app.getHttpServer())
         .post('/users')
         .send({
           name: 'John Doe',
-          nickName: userInfo.nickName,
+          nickname: userInfo.nickname,
           email: 'another@test.com',
           password: 'another1111',
         } satisfies CreateUserDto)
         .expect(400);
 
       expect(response.body).toMatchObject({
-        message: `This nickName ${userInfo.nickName} is already existed!`,
+        message: `This nickname ${userInfo.nickname} is already existed!`,
       });
     });
   });
@@ -141,7 +141,7 @@ describe('User - /users (e2e)', () => {
       const anotherUser = MakeCreateUserDtoFaker();
       await userRepository.save({
         name: anotherUser.name,
-        nickName: anotherUser.nickName,
+        nickname: anotherUser.nickname,
         email: anotherUser.email,
         passwordHash: bcrypt.hashSync(anotherUser.password, 10),
       });

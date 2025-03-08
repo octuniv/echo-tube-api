@@ -101,6 +101,17 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('This user could not be found.');
     }
+
+    const nicknameExist = await this.findAbsenseOfNickname(
+      updateNicknameDto.nickname,
+    );
+
+    if (nicknameExist) {
+      throw new BadRequestException(
+        `This nickname ${updateNicknameDto.nickname} is already existed!`,
+      );
+    }
+
     user.nickname = updateNicknameDto.nickname;
     return this.usersRepository.save(user);
   }

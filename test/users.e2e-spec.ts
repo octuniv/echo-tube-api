@@ -15,6 +15,7 @@ import { TestE2EDbModule } from './test-db.e2e.module';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
+import { UpdateUserNicknameRequest } from '@/users/dto/update-user-nickname.dto';
 
 describe('User - /users (e2e)', () => {
   let app: INestApplication;
@@ -58,6 +59,7 @@ describe('User - /users (e2e)', () => {
   });
 
   const userInfo = MakeCreateUserDtoFaker();
+  const anotherUserInfo = MakeCreateUserDtoFaker();
   const updateUserPasswordRequest = MakeUpdateUserPasswordRequestFaker();
   const updateUserNicknameRequest = MakeUpdateUserNicknameRequestFaker();
 
@@ -89,6 +91,19 @@ describe('User - /users (e2e)', () => {
     expect(response.body.email).toEqual(userInfo.email);
 
     authToken = response.body.access_token;
+  });
+
+  beforeAll(async () => {
+    // sign up another user
+    const response = await request(app.getHttpServer())
+      .post('/users')
+      .send(anotherUserInfo)
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      email: anotherUserInfo.email,
+      message: 'Successfully created account',
+    });
   });
 
   describe('About creating User', () => {
@@ -161,7 +176,21 @@ describe('User - /users (e2e)', () => {
   });
 
   describe('About updating nickname', () => {
-    it('should update the user password with valid JWT', async () => {
+    it('should fail to update the user nickname if the nickname is already existed.', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/users/nickname`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          nickname: anotherUserInfo.nickname,
+        } satisfies UpdateUserNicknameRequest)
+        .expect(400);
+
+      expect(response.body).toMatchObject({
+        message: `This nickname ${anotherUserInfo.nickname} is already existed!`,
+      });
+    });
+
+    it('should update the user nickname with valid JWT', async () => {
       const response = await request(app.getHttpServer())
         .patch(`/users/nickname`)
         .set('Authorization', `Bearer ${authToken}`)

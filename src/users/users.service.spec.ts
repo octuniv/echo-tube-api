@@ -15,6 +15,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { UpdateUserNicknameRequest } from './dto/update-user-nickname.dto';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -171,6 +172,7 @@ describe('UsersService', () => {
       const newNickname = UpdateUserNicknameRequest.nickname;
 
       jest.spyOn(service, 'findUserById').mockResolvedValue(user);
+      jest.spyOn(service, 'findAbsenseOfNickname').mockResolvedValue(false);
       jest.spyOn(repository, 'save').mockResolvedValue({
         ...user,
         nickname: newNickname,
@@ -195,6 +197,19 @@ describe('UsersService', () => {
           nickname: 'newNickname',
         }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException if nickname is already existed.', async () => {
+      const user = MakeUserEntityFaker();
+
+      jest.spyOn(service, 'findUserById').mockResolvedValue(user);
+      jest.spyOn(service, 'findAbsenseOfNickname').mockResolvedValue(true);
+
+      await expect(
+        service.updateNickname(1, {
+          nickname: 'duplicatedNickname',
+        } satisfies UpdateUserNicknameRequest),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

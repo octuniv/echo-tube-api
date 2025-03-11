@@ -1,5 +1,5 @@
 import {
-  BadRequestException,
+  ConflictException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -23,11 +23,11 @@ export class UsersService {
     const { name, nickname, email, password } = createUserDto;
     const checkExist = await this.findExistUser(email);
     if (checkExist) {
-      throw new BadRequestException(`This email ${email} is already existed!`);
+      throw new ConflictException(`This email ${email} is already existed!`);
     }
     const nicknameExist = await this.findAbsenseOfNickname(nickname);
     if (nicknameExist) {
-      throw new BadRequestException(
+      throw new ConflictException(
         `This nickname ${nickname} is already existed!`,
       );
     }
@@ -107,7 +107,7 @@ export class UsersService {
     );
 
     if (nicknameExist) {
-      throw new BadRequestException(
+      throw new ConflictException(
         `This nickname ${updateNicknameDto.nickname} is already existed!`,
       );
     }

@@ -10,7 +10,7 @@ import {
   MakeUserEntityFaker,
 } from './faker/user.faker';
 import {
-  BadRequestException,
+  ConflictException,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
@@ -69,7 +69,7 @@ describe('UsersService', () => {
       jest.spyOn(service, 'findExistUser').mockResolvedValue(true);
 
       await expect(service.signUpUser(createUserDto)).rejects.toThrow(
-        new BadRequestException(`This email ${email} is already existed!`),
+        new ConflictException(`This email ${email} is already existed!`),
       );
     });
 
@@ -78,9 +78,7 @@ describe('UsersService', () => {
       jest.spyOn(service, 'findAbsenseOfNickname').mockResolvedValue(true);
 
       await expect(service.signUpUser(createUserDto)).rejects.toThrow(
-        new BadRequestException(
-          `This nickname ${nickname} is already existed!`,
-        ),
+        new ConflictException(`This nickname ${nickname} is already existed!`),
       );
     });
   });
@@ -199,7 +197,7 @@ describe('UsersService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw BadRequestException if nickname is already existed.', async () => {
+    it('should throw ConflictException if nickname is already existed.', async () => {
       const user = MakeUserEntityFaker();
 
       jest.spyOn(service, 'findUserById').mockResolvedValue(user);
@@ -209,7 +207,7 @@ describe('UsersService', () => {
         service.updateNickname(1, {
           nickname: 'duplicatedNickname',
         } satisfies UpdateUserNicknameRequest),
-      ).rejects.toThrow(BadRequestException);
+      ).rejects.toThrow(ConflictException);
     });
   });
 

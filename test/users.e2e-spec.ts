@@ -118,7 +118,7 @@ describe('User - /users (e2e)', () => {
         .expect(400);
     });
 
-    it('should return BadRequest if you put an existed Email', async () => {
+    it('should return ConflictException if you put an existed Email', async () => {
       const response = await request(app.getHttpServer())
         .post('/users')
         .send({
@@ -127,14 +127,14 @@ describe('User - /users (e2e)', () => {
           email: userInfo.email,
           password: userInfo.password,
         } satisfies CreateUserDto)
-        .expect(400);
+        .expect(409);
 
       expect(response.body).toMatchObject({
         message: `This email ${userInfo.email} is already existed!`,
       });
     });
 
-    it('should return BadRequest if you put an existed nickname', async () => {
+    it('should return ConflictException if you put an existed nickname', async () => {
       const response = await request(app.getHttpServer())
         .post('/users')
         .send({
@@ -143,7 +143,7 @@ describe('User - /users (e2e)', () => {
           email: 'another@test.com',
           password: 'another1111',
         } satisfies CreateUserDto)
-        .expect(400);
+        .expect(409);
 
       expect(response.body).toMatchObject({
         message: `This nickname ${userInfo.nickname} is already existed!`,
@@ -176,14 +176,14 @@ describe('User - /users (e2e)', () => {
   });
 
   describe('About updating nickname', () => {
-    it('should fail to update the user nickname if the nickname is already existed.', async () => {
+    it('should throw ConflictException when to update the user nickname if the nickname is already existed.', async () => {
       const response = await request(app.getHttpServer())
         .patch(`/users/nickname`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           nickname: anotherUserInfo.nickname,
         } satisfies UpdateUserNicknameRequest)
-        .expect(400);
+        .expect(409);
 
       expect(response.body).toMatchObject({
         message: `This nickname ${anotherUserInfo.nickname} is already existed!`,

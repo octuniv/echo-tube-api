@@ -94,6 +94,7 @@ describe('UsersService', () => {
       expect(result).toEqual(mockUser);
       expect(repository.findOne).toHaveBeenCalledWith({
         where: { id: mockUser.id },
+        withDeleted: true,
       });
     });
 
@@ -114,7 +115,10 @@ describe('UsersService', () => {
       const result = await service.findUserByEmail(email);
 
       expect(result).toEqual(mockUser);
-      expect(repository.findOne).toHaveBeenCalledWith({ where: { email } });
+      expect(repository.findOne).toHaveBeenCalledWith({
+        where: { email },
+        withDeleted: true,
+      });
     });
 
     it('should throw NotFoundException Error if no user is found', async () => {

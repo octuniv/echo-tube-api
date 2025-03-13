@@ -31,7 +31,8 @@ export class UsersController {
 
   @Get(':email')
   async findExistUser(@Param('email') email: string) {
-    return this.usersService.findExistUser(email);
+    const existed = await this.usersService.findExistUser(email);
+    return { existed };
   }
 
   @UseGuards(JwtAuthGuard)

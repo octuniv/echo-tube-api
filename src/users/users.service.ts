@@ -46,6 +46,7 @@ export class UsersService {
       where: {
         id: id,
       },
+      withDeleted: true,
     });
   }
 
@@ -53,6 +54,7 @@ export class UsersService {
     return this.usersRepository
       .findOne({
         where: { email: email },
+        withDeleted: true,
       })
       .then((user) => {
         if (user) {
@@ -83,6 +85,7 @@ export class UsersService {
     return this.usersRepository
       .findOne({
         where: { nickname: nickname },
+        withDeleted: true,
       })
       .then((user) => {
         if (user) {

@@ -58,14 +58,14 @@ describe('UsersController', () => {
   describe('Find ExistUser', () => {
     it('should find an existing user', async () => {
       const result = await usersController.findExistUser('exists@example.com');
-      expect(result).toBeTruthy();
+      expect(result).toEqual({ existed: true });
     });
 
     it('should return false if user not found', async () => {
       const result = await usersController.findExistUser(
         'notfound@example.com',
       );
-      expect(result).toBeFalsy();
+      expect(result).toEqual({ existed: false });
     });
   });
 

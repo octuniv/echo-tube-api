@@ -151,6 +151,24 @@ describe('User - /users (e2e)', () => {
     });
   });
 
+  describe('Inquiry User By Email', () => {
+    it('return true when looking up existing accounts', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/users/${userInfo.email}`)
+        .expect(200);
+
+      expect(response.body).toEqual({ existed: true });
+    });
+
+    it('return false when looking up existing accounts', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/users/notExist@email.com`)
+        .expect(200);
+
+      expect(response.body).toEqual({ existed: false });
+    });
+  });
+
   describe('For the rest of the action without the token', () => {
     it('should not update and delete accounts that do not have access_token', async () => {
       const anotherUser = MakeCreateUserDtoFaker();
@@ -241,6 +259,91 @@ describe('User - /users (e2e)', () => {
         withDeleted: true,
       });
       expect(softDeletedInfoOfUser).not.toBeNull();
+    });
+
+    it('even if the account is deleted, the nickname and e-mail should be able to be viewed.', async () => {
+      // sign up a new user
+      const forThisTestUser = MakeCreateUserDtoFaker();
+      const updateUserNicknameRequest = {
+        nickname: forThisTestUser.nickname,
+      } satisfies UpdateUserNicknameRequest;
+
+      let response = await request(app.getHttpServer())
+        .post('/users')
+        .send(forThisTestUser)
+        .expect(201);
+
+      expect(response.body).toMatchObject({
+        email: forThisTestUser.email,
+        message: 'Successfully created account',
+      });
+
+      // login
+      response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: forThisTestUser.email,
+          password: forThisTestUser.password,
+        } satisfies LoginUserDto)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('access_token');
+      let thisAuthToken = response.body.access_token;
+
+      // delete account
+
+      response = await request(app.getHttpServer())
+        .delete(`/users`)
+        .set('Authorization', `Bearer ${thisAuthToken}`)
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        message: 'Successfully deleted account',
+      });
+
+      // inquiry email
+      response = await request(app.getHttpServer())
+        .get(`/users/${forThisTestUser.email}`)
+        .expect(200);
+
+      expect(response.body).toEqual({ existed: true });
+
+      // sign up a new user
+      const userForCheck = MakeCreateUserDtoFaker();
+      response = await request(app.getHttpServer())
+        .post('/users')
+        .send(userForCheck)
+        .expect(201);
+
+      expect(response.body).toMatchObject({
+        email: userForCheck.email,
+        message: 'Successfully created account',
+      });
+
+      // login
+      response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: userForCheck.email,
+          password: userForCheck.password,
+        } satisfies LoginUserDto)
+        .expect(200);
+
+      expect(response.body).toHaveProperty('access_token');
+      thisAuthToken = response.body.access_token;
+
+      // update nickname
+      response = await request(app.getHttpServer())
+        .patch(`/users/nickname`)
+        .set('Authorization', `Bearer ${thisAuthToken}`)
+        .send(updateUserNicknameRequest)
+        .expect(409);
+
+      expect(response.body).toEqual({
+        message: `This nickname ${forThisTestUser.nickname} is already existed!`,
+        error: 'Conflict',
+        statusCode: 409,
+      });
     });
   });
 });

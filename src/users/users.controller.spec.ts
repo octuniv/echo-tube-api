@@ -6,6 +6,8 @@ import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { MakeCreateUserDtoFaker } from './faker/user.faker';
 import { UpdateUserNicknameRequest } from './dto/update-user-nickname.dto';
+import { CheckEmailRequest } from './dto/check-user-email.dto';
+import { CheckNicknameRequest } from './dto/check-user-nickname.dto';
 
 describe('UsersController', () => {
   let usersController: UsersController;
@@ -24,6 +26,9 @@ describe('UsersController', () => {
     updateNickname: jest.fn().mockResolvedValue(undefined),
     updatePassword: jest.fn().mockResolvedValue(undefined),
     deleteAccount: jest.fn().mockResolvedValue(undefined),
+    findAbsenseOfNickname: jest.fn((nickname: string) =>
+      Promise.resolve(nickname === 'exists' ? true : false),
+    ),
   };
 
   beforeEach(async () => {
@@ -55,17 +60,39 @@ describe('UsersController', () => {
     });
   });
 
-  describe('Find ExistUser', () => {
-    it('should find an existing user', async () => {
-      const result = await usersController.findExistUser('exists@example.com');
-      expect(result).toEqual({ existed: true });
+  describe('Check email duplication', () => {
+    it('should check an existing user', async () => {
+      const checkEmailRequest = {
+        email: 'exists@example.com',
+      } satisfies CheckEmailRequest;
+      const result = await usersController.checkEmail(checkEmailRequest);
+      expect(result).toEqual({ exists: true });
     });
 
     it('should return false if user not found', async () => {
-      const result = await usersController.findExistUser(
-        'notfound@example.com',
-      );
-      expect(result).toEqual({ existed: false });
+      const checkEmailRequest = {
+        email: 'notfound@example.com',
+      } satisfies CheckEmailRequest;
+      const result = await usersController.checkEmail(checkEmailRequest);
+      expect(result).toEqual({ exists: false });
+    });
+  });
+
+  describe('Check nickname duplication', () => {
+    it('should check an existing user', async () => {
+      const checkNicknameRequest = {
+        nickname: 'exists',
+      } satisfies CheckNicknameRequest;
+      const result = await usersController.checkNickname(checkNicknameRequest);
+      expect(result).toEqual({ exists: true });
+    });
+
+    it('should check an existing user', async () => {
+      const checkNicknameRequest = {
+        nickname: 'nonExists',
+      } satisfies CheckNicknameRequest;
+      const result = await usersController.checkNickname(checkNicknameRequest);
+      expect(result).toEqual({ exists: false });
     });
   });
 

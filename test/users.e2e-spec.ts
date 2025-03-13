@@ -16,6 +16,8 @@ import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
 import { UpdateUserNicknameRequest } from '@/users/dto/update-user-nickname.dto';
+import { CheckEmailRequest } from '@/users/dto/check-user-email.dto';
+import { CheckNicknameRequest } from '@/users/dto/check-user-nickname.dto';
 
 describe('User - /users (e2e)', () => {
   let app: INestApplication;
@@ -151,21 +153,43 @@ describe('User - /users (e2e)', () => {
     });
   });
 
-  describe('Inquiry User By Email', () => {
+  describe('Check email duplication', () => {
     it('return true when looking up existing accounts', async () => {
       const response = await request(app.getHttpServer())
-        .get(`/users/${userInfo.email}`)
+        .post('/users/check-email')
+        .send({ email: userInfo.email } satisfies CheckEmailRequest)
         .expect(200);
 
-      expect(response.body).toEqual({ existed: true });
+      expect(response.body).toEqual({ exists: true });
     });
 
     it('return false when looking up existing accounts', async () => {
       const response = await request(app.getHttpServer())
-        .get(`/users/notExist@email.com`)
+        .post('/users/check-email')
+        .send({ email: 'non-exist@email.com' } satisfies CheckEmailRequest)
         .expect(200);
 
-      expect(response.body).toEqual({ existed: false });
+      expect(response.body).toEqual({ exists: false });
+    });
+  });
+
+  describe('Check nickname duplication', () => {
+    it('return true when looking up existing accounts', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/users/check-nickname')
+        .send({ nickname: userInfo.nickname } satisfies CheckNicknameRequest)
+        .expect(200);
+
+      expect(response.body).toEqual({ exists: true });
+    });
+
+    it('return false when looking up existing accounts', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/users/check-nickname')
+        .send({ nickname: 'non-exists' } satisfies CheckNicknameRequest)
+        .expect(200);
+
+      expect(response.body).toEqual({ exists: false });
     });
   });
 
@@ -264,9 +288,6 @@ describe('User - /users (e2e)', () => {
     it('even if the account is deleted, the nickname and e-mail should be able to be viewed.', async () => {
       // sign up a new user
       const forThisTestUser = MakeCreateUserDtoFaker();
-      const updateUserNicknameRequest = {
-        nickname: forThisTestUser.nickname,
-      } satisfies UpdateUserNicknameRequest;
 
       let response = await request(app.getHttpServer())
         .post('/users')
@@ -288,7 +309,7 @@ describe('User - /users (e2e)', () => {
         .expect(200);
 
       expect(response.body).toHaveProperty('access_token');
-      let thisAuthToken = response.body.access_token;
+      const thisAuthToken = response.body.access_token;
 
       // delete account
 
@@ -301,49 +322,23 @@ describe('User - /users (e2e)', () => {
         message: 'Successfully deleted account',
       });
 
-      // inquiry email
+      // check email duplication
       response = await request(app.getHttpServer())
-        .get(`/users/${forThisTestUser.email}`)
+        .post('/users/check-email')
+        .send({ email: forThisTestUser.email } satisfies CheckEmailRequest)
         .expect(200);
 
-      expect(response.body).toEqual({ existed: true });
+      expect(response.body).toEqual({ exists: true });
 
-      // sign up a new user
-      const userForCheck = MakeCreateUserDtoFaker();
+      // check nickname duplication
       response = await request(app.getHttpServer())
-        .post('/users')
-        .send(userForCheck)
-        .expect(201);
-
-      expect(response.body).toMatchObject({
-        email: userForCheck.email,
-        message: 'Successfully created account',
-      });
-
-      // login
-      response = await request(app.getHttpServer())
-        .post('/auth/login')
+        .post('/users/check-nickname')
         .send({
-          email: userForCheck.email,
-          password: userForCheck.password,
-        } satisfies LoginUserDto)
+          nickname: forThisTestUser.nickname,
+        } satisfies CheckNicknameRequest)
         .expect(200);
 
-      expect(response.body).toHaveProperty('access_token');
-      thisAuthToken = response.body.access_token;
-
-      // update nickname
-      response = await request(app.getHttpServer())
-        .patch(`/users/nickname`)
-        .set('Authorization', `Bearer ${thisAuthToken}`)
-        .send(updateUserNicknameRequest)
-        .expect(409);
-
-      expect(response.body).toEqual({
-        message: `This nickname ${forThisTestUser.nickname} is already existed!`,
-        error: 'Conflict',
-        statusCode: 409,
-      });
+      expect(response.body).toEqual({ exists: true });
     });
   });
 });

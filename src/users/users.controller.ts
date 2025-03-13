@@ -1,19 +1,20 @@
 import {
   Controller,
-  Get,
   Post,
   Body,
   Patch,
-  Param,
   Delete,
   UseGuards,
   Req,
+  HttpCode,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserPasswordRequest } from './dto/update-user-password.dto';
 import { UpdateUserNicknameRequest } from './dto/update-user-nickname.dto';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
+import { CheckEmailRequest } from './dto/check-user-email.dto';
+import { CheckNicknameRequest } from './dto/check-user-nickname.dto';
 
 @Controller('users')
 export class UsersController {
@@ -29,10 +30,20 @@ export class UsersController {
     });
   }
 
-  @Get(':email')
-  async findExistUser(@Param('email') email: string) {
-    const existed = await this.usersService.findExistUser(email);
-    return { existed };
+  @Post('check-email')
+  @HttpCode(200)
+  async checkEmail(@Body() checkEmail: CheckEmailRequest) {
+    const exists = await this.usersService.findExistUser(checkEmail.email);
+    return { exists };
+  }
+
+  @Post('check-nickname')
+  @HttpCode(200)
+  async checkNickname(@Body() checkNickname: CheckNicknameRequest) {
+    const exists = await this.usersService.findAbsenseOfNickname(
+      checkNickname.nickname,
+    );
+    return { exists };
   }
 
   @UseGuards(JwtAuthGuard)

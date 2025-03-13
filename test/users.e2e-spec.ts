@@ -163,7 +163,7 @@ describe('User - /users (e2e)', () => {
       expect(response.body).toEqual({ exists: true });
     });
 
-    it('return false when looking up existing accounts', async () => {
+    it('return false when looking up non-existing accounts', async () => {
       const response = await request(app.getHttpServer())
         .post('/users/check-email')
         .send({ email: 'non-exist@email.com' } satisfies CheckEmailRequest)
@@ -183,7 +183,7 @@ describe('User - /users (e2e)', () => {
       expect(response.body).toEqual({ exists: true });
     });
 
-    it('return false when looking up existing accounts', async () => {
+    it('return false when looking up non-existing accounts', async () => {
       const response = await request(app.getHttpServer())
         .post('/users/check-nickname')
         .send({ nickname: 'non-exists' } satisfies CheckNicknameRequest)

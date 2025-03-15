@@ -18,6 +18,7 @@ import { LoginUserDto } from '@/auth/dto/login-user.dto';
 import { UpdateUserNicknameRequest } from '@/users/dto/update-user-nickname.dto';
 import { CheckEmailRequest } from '@/users/dto/check-user-email.dto';
 import { CheckNicknameRequest } from '@/users/dto/check-user-nickname.dto';
+import { UpdateUserPasswordRequest } from '@/users/dto/update-user-password.dto';
 
 describe('User - /users (e2e)', () => {
   let app: INestApplication;
@@ -109,7 +110,7 @@ describe('User - /users (e2e)', () => {
   });
 
   describe('About creating User', () => {
-    it('should return BadRequest when some of the information is not included in the signUp', async () => {
+    it('should return badrequest when some of the information is not included in the signUp', async () => {
       const anotherUserInfo = MakeCreateUserDtoFaker();
       await request(app.getHttpServer())
         .post('/users')
@@ -120,7 +121,7 @@ describe('User - /users (e2e)', () => {
         .expect(400);
     });
 
-    it('should return ConflictException if you put an existed Email', async () => {
+    it('should return conflictException if you put an existed Email', async () => {
       const response = await request(app.getHttpServer())
         .post('/users')
         .send({
@@ -136,7 +137,7 @@ describe('User - /users (e2e)', () => {
       });
     });
 
-    it('should return ConflictException if you put an existed nickname', async () => {
+    it('should return conflictException if you put an existed nickname', async () => {
       const response = await request(app.getHttpServer())
         .post('/users')
         .send({
@@ -218,7 +219,7 @@ describe('User - /users (e2e)', () => {
   });
 
   describe('About updating nickname', () => {
-    it('should throw ConflictException when to update the user nickname if the nickname is already existed.', async () => {
+    it('should throw conflictException when to update the user nickname if the nickname is already existed.', async () => {
       const response = await request(app.getHttpServer())
         .patch(`/users/nickname`)
         .set('Authorization', `Bearer ${authToken}`)
@@ -229,6 +230,33 @@ describe('User - /users (e2e)', () => {
 
       expect(response.body).toMatchObject({
         message: `This nickname ${anotherUserInfo.nickname} is already existed!`,
+      });
+    });
+
+    it('should throw unauthorized error when to update the user nickname with invalid JWT', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/users/nickname`)
+        .set('Authorization', `Bearer nothing`)
+        .send(updateUserNicknameRequest)
+        .expect(401);
+
+      expect(response.body).toEqual({
+        message: 'Unauthorized',
+        statusCode: 401,
+      });
+    });
+
+    it('should throw badrequest error when to update empty nickname with valid JWT', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/users/nickname`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ nickname: '' } satisfies UpdateUserNicknameRequest)
+        .expect(400);
+
+      expect(response.body).toEqual({
+        error: 'Bad Request',
+        message: ['nickname should not be empty'],
+        statusCode: 400,
       });
     });
 
@@ -246,6 +274,33 @@ describe('User - /users (e2e)', () => {
   });
 
   describe('About updating password', () => {
+    it('should throw unauthorized error when update the user password with invalid JWT', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/users/password`)
+        .set('Authorization', `Bearer nothing`)
+        .send(updateUserPasswordRequest)
+        .expect(401);
+
+      expect(response.body).toEqual({
+        message: 'Unauthorized',
+        statusCode: 401,
+      });
+    });
+
+    it('should throw badreqeust error when update empty password with valid JWT', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/users/password`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ password: '' } satisfies UpdateUserPasswordRequest)
+        .expect(400);
+
+      expect(response.body).toEqual({
+        error: 'Bad Request',
+        message: ['password should not be empty'],
+        statusCode: 400,
+      });
+    });
+
     it('should update the user password with valid JWT', async () => {
       const response = await request(app.getHttpServer())
         .patch(`/users/password`)
@@ -285,6 +340,18 @@ describe('User - /users (e2e)', () => {
       expect(softDeletedInfoOfUser).not.toBeNull();
     });
 
+    it('should throw unauthorized error if input wronged JWT Token.', async () => {
+      const response = await request(app.getHttpServer())
+        .delete('/users')
+        .set('Authorization', `Bearer nothing`)
+        .expect(401);
+
+      expect(response.body).toEqual({
+        message: 'Unauthorized',
+        statusCode: 401,
+      });
+    });
+
     it('even if the account is deleted, the nickname and e-mail should be able to be viewed.', async () => {
       // sign up a new user
       const forThisTestUser = MakeCreateUserDtoFaker();
@@ -312,7 +379,6 @@ describe('User - /users (e2e)', () => {
       const thisAuthToken = response.body.access_token;
 
       // delete account
-
       response = await request(app.getHttpServer())
         .delete(`/users`)
         .set('Authorization', `Bearer ${thisAuthToken}`)

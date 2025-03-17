@@ -16,9 +16,9 @@ describe('AuthService', () => {
   let refreshTokenRepo: RefreshTokenRepository;
 
   const mockUsersService = {
-    findUserByEmail: jest.fn(),
-    findExistUser: jest.fn(),
-    findUserById: jest.fn(),
+    getUserByEmail: jest.fn(),
+    isUserExists: jest.fn(),
+    getUserById: jest.fn(),
   };
 
   const mockJwtService = {
@@ -66,19 +66,19 @@ describe('AuthService', () => {
       const password = 'password123';
       mockUser.passwordHash = await bcrypt.hash(password, 10);
 
-      mockUsersService.findUserByEmail.mockResolvedValue(mockUser);
+      mockUsersService.getUserByEmail.mockResolvedValue(mockUser);
 
       const result = await authService.validateUser(
         mockUser.email,
         'password123',
       );
 
-      expect(usersService.findUserByEmail).toHaveBeenCalledWith(mockUser.email);
+      expect(usersService.getUserByEmail).toHaveBeenCalledWith(mockUser.email);
       expect(result).toEqual(mockUser);
     });
 
     it('should throw UnauthorizedException if credentials are invalid', async () => {
-      mockUsersService.findUserByEmail.mockRejectedValue(
+      mockUsersService.getUserByEmail.mockRejectedValue(
         new NotFoundException(),
       );
 
@@ -88,7 +88,7 @@ describe('AuthService', () => {
     });
 
     it('should handle unexpected errors during user validation', async () => {
-      mockUsersService.findUserByEmail.mockRejectedValue(
+      mockUsersService.getUserByEmail.mockRejectedValue(
         new Error('Database connection failed'),
       );
 
@@ -111,7 +111,7 @@ describe('AuthService', () => {
 
       mockJwtService.sign.mockReturnValueOnce(mockResult.refresh_token);
       mockJwtService.sign.mockReturnValueOnce(mockResult.access_token);
-      mockUsersService.findUserById.mockResolvedValue(mockUser);
+      mockUsersService.getUserById.mockResolvedValue(mockUser);
 
       const result = await authService.login(mockUser);
 
@@ -137,7 +137,7 @@ describe('AuthService', () => {
       mockRefreshTokenRepo.revokeToken.mockResolvedValue(undefined);
       mockJwtService.sign.mockReturnValueOnce(mockNewToken);
       mockRefreshTokenRepo.saveToken.mockResolvedValue(undefined);
-      mockUsersService.findUserByEmail.mockResolvedValue(mockUser);
+      mockUsersService.getUserByEmail.mockResolvedValue(mockUser);
 
       // Call the method
       const result = await authService.refreshToken(mockOldToken);

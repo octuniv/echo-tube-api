@@ -21,8 +21,8 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  async signUpUser(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.signUpUser(createUserDto).then((res) => {
+  async createUser(@Body() createUserDto: CreateUserDto) {
+    return this.usersService.createUser(createUserDto).then((res) => {
       return {
         email: res.email,
         message: 'Successfully created account',
@@ -32,15 +32,15 @@ export class UsersController {
 
   @Post('check-email')
   @HttpCode(200)
-  async checkEmail(@Body() checkEmail: CheckEmailRequest) {
-    const exists = await this.usersService.findExistUser(checkEmail.email);
+  async checkEmailAvailability(@Body() checkEmail: CheckEmailRequest) {
+    const exists = await this.usersService.isUserExists(checkEmail.email);
     return { exists };
   }
 
   @Post('check-nickname')
   @HttpCode(200)
-  async checkNickname(@Body() checkNickname: CheckNicknameRequest) {
-    const exists = await this.usersService.findAbsenseOfNickname(
+  async checkNicknameAvailability(@Body() checkNickname: CheckNicknameRequest) {
+    const exists = await this.usersService.isNicknameAvailable(
       checkNickname.nickname,
     );
     return { exists };
@@ -49,40 +49,36 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @Patch('nickname')
   async updateNickname(
-    @Body() UpdateUserNicknameRequest: UpdateUserNicknameRequest,
+    @Body() updateDto: UpdateUserNicknameRequest,
     @Req() req: any,
   ) {
     const userId = Number(req.user.id);
-    return this.usersService
-      .updateNickname(userId, UpdateUserNicknameRequest)
-      .then(() => {
-        return {
-          message: 'Nickname change successful.',
-        };
-      });
+    return this.usersService.updateUserNickname(userId, updateDto).then(() => {
+      return {
+        message: 'Nickname change successful.',
+      };
+    });
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch('password')
   async updatePassword(
-    @Body() UpdateUserPasswordRequest: UpdateUserPasswordRequest,
+    @Body() updateDto: UpdateUserPasswordRequest,
     @Req() req: any,
   ) {
     const userId = Number(req.user.id);
-    return this.usersService
-      .updatePassword(userId, UpdateUserPasswordRequest)
-      .then(() => {
-        return {
-          message: 'Passcode change successful.',
-        };
-      });
+    return this.usersService.updateUserPassword(userId, updateDto).then(() => {
+      return {
+        message: 'Passcode change successful.',
+      };
+    });
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete()
-  async deleteAccount(@Req() req: any) {
+  async deleteUser(@Req() req: any) {
     const userId = Number(req.user.id);
-    return this.usersService.deleteAccount(userId).then(() => {
+    return this.usersService.softDeleteUser(userId).then(() => {
       return {
         message: 'Successfully deleted account',
       };

@@ -13,20 +13,20 @@ describe('UsersController', () => {
   let usersController: UsersController;
 
   const mockUsersService = {
-    signUpUser: jest.fn((dto: CreateUserDto) =>
+    createUser: jest.fn((dto: CreateUserDto) =>
       Promise.resolve({
         id: 1,
         ...dto,
         passwordHash: 'hashedPassword',
       }),
     ),
-    findExistUser: jest.fn((email: string) =>
+    isUserExists: jest.fn((email: string) =>
       Promise.resolve(email === 'exists@example.com' ? true : false),
     ),
-    updateNickname: jest.fn().mockResolvedValue(undefined),
-    updatePassword: jest.fn().mockResolvedValue(undefined),
-    deleteAccount: jest.fn().mockResolvedValue(undefined),
-    findAbsenseOfNickname: jest.fn((nickname: string) =>
+    updateUserNickname: jest.fn().mockResolvedValue(undefined),
+    updateUserPassword: jest.fn().mockResolvedValue(undefined),
+    softDeleteUser: jest.fn().mockResolvedValue(undefined),
+    isNicknameAvailable: jest.fn((nickname: string) =>
       Promise.resolve(nickname === 'exists' ? true : false),
     ),
   };
@@ -52,7 +52,7 @@ describe('UsersController', () => {
   describe('Signup User', () => {
     it('should create a new user', async () => {
       const createUserDto = MakeCreateUserDtoFaker();
-      const result = await usersController.signUpUser(createUserDto);
+      const result = await usersController.createUser(createUserDto);
       expect(result).toEqual({
         email: createUserDto.email,
         message: 'Successfully created account',
@@ -65,7 +65,8 @@ describe('UsersController', () => {
       const checkEmailRequest = {
         email: 'exists@example.com',
       } satisfies CheckEmailRequest;
-      const result = await usersController.checkEmail(checkEmailRequest);
+      const result =
+        await usersController.checkEmailAvailability(checkEmailRequest);
       expect(result).toEqual({ exists: true });
     });
 
@@ -73,7 +74,8 @@ describe('UsersController', () => {
       const checkEmailRequest = {
         email: 'notfound@example.com',
       } satisfies CheckEmailRequest;
-      const result = await usersController.checkEmail(checkEmailRequest);
+      const result =
+        await usersController.checkEmailAvailability(checkEmailRequest);
       expect(result).toEqual({ exists: false });
     });
   });
@@ -83,7 +85,8 @@ describe('UsersController', () => {
       const checkNicknameRequest = {
         nickname: 'exists',
       } satisfies CheckNicknameRequest;
-      const result = await usersController.checkNickname(checkNicknameRequest);
+      const result =
+        await usersController.checkNicknameAvailability(checkNicknameRequest);
       expect(result).toEqual({ exists: true });
     });
 
@@ -91,7 +94,8 @@ describe('UsersController', () => {
       const checkNicknameRequest = {
         nickname: 'nonExists',
       } satisfies CheckNicknameRequest;
-      const result = await usersController.checkNickname(checkNicknameRequest);
+      const result =
+        await usersController.checkNicknameAvailability(checkNicknameRequest);
       expect(result).toEqual({ exists: false });
     });
   });
@@ -106,7 +110,7 @@ describe('UsersController', () => {
 
     it('should throw UnauthorizedException when update nickname from an unauthorized user', async () => {
       const updateDto: UpdateUserNicknameRequest = { nickname: 'wrong' };
-      mockUsersService.updateNickname = jest
+      mockUsersService.updateUserNickname = jest
         .fn()
         .mockRejectedValue(
           new UnauthorizedException('This user could not be found.'),
@@ -119,7 +123,7 @@ describe('UsersController', () => {
 
     it('should throw BadRequestException when update nickname from an unauthorized user', async () => {
       const updateDto: UpdateUserNicknameRequest = { nickname: 'duplicated' };
-      mockUsersService.updateNickname = jest
+      mockUsersService.updateUserNickname = jest
         .fn()
         .mockRejectedValue(
           new BadRequestException(
@@ -143,7 +147,7 @@ describe('UsersController', () => {
 
     it('should throw UnauthorizedException when updating password from an unauthorized user', async () => {
       const updateDto: UpdateUserPasswordRequest = { password: 'newpassword' };
-      mockUsersService.updatePassword = jest
+      mockUsersService.updateUserPassword = jest
         .fn()
         .mockRejectedValue(
           new UnauthorizedException('This user could not be found.'),
@@ -158,18 +162,18 @@ describe('UsersController', () => {
   describe('Delete account', () => {
     it('should delete account when authorized', async () => {
       const req = { user: { email: 'exists@example.com' } };
-      const result = await usersController.deleteAccount(req);
+      const result = await usersController.deleteUser(req);
       expect(result).toEqual({ message: 'Successfully deleted account' });
     });
 
     it('should throw UnauthorizedException when deleting another user account', async () => {
       const req = { user: { email: 'wrong@example.com' } };
-      mockUsersService.deleteAccount = jest
+      mockUsersService.softDeleteUser = jest
         .fn()
         .mockRejectedValue(
           new UnauthorizedException('This user could not be found.'),
         );
-      await expect(usersController.deleteAccount(req)).rejects.toThrow(
+      await expect(usersController.deleteUser(req)).rejects.toThrow(
         UnauthorizedException,
       );
     });

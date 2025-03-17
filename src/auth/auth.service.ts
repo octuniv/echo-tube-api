@@ -21,7 +21,7 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, password: string): Promise<User> {
-    const user = await this.usersService.findUserByEmail(email).catch(() => {
+    const user = await this.usersService.getUserByEmail(email).catch(() => {
       throw new UnauthorizedException('Invalid credentials');
     });
     if (user && (await bcrypt.compare(password, user.passwordHash))) {
@@ -39,7 +39,7 @@ export class AuthService {
     } satisfies jwtPayloadInterface;
     let userInfo: User | null;
     try {
-      userInfo = await this.usersService.findUserById(payload.id);
+      userInfo = await this.usersService.getUserById(payload.id);
     } catch (error) {
       console.error(error);
       throw new InternalServerErrorException('Internal Server Error');
@@ -73,7 +73,7 @@ export class AuthService {
 
       await this.refreshTokenRepo.revokeToken(storedToken.id);
 
-      const user = await this.usersService.findUserByEmail(
+      const user = await this.usersService.getUserByEmail(
         storedToken.userEmail,
       );
       const payload = {

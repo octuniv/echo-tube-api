@@ -19,13 +19,13 @@ export class UsersService {
     private usersRepository: Repository<User>,
   ) {}
 
-  async signUpUser(createUserDto: CreateUserDto) {
+  async createUser(createUserDto: CreateUserDto) {
     const { name, nickname, email, password } = createUserDto;
-    const checkExist = await this.findExistUser(email);
+    const checkExist = await this.isUserExists(email);
     if (checkExist) {
       throw new ConflictException(`This email ${email} is already existed!`);
     }
-    const nicknameExist = await this.findAbsenseOfNickname(nickname);
+    const nicknameExist = await this.isNicknameAvailable(nickname);
     if (nicknameExist) {
       throw new ConflictException(
         `This nickname ${nickname} is already existed!`,
@@ -41,7 +41,7 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  async findUserById(id: number) {
+  async getUserById(id: number): Promise<User> {
     return this.usersRepository.findOne({
       where: {
         id: id,
@@ -51,7 +51,7 @@ export class UsersService {
   }
 
   // only for authenticating
-  async findUserByEmail(email: string) {
+  async getUserByEmail(email: string): Promise<User> {
     return this.usersRepository
       .findOne({
         where: { email: email },
@@ -67,7 +67,7 @@ export class UsersService {
       });
   }
 
-  async findExistUser(email: string) {
+  async isUserExists(email: string): Promise<boolean> {
     return this.usersRepository
       .findOne({
         where: { email: email },
@@ -82,7 +82,7 @@ export class UsersService {
       });
   }
 
-  async findAbsenseOfNickname(nickname: string) {
+  async isNicknameAvailable(nickname: string): Promise<boolean> {
     return this.usersRepository
       .findOne({
         where: { nickname: nickname },
@@ -97,48 +97,46 @@ export class UsersService {
       });
   }
 
-  async updateNickname(
-    id: number,
-    updateNicknameDto: UpdateUserNicknameRequest,
-  ) {
-    const user = await this.findUserById(id);
+  async updateUserNickname(
+    userId: number,
+    updateDto: UpdateUserNicknameRequest,
+  ): Promise<User> {
+    const user = await this.getUserById(userId);
     if (!user) {
       throw new NotFoundException('This user could not be found.');
     }
 
-    const nicknameExist = await this.findAbsenseOfNickname(
-      updateNicknameDto.nickname,
-    );
+    const nicknameExist = await this.isNicknameAvailable(updateDto.nickname);
 
     if (nicknameExist) {
       throw new ConflictException(
-        `This nickname ${updateNicknameDto.nickname} is already existed!`,
+        `This nickname ${updateDto.nickname} is already existed!`,
       );
     }
 
-    user.nickname = updateNicknameDto.nickname;
+    user.nickname = updateDto.nickname;
     return this.usersRepository.save(user);
   }
 
-  async updatePassword(
-    id: number,
-    updatePasswordDto: UpdateUserPasswordRequest,
-  ) {
-    const user = await this.findUserById(id);
+  async updateUserPassword(
+    userId: number,
+    updateDto: UpdateUserPasswordRequest,
+  ): Promise<User> {
+    const user = await this.getUserById(userId);
     if (!user) {
       throw new NotFoundException('This user could not be found.');
     }
-    const hashedPassword = await bcrypt.hash(updatePasswordDto.password, 10);
+    const hashedPassword = await bcrypt.hash(updateDto.password, 10);
     user.passwordHash = hashedPassword;
     return this.usersRepository.save(user);
   }
 
-  async deleteAccount(id: number) {
-    const user = await this.findUserById(id);
+  async softDeleteUser(userId: number): Promise<void> {
+    const user = await this.getUserById(userId);
     if (!user) {
       throw new NotFoundException('This user could not be found.');
     }
-    const result = await this.usersRepository.softDelete(id);
+    const result = await this.usersRepository.softDelete(userId);
     if (result.affected !== 1) {
       throw new InternalServerErrorException('Internal Server Error');
     }

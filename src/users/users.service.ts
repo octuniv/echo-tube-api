@@ -50,11 +50,11 @@ export class UsersService {
     });
   }
 
+  // only for authenticating
   async findUserByEmail(email: string) {
     return this.usersRepository
       .findOne({
         where: { email: email },
-        withDeleted: true,
       })
       .then((user) => {
         if (user) {
@@ -68,15 +68,16 @@ export class UsersService {
   }
 
   async findExistUser(email: string) {
-    return this.findUserByEmail(email)
-      .then(() => {
-        return true;
+    return this.usersRepository
+      .findOne({
+        where: { email: email },
+        withDeleted: true,
       })
-      .catch((err) => {
-        if (err instanceof NotFoundException) {
-          return false;
+      .then((user) => {
+        if (user) {
+          return true;
         } else {
-          throw err;
+          return false;
         }
       });
   }

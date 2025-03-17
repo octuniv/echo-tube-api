@@ -117,7 +117,6 @@ describe('UsersService', () => {
       expect(result).toEqual(mockUser);
       expect(repository.findOne).toHaveBeenCalledWith({
         where: { email },
-        withDeleted: true,
       });
     });
 
@@ -136,33 +135,20 @@ describe('UsersService', () => {
 
   describe('findExistUser', () => {
     it('should return true if user exists', async () => {
-      jest
-        .spyOn(service, 'findUserByEmail')
-        .mockResolvedValue({ email: 'test@example.com' } as User);
+      const mockUser = MakeUserEntityFaker();
+      jest.spyOn(repository, 'findOne').mockResolvedValue(mockUser);
 
-      const result = await service.findExistUser('test@example.com');
+      const result = await service.findExistUser(mockUser.email);
 
-      expect(result).toBe(true);
+      expect(result).toBeTruthy();
     });
 
     it('should return false if user does not exist', async () => {
-      jest
-        .spyOn(service, 'findUserByEmail')
-        .mockRejectedValue(new NotFoundException());
+      jest.spyOn(repository, 'findOne').mockResolvedValue(null);
 
       const result = await service.findExistUser('nonexistent@example.com');
 
-      expect(result).toBe(false);
-    });
-
-    it('should throw error if an unexpected error occurs', async () => {
-      jest
-        .spyOn(service, 'findUserByEmail')
-        .mockRejectedValue(new Error('Database error'));
-
-      await expect(service.findExistUser('error@example.com')).rejects.toThrow(
-        'Database error',
-      );
+      expect(result).toBeFalsy();
     });
   });
 

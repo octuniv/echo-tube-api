@@ -7,7 +7,6 @@ import { DataSource, Repository } from 'typeorm';
 import { PostsModule } from '@/posts/posts.module';
 import { AuthModule } from '@/auth/auth.module';
 import { UsersModule } from '@/users/users.module';
-import { VisitorModule } from '@/visitor/visitor.module';
 import { DbModule } from '@/db/db.module';
 import { TestE2EDbModule } from './test-db.e2e.module';
 import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
@@ -90,7 +89,7 @@ describe('Posts - /posts (e2e)', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [PostsModule, DbModule, AuthModule, UsersModule, VisitorModule],
+      imports: [PostsModule, DbModule, AuthModule, UsersModule],
     })
       .overrideModule(DbModule)
       .useModule(TestE2EDbModule)

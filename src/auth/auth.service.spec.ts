@@ -7,11 +7,13 @@ import { MakeUserEntityFaker } from '@/users/faker/user.faker';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RefreshTokenRepository } from './refresh-token.repository';
+import { VisitorService } from '@/visitor/visitor.service';
 
 describe('AuthService', () => {
   let authService: AuthService;
   let usersService: UsersService;
   let jwtService: JwtService;
+  let visitorService: VisitorService;
   // let configService: ConfigService;
   let refreshTokenRepo: RefreshTokenRepository;
 
@@ -32,6 +34,10 @@ describe('AuthService', () => {
     revokeToken: jest.fn(),
   };
 
+  const mockVisitorService = {
+    upsertVisitorCount: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -40,12 +46,14 @@ describe('AuthService', () => {
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: RefreshTokenRepository, useValue: mockRefreshTokenRepo },
+        { provide: VisitorService, useValue: mockVisitorService },
       ],
     }).compile();
 
     authService = module.get<AuthService>(AuthService);
     usersService = module.get<UsersService>(UsersService);
     jwtService = module.get<JwtService>(JwtService);
+    visitorService = module.get<VisitorService>(VisitorService);
     // configService = module.get<ConfigService>(ConfigService);
     refreshTokenRepo = module.get<RefreshTokenRepository>(
       RefreshTokenRepository,
@@ -116,6 +124,9 @@ describe('AuthService', () => {
       const result = await authService.login(mockUser);
 
       expect(jwtService.sign).toHaveBeenCalledTimes(2);
+      expect(visitorService.upsertVisitorCount).toHaveBeenCalledWith(
+        mockUser.email,
+      );
       expect(result).toEqual(mockResult);
     });
   });
@@ -154,6 +165,9 @@ describe('AuthService', () => {
       );
       expect(result).toHaveProperty('access_token');
       expect(result).toHaveProperty('refresh_token');
+      expect(visitorService.upsertVisitorCount).toHaveBeenCalledWith(
+        mockUser.email,
+      );
     });
 
     it('should throw UnauthorizedException if token is invalid', async () => {

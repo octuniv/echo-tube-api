@@ -13,6 +13,7 @@ import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
+import { VisitorModule } from '@/visitor/visitor.module';
 
 const truncateTables = async (dataSource: DataSource) => {
   const queryRunner = dataSource.createQueryRunner(); // QueryRunner 생성
@@ -41,7 +42,7 @@ describe('AuthController (e2e)', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AuthModule, DbModule, UsersModule, PostsModule],
+      imports: [AuthModule, DbModule, UsersModule, PostsModule, VisitorModule],
     })
       .overrideModule(DbModule)
       .useModule(TestE2EDbModule)

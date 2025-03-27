@@ -9,12 +9,14 @@ import { JwtStrategy } from './jwt.strategy';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { RefreshTokenRepository } from './refresh-token.repository';
+import { VisitorModule } from '@/visitor/visitor.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([RefreshToken]), // 추가
     ConfigModule.forRoot(),
     UsersModule,
+    VisitorModule,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule], // Ensure ConfigModule is available

@@ -11,11 +11,9 @@ import {
 } from '@nestjs/common';
 import { QueryPostDto } from './dto/query-post.dto';
 import { createMock } from '@golevelup/ts-jest';
-import { VisitorService } from '@/visitor/visitor.service';
 
 describe('PostsService', () => {
   let service: PostsService;
-  let visitorService: VisitorService;
   let postRepository: Repository<Post>;
 
   beforeEach(async () => {
@@ -26,15 +24,10 @@ describe('PostsService', () => {
           provide: getRepositoryToken(Post),
           useValue: createMock<Repository<Post>>(),
         },
-        {
-          provide: VisitorService,
-          useValue: createMock<VisitorService>(),
-        },
       ],
     }).compile();
 
     service = module.get<PostsService>(PostsService);
-    visitorService = module.get<VisitorService>(VisitorService);
     postRepository = module.get<Repository<Post>>(getRepositoryToken(Post));
   });
 
@@ -100,7 +93,6 @@ describe('PostsService', () => {
 
       const result = await service.findOne(1);
       expect(result).toEqual({ ...post, views: 1 });
-      expect(visitorService.upsertVisitorCount).toHaveBeenCalled();
       expect(postRepository.save).toHaveBeenCalledWith({ ...post, views: 1 });
     });
 

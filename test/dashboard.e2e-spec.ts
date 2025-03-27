@@ -4,7 +4,6 @@ import * as request from 'supertest';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Post } from '@/posts/entities/post.entity';
-import { VisitorService } from '@/visitor/visitor.service';
 import { DashboardModule } from '@/dashboard/dashboard.module';
 import { DbModule } from '@/db/db.module';
 import { UsersModule } from '@/users/users.module';
@@ -16,6 +15,8 @@ import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
 import { createFakePost } from '@/posts/faker/post.faker';
 import { Visitor } from '@/visitor/entities/visitor.entity';
 import { User } from '@/users/entities/user.entity';
+import { generateFakeVisitor } from '@/visitor/faker/visitor.faker';
+import { VisitorModule } from '@/visitor/visitor.module';
 
 const userInfo = MakeCreateUserDtoFaker();
 
@@ -70,7 +71,6 @@ describe('DashboardController (e2e)', () => {
   let userRepository: Repository<User>;
   let postRepository: Repository<Post>;
   let visitorRepository: Repository<Visitor>;
-  let visitorService: VisitorService;
   let dataSource: DataSource;
   let accessToken: string;
 
@@ -82,6 +82,7 @@ describe('DashboardController (e2e)', () => {
         UsersModule,
         PostsModule,
         AuthModule,
+        VisitorModule,
       ],
     })
       .overrideModule(DbModule)
@@ -98,7 +99,6 @@ describe('DashboardController (e2e)', () => {
     visitorRepository = moduleFixture.get<Repository<Visitor>>(
       getRepositoryToken(Visitor),
     );
-    visitorService = moduleFixture.get<VisitorService>(VisitorService);
     dataSource = moduleFixture.get<DataSource>(DataSource);
     await app.init();
   });
@@ -129,9 +129,8 @@ describe('DashboardController (e2e)', () => {
     });
 
     const today = new Date().toISOString().split('T')[0];
-    const visitor = new Visitor();
+    const visitor = generateFakeVisitor();
     visitor.date = today;
-    visitor.count = 11;
     await visitorRepository.save(visitor);
 
     const response = await request(app.getHttpServer())

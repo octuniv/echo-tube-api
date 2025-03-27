@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, Column } from 'typeorm';
+import { Entity, Column, PrimaryColumn } from 'typeorm';
 
 @Entity()
 export class Visitor {
@@ -7,4 +7,7 @@ export class Visitor {
 
   @Column({ default: 0 })
   count: number;
+
+  @Column('simple-array')
+  uniqueVisitors: string[];
 }

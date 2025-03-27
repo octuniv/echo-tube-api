@@ -10,6 +10,7 @@ import * as bcrypt from 'bcryptjs';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { jwtPayloadInterface } from './types/jwt-payload.interface';
 import { User } from '@/users/entities/user.entity';
+import { VisitorService } from '@/visitor/visitor.service';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +19,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly refreshTokenRepo: RefreshTokenRepository,
+    private readonly visitorService: VisitorService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<User> {
@@ -55,6 +57,9 @@ export class AuthService {
     expiresAt.setDate(expiresAt.getDate() + 7); // 7일 후 만료
     await this.refreshTokenRepo.saveToken(user.email, refreshToken, expiresAt);
 
+    const userIdentifier = user.email;
+    await this.visitorService.upsertVisitorCount(userIdentifier);
+
     return {
       access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
       refresh_token: refreshToken,
@@ -91,6 +96,9 @@ export class AuthService {
         newRefreshToken,
         expiresAt,
       );
+
+      const userIdentifier = user.email;
+      await this.visitorService.upsertVisitorCount(userIdentifier);
 
       return {
         access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),

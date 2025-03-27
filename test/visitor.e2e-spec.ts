@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { VisitorModule } from '../src/visitor/visitor.module';
 import { VisitorService } from '../src/visitor/visitor.service';
 import { Visitor } from '../src/visitor/entities/visitor.entity';
-import { getRepositoryToken, TypeOrmModule } from '@nestjs/typeorm';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DbModule } from '@/db/db.module';
 import { TestE2EDbModule } from './test-db.e2e.module';
@@ -51,7 +51,7 @@ describe('VisitorsController (e2e)', () => {
 
   it('/visitors/today (GET) returns existing count', async () => {
     const today = new Date().toISOString().split('T')[0];
-    await visitorRepository.save({ date: today, count: 5 });
+    await visitorRepository.save({ date: today, count: 5, uniqueVisitors: [] });
     const response = await request(app.getHttpServer())
       .get('/visitors/today')
       .expect(200);
@@ -63,8 +63,8 @@ describe('VisitorsController (e2e)', () => {
 
   it('increments visitor count via service', async () => {
     const today = new Date().toISOString().split('T')[0];
-    await visitorRepository.save({ date: today, count: 0 });
-    await visitorService.upsertVisitorCount();
+    await visitorRepository.save({ date: today, count: 0, uniqueVisitors: [] });
+    await visitorService.upsertVisitorCount('test@test.com');
     const response = await request(app.getHttpServer())
       .get('/visitors/today')
       .expect(200);

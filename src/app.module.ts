@@ -6,6 +6,8 @@ import { UsersModule } from './users/users.module';
 import { DbModule } from './db/db.module';
 import { AuthModule } from './auth/auth.module';
 import { PostsModule } from './posts/posts.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { VisitorModule } from './visitor/visitor.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { PostsModule } from './posts/posts.module';
     UsersModule,
     AuthModule,
     PostsModule,
+    DashboardModule,
+    VisitorModule,
   ],
   controllers: [AppController],
   providers: [AppService],

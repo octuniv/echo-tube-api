@@ -10,6 +10,5 @@ export const TestE2EDbModule = TypeOrmModule.forRoot({
   password: process.env.DATABASE_PASSWORD,
   database: process.env.DATABASE_DBNAME,
   synchronize: true,
-  dropSchema: true,
   autoLoadEntities: true,
 });

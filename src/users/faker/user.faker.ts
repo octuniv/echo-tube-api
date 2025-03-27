@@ -2,7 +2,7 @@ import { faker } from '@faker-js/faker';
 import { UpdateUserPasswordRequest } from '@/users/dto/update-user-password.dto';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { User } from '../entities/user.entity';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { UserRole } from '../entities/user-role.enum';
 import { UpdateUserNicknameRequest } from '../dto/update-user-nickname.dto';
 

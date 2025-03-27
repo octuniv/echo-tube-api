@@ -24,6 +24,12 @@ export class Post {
   @Column({ type: 'varchar', length: 255, nullable: true })
   videoUrl?: string; // 비디오 링크 (선택사항)
 
+  @Column({ default: 0 })
+  views: number;
+
+  @Column({ default: 0 })
+  commentsCount: number;
+
   @ManyToOne(() => User, (user) => user.posts, {
     onDelete: 'CASCADE',
     orphanedRowAction: 'delete',

@@ -4,7 +4,10 @@ import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Post } from '@/posts/entities/post.entity';
 import { DataSource, Repository } from 'typeorm';
-import { AppModule } from '@/app.module';
+import { PostsModule } from '@/posts/posts.module';
+import { AuthModule } from '@/auth/auth.module';
+import { UsersModule } from '@/users/users.module';
+import { VisitorModule } from '@/visitor/visitor.module';
 import { DbModule } from '@/db/db.module';
 import { TestE2EDbModule } from './test-db.e2e.module';
 import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
@@ -87,7 +90,7 @@ describe('Posts - /posts (e2e)', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [PostsModule, DbModule, AuthModule, UsersModule, VisitorModule],
     })
       .overrideModule(DbModule)
       .useModule(TestE2EDbModule)
@@ -142,6 +145,7 @@ describe('Posts - /posts (e2e)', () => {
   });
 
   afterAll(async () => {
+    await truncatePostTable(dataSource);
     await truncateUsersTable(dataSource);
     await app.close();
   });
@@ -307,6 +311,7 @@ describe('Posts - /posts (e2e)', () => {
 
       expect(response.body.id).toBe(post.id);
       expect(response.body.title).toBe(post.title);
+      expect(response.body.views).toBe(1);
     });
 
     it('should return 404 if post does not exist (실패)', async () => {

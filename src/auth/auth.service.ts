@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { jwtPayloadInterface } from './types/jwt-payload.interface';
 import { User } from '@/users/entities/user.entity';

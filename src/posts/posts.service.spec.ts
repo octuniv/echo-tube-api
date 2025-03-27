@@ -10,17 +10,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { QueryPostDto } from './dto/query-post.dto';
-
-const mockPostRepository = {
-  create: jest.fn(),
-  save: jest.fn(),
-  find: jest.fn(),
-  findOne: jest.fn(),
-  delete: jest.fn(),
-};
+import { createMock } from '@golevelup/ts-jest';
+import { VisitorService } from '@/visitor/visitor.service';
 
 describe('PostsService', () => {
   let service: PostsService;
+  let visitorService: VisitorService;
   let postRepository: Repository<Post>;
 
   beforeEach(async () => {
@@ -29,12 +24,17 @@ describe('PostsService', () => {
         PostsService,
         {
           provide: getRepositoryToken(Post),
-          useValue: mockPostRepository,
+          useValue: createMock<Repository<Post>>(),
+        },
+        {
+          provide: VisitorService,
+          useValue: createMock<VisitorService>(),
         },
       ],
     }).compile();
 
     service = module.get<PostsService>(PostsService);
+    visitorService = module.get<VisitorService>(VisitorService);
     postRepository = module.get<Repository<Post>>(getRepositoryToken(Post));
   });
 
@@ -95,11 +95,13 @@ describe('PostsService', () => {
 
   describe('findOne', () => {
     it('should return a post when found', async () => {
-      const post = { id: 1, title: 'Test Post' } as Post;
+      const post = { id: 1, title: 'Test Post', views: 0 } as Post;
       postRepository.findOne = jest.fn().mockResolvedValue(post);
 
       const result = await service.findOne(1);
-      expect(result).toEqual(post);
+      expect(result).toEqual({ ...post, views: 1 });
+      expect(visitorService.upsertVisitorCount).toHaveBeenCalled();
+      expect(postRepository.save).toHaveBeenCalledWith({ ...post, views: 1 });
     });
 
     it('should throw NotFoundException when post is not found', async () => {

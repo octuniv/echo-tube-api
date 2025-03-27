@@ -11,12 +11,14 @@ import { Post } from './entities/post.entity';
 import { Repository } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
 import { QueryPostDto } from './dto/query-post.dto';
+import { VisitorService } from '@/visitor/visitor.service';
 
 @Injectable()
 export class PostsService {
   constructor(
     @InjectRepository(Post)
     private readonly postRepository: Repository<Post>,
+    private readonly visitorService: VisitorService,
   ) {}
   // 게시글 생성
   async create(
@@ -61,6 +63,9 @@ export class PostsService {
   // 특정 ID로 게시물 조회
   async findOne(id: number): Promise<QueryPostDto> {
     const post = await this.findById(id);
+    await this.visitorService.upsertVisitorCount();
+    post.views += 1;
+    await this.postRepository.save(post);
     return QueryPostDto.fromEntity(post);
   }
 

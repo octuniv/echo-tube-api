@@ -14,7 +14,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { UpdateUserNicknameRequest } from './dto/update-user-nickname.dto';
 
 describe('UsersService', () => {

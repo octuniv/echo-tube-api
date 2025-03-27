@@ -7,12 +7,14 @@ import {
   MakeUpdateUserNicknameRequestFaker,
   MakeUpdateUserPasswordRequestFaker,
 } from '@/users/faker/user.faker';
-import { AppModule } from '@/app.module';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { UsersModule } from '@/users/users.module';
+import { AuthModule } from '@/auth/auth.module';
+import { PostsModule } from '@/posts/posts.module';
 import { DbModule } from '@/db/db.module';
 import { TestE2EDbModule } from './test-db.e2e.module';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
 import { UpdateUserNicknameRequest } from '@/users/dto/update-user-nickname.dto';
@@ -28,7 +30,7 @@ describe('User - /users (e2e)', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [DbModule, UsersModule, AuthModule, PostsModule],
     })
       .overrideModule(DbModule)
       .useModule(TestE2EDbModule)

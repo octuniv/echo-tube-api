@@ -1,15 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
-import { AppModule } from '@/app.module';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from '@/users/entities/user.entity';
 import { TestE2EDbModule } from './test-db.e2e.module';
+import { AuthModule } from '@/auth/auth.module';
+import { UsersModule } from '@/users/users.module';
+import { PostsModule } from '@/posts/posts.module';
 import { DbModule } from '@/db/db.module';
 import { DataSource, Repository } from 'typeorm';
 import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 
 const truncateTables = async (dataSource: DataSource) => {
@@ -39,7 +41,7 @@ describe('AuthController (e2e)', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [AuthModule, DbModule, UsersModule, PostsModule],
     })
       .overrideModule(DbModule)
       .useModule(TestE2EDbModule)

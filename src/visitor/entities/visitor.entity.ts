@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryColumn } from 'typeorm';
+import { Entity, Column, PrimaryColumn, OneToMany } from 'typeorm';
+import { VisitorEntry } from './visitor-entry.entity';
 
 @Entity()
 export class Visitor {
@@ -8,6 +9,6 @@ export class Visitor {
   @Column({ default: 0 })
   count: number;
 
-  @Column('simple-array')
-  uniqueVisitors: string[];
+  @OneToMany(() => VisitorEntry, (entry) => entry.visitor)
+  entries: VisitorEntry[];
 }

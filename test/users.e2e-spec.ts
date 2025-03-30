@@ -21,6 +21,10 @@ import { UpdateUserNicknameRequest } from '@/users/dto/update-user-nickname.dto'
 import { CheckEmailRequest } from '@/users/dto/check-user-email.dto';
 import { CheckNicknameRequest } from '@/users/dto/check-user-nickname.dto';
 import { UpdateUserPasswordRequest } from '@/users/dto/update-user-password.dto';
+import {
+  initializeTransactionalContext,
+  StorageDriver,
+} from 'typeorm-transactional';
 
 describe('User - /users (e2e)', () => {
   let app: INestApplication;
@@ -29,6 +33,7 @@ describe('User - /users (e2e)', () => {
   let dataSource: DataSource;
 
   beforeAll(async () => {
+    initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [DbModule, UsersModule, AuthModule, PostsModule],
     })

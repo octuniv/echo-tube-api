@@ -7,11 +7,16 @@ import { BoardsModule } from '@/boards/boards.module';
 import { TestDbModule } from './test-db.e2e.module';
 import { PostsModule } from '@/posts/posts.module';
 import { UsersModule } from '@/users/users.module';
+import {
+  initializeTransactionalContext,
+  StorageDriver,
+} from 'typeorm-transactional';
 
 describe('CategoriesController (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
+    initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         DbModule,

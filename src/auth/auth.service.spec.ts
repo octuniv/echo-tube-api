@@ -9,12 +9,15 @@ import { ConfigService } from '@nestjs/config';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { VisitorService } from '@/visitor/visitor.service';
 
+jest.mock('typeorm-transactional', () => ({
+  Transactional: () => () => ({}),
+}));
+
 describe('AuthService', () => {
   let authService: AuthService;
   let usersService: UsersService;
   let jwtService: JwtService;
   let visitorService: VisitorService;
-  // let configService: ConfigService;
   let refreshTokenRepo: RefreshTokenRepository;
 
   const mockUsersService = {
@@ -38,6 +41,15 @@ describe('AuthService', () => {
     upsertVisitorCount: jest.fn(),
   };
 
+  const mockDataSource = {
+    manager: {
+      save: jest.fn(),
+      transaction: jest.fn(),
+    },
+    createEntityManager: jest.fn(),
+    getRepository: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -54,7 +66,6 @@ describe('AuthService', () => {
     usersService = module.get<UsersService>(UsersService);
     jwtService = module.get<JwtService>(JwtService);
     visitorService = module.get<VisitorService>(VisitorService);
-    // configService = module.get<ConfigService>(ConfigService);
     refreshTokenRepo = module.get<RefreshTokenRepository>(
       RefreshTokenRepository,
     );
@@ -120,10 +131,17 @@ describe('AuthService', () => {
       mockJwtService.sign.mockReturnValueOnce(mockResult.refresh_token);
       mockJwtService.sign.mockReturnValueOnce(mockResult.access_token);
       mockUsersService.getUserById.mockResolvedValue(mockUser);
+      mockDataSource.manager = { ...mockDataSource.manager };
 
       const result = await authService.login(mockUser);
 
       expect(jwtService.sign).toHaveBeenCalledTimes(2);
+      expect(refreshTokenRepo.saveToken).toHaveBeenCalledWith(
+        mockUser.email,
+        mockResult.refresh_token,
+        expect.any(Date),
+      );
+
       expect(visitorService.upsertVisitorCount).toHaveBeenCalledWith(
         mockUser.email,
       );

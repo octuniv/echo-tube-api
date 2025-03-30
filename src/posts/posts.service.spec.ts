@@ -74,7 +74,8 @@ describe('PostsService', () => {
 
       const savedPost = createPost({
         id: 1,
-        ...createPostDto,
+        title: createPostDto.title,
+        content: createPostDto.content,
         board,
         createdBy: user,
         createdAt: new Date(),
@@ -95,7 +96,8 @@ describe('PostsService', () => {
         board.slug,
       );
       expect(postRepository.create).toHaveBeenCalledWith({
-        ...createPostDto,
+        title: createPostDto.title,
+        content: createPostDto.content,
         board,
         createdBy: user,
         hotScore: initialHotScore,

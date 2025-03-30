@@ -15,11 +15,19 @@ import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
 import { createPost } from '@/posts/factories/post.factory';
 import { Visitor } from '@/visitor/entities/visitor.entity';
 import { User } from '@/users/entities/user.entity';
-import { createVisitor } from '@/visitor/factories/visitor.factory';
+import {
+  createVisitor,
+  createVisitorEntry,
+} from '@/visitor/factories/visitor.factory';
 import { VisitorModule } from '@/visitor/visitor.module';
 import { BoardsModule } from '@/boards/boards.module';
 import { CategoriesModule } from '@/categories/categories.module';
 import { BoardsService } from '@/boards/boards.service';
+import {
+  initializeTransactionalContext,
+  StorageDriver,
+} from 'typeorm-transactional';
+import { VisitorEntry } from '@/visitor/entities/visitor-entry.entity';
 
 const userInfo = MakeCreateUserDtoFaker();
 
@@ -67,11 +75,13 @@ describe('DashboardController (e2e)', () => {
   let userRepository: Repository<User>;
   let postRepository: Repository<Post>;
   let visitorRepository: Repository<Visitor>;
+  let visitorEntryRepository: Repository<VisitorEntry>;
   let boardsService: BoardsService;
   let dataSource: DataSource;
   let accessToken: string;
 
   beforeAll(async () => {
+    initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         DashboardModule,
@@ -97,6 +107,9 @@ describe('DashboardController (e2e)', () => {
     );
     visitorRepository = moduleFixture.get<Repository<Visitor>>(
       getRepositoryToken(Visitor),
+    );
+    visitorEntryRepository = moduleFixture.get<Repository<VisitorEntry>>(
+      getRepositoryToken(VisitorEntry),
     );
     boardsService = moduleFixture.get<BoardsService>(BoardsService);
     dataSource = moduleFixture.get<DataSource>(DataSource);
@@ -147,9 +160,11 @@ describe('DashboardController (e2e)', () => {
     });
 
     const today = new Date().toISOString().split('T')[0];
-    const visitor = createVisitor();
-    visitor.date = today;
+    const visitor = createVisitor({ date: today });
     await visitorRepository.save(visitor);
+
+    const visitorEntry = createVisitorEntry({ date: today });
+    await visitorEntryRepository.save(visitorEntry);
 
     const response = await request(app.getHttpServer())
       .get('/dashboard/summary')

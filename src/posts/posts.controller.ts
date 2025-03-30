@@ -9,8 +9,8 @@ import {
   UseGuards,
   Req,
   Query,
-  ParseArrayPipe,
-  DefaultValuePipe,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
@@ -19,6 +19,7 @@ import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { RequestWithUser } from '@/auth/types/request-with-user.interface';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { DeletePostResultDto } from './dto/delete-result.dto';
+import { FindRecentPostsDto } from './dto/find-recent.dto';
 
 @Controller('posts')
 export class PostsController {
@@ -48,7 +49,7 @@ export class PostsController {
   }
 
   // 특정 게시글 조회
-  @Get(':id')
+  @Get(':id(\\d+)')
   async findOne(@Param('id') id: number) {
     return await this.postsService.findOne(id);
   }
@@ -86,11 +87,10 @@ export class PostsController {
   }
 
   // 최근 게시물 조회
+  @UsePipes(new ValidationPipe({ transform: true }))
   @Get('recent')
-  async findRecent(
-    @Query('boardIds', ParseArrayPipe) boardIds: number[] = [1],
-    @Query('limit', new DefaultValuePipe(5)) limit: number,
-  ) {
+  async findRecent(@Query() query: FindRecentPostsDto) {
+    const { boardIds = [1], limit = 5 } = query;
     return this.postsService.findRecentPosts(boardIds, limit);
   }
 

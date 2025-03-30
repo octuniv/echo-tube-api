@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { Transactional } from 'typeorm-transactional';
 
 @Injectable()
 export class RefreshTokenRepository {
@@ -10,6 +11,7 @@ export class RefreshTokenRepository {
     private repo: Repository<RefreshToken>,
   ) {}
 
+  @Transactional()
   async saveToken(
     userEmail: string,
     token: string,

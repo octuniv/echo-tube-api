@@ -11,6 +11,7 @@ import { RefreshTokenRepository } from './refresh-token.repository';
 import { jwtPayloadInterface } from './types/jwt-payload.interface';
 import { User } from '@/users/entities/user.entity';
 import { VisitorService } from '@/visitor/visitor.service';
+import { Transactional } from 'typeorm-transactional';
 
 @Injectable()
 export class AuthService {
@@ -33,6 +34,7 @@ export class AuthService {
     }
   }
 
+  @Transactional()
   async login(user: User) {
     const payload = {
       id: user.id,

@@ -8,12 +8,21 @@ import { PostsModule } from '@/posts/posts.module';
 import { AuthModule } from '@/auth/auth.module';
 import { UsersModule } from '@/users/users.module';
 import { DbModule } from '@/db/db.module';
-import { TestE2EDbModule } from './test-db.e2e.module';
+import { TestDbModule } from './test-db.e2e.module';
 import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
 import { User } from '@/users/entities/user.entity';
 import { CreatePostDto } from '@/posts/dto/create-post.dto';
 import { UpdatePostDto } from '@/posts/dto/update-post.dto';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
+import { BoardsModule } from '@/boards/boards.module';
+import { CategoriesModule } from '@/categories/categories.module';
+import { BoardsService } from '@/boards/boards.service';
+import { Board } from '@/boards/entities/board.entity';
+import {
+  initializeTransactionalContext,
+  StorageDriver,
+} from 'typeorm-transactional';
+import { createPost } from '@/posts/factories/post.factory';
 
 const userInfos = Array(2)
   .fill('')
@@ -86,13 +95,23 @@ describe('Posts - /posts (e2e)', () => {
   let dataSource: DataSource;
   let accessTokens: string[];
   let users: User[];
+  let boardsService: BoardsService;
+  let testBoard: Board;
 
   beforeAll(async () => {
+    initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [PostsModule, DbModule, AuthModule, UsersModule],
+      imports: [
+        PostsModule,
+        DbModule,
+        AuthModule,
+        UsersModule,
+        BoardsModule,
+        CategoriesModule,
+      ],
     })
       .overrideModule(DbModule)
-      .useModule(TestE2EDbModule)
+      .useModule(TestDbModule)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -105,7 +124,11 @@ describe('Posts - /posts (e2e)', () => {
     userRepository = moduleFixture.get<Repository<User>>(
       getRepositoryToken(User),
     );
+    boardsService = moduleFixture.get<BoardsService>(BoardsService);
     dataSource = moduleFixture.get<DataSource>(DataSource);
+
+    const boards = await boardsService.findAll();
+    testBoard = boards[0];
   });
 
   beforeAll(async () => {
@@ -163,6 +186,7 @@ describe('Posts - /posts (e2e)', () => {
       const createPostDto: CreatePostDto = {
         title: 'Test Post',
         content: 'This is a test post',
+        boardSlug: testBoard.slug,
       };
 
       const response = await request(app.getHttpServer())
@@ -187,6 +211,7 @@ describe('Posts - /posts (e2e)', () => {
       const createPostDto: CreatePostDto = {
         title: 'Test Post',
         content: 'This is a test post',
+        boardSlug: testBoard.slug,
       };
 
       await request(app.getHttpServer())
@@ -224,10 +249,22 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     it('should return all posts (성공)', async () => {
-      await postRepository.save([
-        { title: 'Post 1', content: 'Content 1', createdBy: user },
-        { title: 'Post 2', content: 'Content 2', createdBy: user },
-      ]);
+      await postRepository.save(
+        [
+          {
+            title: 'Post 1',
+            content: 'Content 1',
+            createdBy: user,
+            board: testBoard,
+          },
+          {
+            title: 'Post 2',
+            content: 'Content 2',
+            createdBy: user,
+            board: testBoard,
+          },
+        ].map((post) => createPost(post)),
+      );
 
       const response = await request(app.getHttpServer())
         .get('/posts')
@@ -261,10 +298,22 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     it('should return posts by a specific user (성공)', async () => {
-      await postRepository.save([
-        { title: 'Post 1', content: 'Content 1', createdBy: user },
-        { title: 'Post 2', content: 'Content 2', createdBy: user },
-      ]);
+      await postRepository.save(
+        [
+          {
+            title: 'Post 1',
+            content: 'Content 1',
+            createdBy: user,
+            board: testBoard,
+          },
+          {
+            title: 'Post 2',
+            content: 'Content 2',
+            createdBy: user,
+            board: testBoard,
+          },
+        ].map((post) => createPost(post)),
+      );
 
       const response = await request(app.getHttpServer())
         .get(`/posts/user/${user.id}`)
@@ -298,11 +347,14 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     it('should return a specific post (성공)', async () => {
-      const post = await postRepository.save({
-        title: 'Test Post',
-        content: 'This is a test post',
-        createdBy: user,
-      });
+      const post = await postRepository.save(
+        createPost({
+          title: 'Test Post',
+          content: 'This is a test post',
+          createdBy: user,
+          board: testBoard,
+        }),
+      );
 
       const response = await request(app.getHttpServer())
         .get(`/posts/${post.id}`)
@@ -310,11 +362,11 @@ describe('Posts - /posts (e2e)', () => {
 
       expect(response.body.id).toBe(post.id);
       expect(response.body.title).toBe(post.title);
-      expect(response.body.views).toBe(1);
+      expect(response.body.views).toBe(post.views + 1);
     });
 
     it('should return 404 if post does not exist (실패)', async () => {
-      await request(app.getHttpServer()).get('/posts/999').expect(404);
+      await request(app.getHttpServer()).get('/posts/9').expect(404);
     });
 
     afterEach(async () => {
@@ -333,11 +385,14 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     it('should update a post by the owner (성공)', async () => {
-      const post = await postRepository.save({
-        title: 'Test Post',
-        content: 'This is a test post',
-        createdBy: users[0],
-      });
+      const post = await postRepository.save(
+        createPost({
+          title: 'Test Post',
+          content: 'This is a test post',
+          createdBy: users[0],
+          board: testBoard,
+        }),
+      );
 
       const updatePostDto: UpdatePostDto = {
         title: 'Updated Post',
@@ -353,11 +408,14 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     it('should return 401 if not authenticated (실패)', async () => {
-      const post = await postRepository.save({
-        title: 'Test Post',
-        content: 'This is a test post',
-        createdBy: users[0],
-      });
+      const post = await postRepository.save(
+        createPost({
+          title: 'Test Post',
+          content: 'This is a test post',
+          createdBy: users[0],
+          board: testBoard,
+        }),
+      );
 
       const updatePostDto: UpdatePostDto = {
         title: 'Updated Post',
@@ -370,11 +428,14 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     it('should return 401 if user is not the owner or admin (실패)', async () => {
-      const post = await postRepository.save({
-        title: 'Test Post',
-        content: 'This is a test post',
-        createdBy: users[0],
-      });
+      const post = await postRepository.save(
+        createPost({
+          title: 'Test Post',
+          content: 'This is a test post',
+          createdBy: users[0],
+          board: testBoard,
+        }),
+      );
 
       const updatePostDto: UpdatePostDto = {
         title: 'Updated Post',
@@ -411,11 +472,14 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     it('should delete a post by the owner (성공)', async () => {
-      const post = await postRepository.save({
-        title: 'Test Post',
-        content: 'This is a test post',
-        createdBy: users[0],
-      });
+      const post = await postRepository.save(
+        createPost({
+          title: 'Test Post',
+          content: 'This is a test post',
+          createdBy: users[0],
+          board: testBoard,
+        }),
+      );
 
       const deleteResult = await request(app.getHttpServer())
         .delete(`/posts/${post.id}`)
@@ -440,11 +504,14 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     it('should return 401 if not authenticated (실패)', async () => {
-      const post = await postRepository.save({
-        title: 'Test Post',
-        content: 'This is a test post',
-        createdBy: users[1],
-      });
+      const post = await postRepository.save(
+        createPost({
+          title: 'Test Post',
+          content: 'This is a test post',
+          createdBy: users[1],
+          board: testBoard,
+        }),
+      );
 
       await request(app.getHttpServer())
         .delete(`/posts/${post.id}`)
@@ -452,11 +519,14 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     it('should return 401 if user is not the owner or admin (실패)', async () => {
-      const post = await postRepository.save({
-        title: 'Test Post',
-        content: 'This is a test post',
-        createdBy: users[1],
-      });
+      const post = await postRepository.save(
+        createPost({
+          title: 'Test Post',
+          content: 'This is a test post',
+          createdBy: users[1],
+          board: testBoard,
+        }),
+      );
 
       await request(app.getHttpServer())
         .delete(`/posts/${post.id}`)
@@ -473,6 +543,74 @@ describe('Posts - /posts (e2e)', () => {
 
     afterEach(async () => {
       await truncatePostTable(dataSource);
+    });
+  });
+
+  describe('GET /posts/recent', () => {
+    let user: User;
+
+    beforeAll(() => {
+      if (!users || users.length === 0) {
+        throw new Error('Users are not initialized');
+      }
+      user = users[0];
+    });
+
+    it('should return recent posts from specified boards', async () => {
+      await postRepository.save(
+        [
+          {
+            title: 'Post 1',
+            content: 'Content 1',
+            board: testBoard,
+            createdBy: user,
+          },
+          {
+            title: 'Post 2',
+            content: 'Content 2',
+            board: testBoard,
+            createdBy: user,
+          },
+        ].map((post) => createPost(post)),
+      );
+
+      const response = await request(app.getHttpServer())
+        .get('/posts/recent')
+        .query({ boardIds: [testBoard.id], limit: 2 })
+        .expect(200);
+
+      expect(response.body).toHaveLength(2);
+    });
+  });
+
+  describe('GET /posts/board/:boardId', () => {
+    let user: User;
+
+    beforeAll(() => {
+      if (!users || users.length === 0) {
+        throw new Error('Users are not initialized');
+      }
+      user = users[0];
+    });
+
+    it('should return posts from specific board', async () => {
+      const post = createPost({
+        title: 'Test',
+        content: 'Content',
+        board: testBoard,
+        createdBy: user,
+      });
+      await postRepository.save(post);
+
+      const response = await request(app.getHttpServer())
+        .get(`/posts/board/${testBoard.id}`)
+        .expect(200);
+
+      expect(response.body[0]).toMatchObject({
+        title: post.title,
+        content: post.content,
+        nickname: user.nickname,
+      });
     });
   });
 });

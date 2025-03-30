@@ -14,6 +14,10 @@ import { LoginUserDto } from '@/auth/dto/login-user.dto';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { VisitorModule } from '@/visitor/visitor.module';
+import {
+  initializeTransactionalContext,
+  StorageDriver,
+} from 'typeorm-transactional';
 
 const truncateTables = async (dataSource: DataSource) => {
   const queryRunner = dataSource.createQueryRunner(); // QueryRunner 생성
@@ -41,6 +45,7 @@ describe('AuthController (e2e)', () => {
   let dataSource: DataSource;
 
   beforeAll(async () => {
+    initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AuthModule, DbModule, UsersModule, PostsModule, VisitorModule],
     })

@@ -28,11 +28,14 @@ export class PostsService {
     createPostDto: CreatePostDto,
     user: User,
   ): Promise<QueryPostDto> {
-    const board = await this.boardsService.findOne(createPostDto.boardSlug);
+    const { title, content, boardSlug, videoUrl } = createPostDto;
+    const board = await this.boardsService.findOne(boardSlug);
     await this.categoriesService.validateSlug(board.category.name, board.slug);
 
     const newPost = this.postRepository.create({
-      ...createPostDto,
+      title,
+      content,
+      videoUrl,
       board,
       createdBy: user,
       hotScore: this.calculateInitialHotScore(),

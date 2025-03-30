@@ -9,6 +9,7 @@ import { DeletePostResultDto } from './dto/delete-result.dto';
 import { createMock } from '@golevelup/ts-jest';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { createPost } from './factories/post.factory';
+import { FindRecentPostsDto } from './dto/find-recent.dto';
 
 describe('PostsController', () => {
   let controller: PostsController;
@@ -125,8 +126,12 @@ describe('PostsController', () => {
     it('should return recent posts with default parameters', async () => {
       const mockPosts = [createPost({ id: 1, title: 'Recent Post' })];
       service.findRecentPosts = jest.fn().mockResolvedValue(mockPosts);
+      const findRecentPostDto = {
+        boardIds: [1],
+        limit: 5,
+      } satisfies FindRecentPostsDto;
 
-      const result = await controller.findRecent([1], 5);
+      const result = await controller.findRecent(findRecentPostDto);
       expect(service.findRecentPosts).toHaveBeenCalledWith([1], 5);
       expect(result).toEqual(mockPosts);
     });

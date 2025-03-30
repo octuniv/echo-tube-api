@@ -4,5 +4,7 @@ import { PickType } from '@nestjs/mapped-types';
 export class PopularPost extends PickType(Post, [
   'id',
   'title',
-  'views',
-] as const) {}
+  'hotScore',
+] as const) {
+  boardName: string;
+}

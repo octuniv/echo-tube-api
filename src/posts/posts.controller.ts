@@ -8,6 +8,9 @@ import {
   Delete,
   UseGuards,
   Req,
+  Query,
+  ParseArrayPipe,
+  DefaultValuePipe,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
@@ -80,5 +83,20 @@ export class PostsController {
     return {
       message: 'Post deleted successfully.',
     };
+  }
+
+  // 최근 게시물 조회회
+  @Get('recent')
+  async findRecent(
+    @Query('boardIds', ParseArrayPipe) boardIds: number[] = [1],
+    @Query('limit', new DefaultValuePipe(5)) limit: number,
+  ) {
+    return this.postsService.findRecentPosts(boardIds, limit);
+  }
+
+  // 보드별 게시물 조회
+  @Get('board/:boardId')
+  async findByBoard(@Param('boardId') boardId: number) {
+    return this.postsService.findByBoard(boardId);
   }
 }

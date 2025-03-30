@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PostsService } from './posts.service';
-import { Repository, UpdateResult } from 'typeorm';
+import { In, Repository, UpdateResult } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Post } from './entities/post.entity';
 import { User } from '@/users/entities/user.entity';
@@ -11,10 +11,18 @@ import {
 } from '@nestjs/common';
 import { QueryPostDto } from './dto/query-post.dto';
 import { createMock } from '@golevelup/ts-jest';
+import { BoardsService } from '@/boards/boards.service';
+import { CategoriesService } from '@/categories/categories.service';
+import { createBoard } from '@/boards/factories/board.factory';
+import { createCategory } from '@/categories/factories/category.factory';
+import { createPost } from './factories/post.factory';
+import { CreatePostDto } from './dto/create-post.dto';
 
 describe('PostsService', () => {
   let service: PostsService;
   let postRepository: Repository<Post>;
+  let boardsService: BoardsService;
+  let categoriesService: CategoriesService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -24,11 +32,21 @@ describe('PostsService', () => {
           provide: getRepositoryToken(Post),
           useValue: createMock<Repository<Post>>(),
         },
+        {
+          provide: BoardsService,
+          useValue: createMock<BoardsService>(),
+        },
+        {
+          provide: CategoriesService,
+          useValue: createMock<CategoriesService>(),
+        },
       ],
     }).compile();
 
     service = module.get<PostsService>(PostsService);
     postRepository = module.get<Repository<Post>>(getRepositoryToken(Post));
+    boardsService = module.get<BoardsService>(BoardsService);
+    categoriesService = module.get<CategoriesService>(CategoriesService);
   });
 
   it('should be defined', () => {
@@ -37,20 +55,60 @@ describe('PostsService', () => {
 
   describe('create', () => {
     it('should create and return a new post', async () => {
-      const createPostDto = { title: 'Test Post', content: 'Test Content' };
+      const boardId = 1;
+      const createPostDto = {
+        title: 'Test Post',
+        content: 'Test Content',
+        boardId,
+      } satisfies CreatePostDto;
       const user = { id: 1 } as User;
-      const savedPost = { id: 1, ...createPostDto, createdBy: user } as Post;
+      const mockDate = new Date('2025-03-29T00:00:00Z').getTime();
+      const initialHotScore = mockDate / 1000;
 
+      jest.spyOn(Date, 'now').mockReturnValue(mockDate);
+
+      const board = createBoard({
+        id: boardId,
+        category: createCategory({ name: 'TestCategory' }),
+        slug: 'test-slug',
+      });
+
+      const savedPost = createPost({
+        id: 1,
+        ...createPostDto,
+        board,
+        createdBy: user,
+        createdAt: new Date(),
+        hotScore: initialHotScore,
+        setNickname: jest.fn(),
+      }) as Post;
+
+      jest.spyOn(boardsService, 'findOne').mockResolvedValue(board);
+      jest.spyOn(categoriesService, 'validateSlug').mockResolvedValue();
       postRepository.create = jest.fn().mockReturnValue(savedPost);
-      postRepository.save = jest.fn().mockResolvedValue(savedPost);
+      postRepository.save = jest.fn().mockResolvedValueOnce(savedPost);
 
       const result = await service.create(createPostDto, user);
-      expect(result).toEqual(QueryPostDto.fromEntity(savedPost));
+
+      expect(boardsService.findOne).toHaveBeenCalledWith(boardId);
+      expect(categoriesService.validateSlug).toHaveBeenCalledWith(
+        board.category.name,
+        board.slug,
+      );
       expect(postRepository.create).toHaveBeenCalledWith({
         ...createPostDto,
+        board,
         createdBy: user,
+        hotScore: initialHotScore,
       });
+      expect(postRepository.save).toHaveBeenCalledTimes(1);
       expect(postRepository.save).toHaveBeenCalledWith(savedPost);
+      expect(result).toEqual(
+        QueryPostDto.fromEntity({
+          ...savedPost,
+          setNickname: expect.any(Function),
+        }),
+      );
     });
   });
 
@@ -160,6 +218,127 @@ describe('PostsService', () => {
       await expect(service.delete(1, 1, false)).rejects.toThrow(
         InternalServerErrorException,
       );
+    });
+  });
+
+  describe('findRecentPosts', () => {
+    it('should return recent posts from specified boards ordered by creation date', async () => {
+      // Arrange
+      const boardIds = [1, 2];
+      const mockPosts = [
+        createPost({
+          id: 1,
+          title: 'Post 1',
+          board: createBoard({ id: 1 }),
+          createdAt: new Date('2023-01-02'),
+        }),
+        createPost({
+          id: 2,
+          title: 'Post 2',
+          board: createBoard({ id: 2 }),
+          createdAt: new Date('2023-01-01'),
+        }),
+      ];
+
+      postRepository.find = jest.fn().mockResolvedValue(mockPosts);
+
+      // Act
+      const result = await service.findRecentPosts(boardIds, 5);
+
+      // Assert
+      expect(postRepository.find).toHaveBeenCalledWith({
+        where: { board: { id: In(boardIds) } },
+        order: { createdAt: 'DESC' },
+        take: 5,
+        relations: ['board'],
+      });
+      expect(result).toEqual(mockPosts.map(QueryPostDto.fromEntity));
+    });
+
+    it('should return empty array when no posts found', async () => {
+      postRepository.find = jest.fn().mockResolvedValue([]);
+      const result = await service.findRecentPosts([999], 5);
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('findByBoard', () => {
+    it('should return all posts in the specified board', async () => {
+      // Arrange
+      const boardId = 1;
+      const mockPosts = [
+        createPost({ id: 1, title: 'Post 1', board: createBoard({ id: 1 }) }),
+        createPost({ id: 2, title: 'Post 2', board: createBoard({ id: 1 }) }),
+      ] as Post[];
+
+      postRepository.find = jest.fn().mockResolvedValue(mockPosts);
+
+      // Act
+      const result = await service.findByBoard(boardId);
+
+      // Assert
+      expect(postRepository.find).toHaveBeenCalledWith({
+        where: { board: { id: boardId } },
+        relations: ['createdBy', 'board'],
+      });
+      expect(result).toEqual(mockPosts.map(QueryPostDto.fromEntity));
+    });
+
+    it('should return empty array when board has no posts', async () => {
+      postRepository.find = jest.fn().mockResolvedValue([]);
+      const result = await service.findByBoard(999);
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('updateHotScores', () => {
+    it('should update hot scores for all posts based on the formula', async () => {
+      // Arrange
+      const mockDate = new Date('2023-10-01T00:00:00Z').getTime();
+      jest.spyOn(Date, 'now').mockReturnValue(mockDate);
+
+      const posts = [
+        createPost({
+          id: 1,
+          createdAt: new Date('2023-09-30T00:00:00Z'),
+          views: 10,
+          hotScore: 0,
+        }),
+        createPost({
+          id: 2,
+          createdAt: new Date('2023-09-29T00:00:00Z'),
+          views: 5,
+          hotScore: 0,
+        }),
+      ];
+
+      postRepository.find = jest.fn().mockResolvedValue(posts);
+      postRepository.save = jest.fn().mockImplementation((post) => post);
+
+      // Act
+      await service.updateHotScores();
+
+      // Assert
+      expect(postRepository.find).toHaveBeenCalled();
+
+      posts.forEach((post) => {
+        const age = mockDate - post.createdAt.getTime();
+        const ageInHours = age / (1000 * 60 * 60);
+        const expectedHotScore =
+          post.views * 1.5 + (1 / Math.pow(ageInHours + 2, 1.5)) * 100;
+        expect(post.hotScore).toBeCloseTo(expectedHotScore, 5);
+      });
+
+      expect(postRepository.save).toHaveBeenCalledTimes(posts.length);
+      posts.forEach((post, index) => {
+        expect(postRepository.save).toHaveBeenNthCalledWith(index + 1, post);
+      });
+    });
+
+    it('should handle empty posts array', async () => {
+      postRepository.find = jest.fn().mockResolvedValue([]);
+      await service.updateHotScores();
+      expect(postRepository.save).not.toHaveBeenCalled();
     });
   });
 });

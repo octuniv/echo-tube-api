@@ -1,16 +1,18 @@
 import { faker } from '@faker-js/faker';
 import { Post } from '@/posts/entities/post.entity';
 import { User } from '@/users/entities/user.entity';
+import { createBoard } from '@/boards/factories/board.factory';
 
 // 가짜 User 생성 함수
-const createFakeUser = (): Partial<User> => ({
+const createUser = (): Partial<User> => ({
   id: faker.number.int({ min: 1, max: 1000 }),
   nickname: faker.person.firstName(),
 });
 
 // 가짜 Post 생성 함수
-export const createFakePost = (): Post => {
-  const user = createFakeUser();
+export const createPost = (options?: Partial<Post>): Post => {
+  const user = createUser();
+  const board = createBoard();
 
   const post = new Post();
   post.id = faker.number.int({ min: 1, max: 1000 });
@@ -25,7 +27,9 @@ export const createFakePost = (): Post => {
   post.createdAt = faker.date.past();
   post.updatedAt = faker.date.recent();
   post.deletedAt = null;
-  post.nickname = user.nickname;
+  post.board = board;
+  post.hotScore = faker.number.float({ min: 0, max: 100 });
+  post.setNickname = jest.fn();
 
-  return post;
+  return Object.assign(post, options);
 };

@@ -9,6 +9,7 @@ import {
   DeleteDateColumn,
 } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
+import { Board } from '@/boards/entities/board.entity';
 
 @Entity()
 export class Post {
@@ -31,6 +32,7 @@ export class Post {
   commentsCount: number;
 
   @ManyToOne(() => User, (user) => user.posts, {
+    nullable: false,
     onDelete: 'CASCADE',
     orphanedRowAction: 'delete',
   })
@@ -47,6 +49,16 @@ export class Post {
 
   @Column({ type: 'varchar', length: 255, nullable: true, select: false })
   nickname?: string;
+
+  @ManyToOne(() => Board, (board) => board.posts, {
+    nullable: false,
+    onDelete: 'CASCADE',
+    orphanedRowAction: 'delete',
+  })
+  board: Board;
+
+  @Column({ type: 'float', default: 0 })
+  hotScore: number;
 
   @AfterLoad()
   setNickname() {

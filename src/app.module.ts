@@ -8,6 +8,8 @@ import { AuthModule } from './auth/auth.module';
 import { PostsModule } from './posts/posts.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { VisitorModule } from './visitor/visitor.module';
+import { BoardsModule } from './boards/boards.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { VisitorModule } from './visitor/visitor.module';
     PostsModule,
     DashboardModule,
     VisitorModule,
+    BoardsModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

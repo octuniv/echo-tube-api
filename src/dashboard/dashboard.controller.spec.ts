@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
+import { PopularPost } from './types/popularpost.types';
 
 describe('DashboardController', () => {
   let controller: DashboardController;
@@ -30,7 +31,9 @@ describe('DashboardController', () => {
   it('should return dashboard summary', async () => {
     const mockSummary = {
       visitors: 100,
-      popularPosts: [{ id: 1, title: 'Post 1', views: 50 }],
+      popularPosts: [
+        { id: 1, title: 'Post 1', hotScore: 100, boardName: 'test' },
+      ] satisfies PopularPost[],
     };
     jest.spyOn(service, 'getDashboardSummary').mockResolvedValue(mockSummary);
 

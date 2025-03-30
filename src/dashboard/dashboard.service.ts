@@ -1,7 +1,7 @@
 import { Repository } from 'typeorm';
 import { Post } from '@/posts/entities/post.entity';
 import { VisitorService } from '@/visitor/visitor.service';
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PopularPost } from './types/popularpost.types';
 
@@ -19,9 +19,17 @@ export class DashboardService {
   }> {
     const [popularPosts, visitors] = await Promise.all([
       this.postRepository.find({
-        order: { views: 'DESC' },
-        take: 3,
-        select: ['id', 'title', 'views'],
+        order: { hotScore: 'DESC' },
+        take: 10,
+        relations: ['board'],
+        select: {
+          id: true,
+          title: true,
+          hotScore: true,
+          board: {
+            name: true,
+          },
+        },
       }),
       this.visitorsService.getTodayVisitors(),
     ]);
@@ -31,7 +39,14 @@ export class DashboardService {
       popularPosts: popularPosts.map((post) => ({
         id: post.id,
         title: post.title,
-        views: post.views,
+        boardName:
+          post.board?.name ??
+          (() => {
+            throw new InternalServerErrorException(
+              '게시판 정보가 손상되었습니다',
+            );
+          })(),
+        hotScore: post.hotScore,
       })),
     };
   }

@@ -4,7 +4,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Post } from '@/posts/entities/post.entity';
 import { VisitorService } from '@/visitor/visitor.service';
 import { Repository } from 'typeorm';
-import { createFakePost } from '@/posts/faker/post.faker';
+import { createPost } from '@/posts/factories/post.factory';
+import { Board } from '@/boards/entities/board.entity';
 
 describe('DashboardService', () => {
   let service: DashboardService;
@@ -36,11 +37,25 @@ describe('DashboardService', () => {
   });
 
   it('should return summary with popular posts and visitors', async () => {
+    const mockBoard = { name: '테스트 게시판' };
     const mockPosts: Post[] = [
-      createFakePost(),
-      createFakePost(),
-      createFakePost(),
+      createPost({
+        id: 1,
+        hotScore: 100,
+        board: mockBoard as Board,
+      }),
+      createPost({
+        id: 2,
+        hotScore: 95,
+        board: mockBoard as Board,
+      }),
+      createPost({
+        id: 3,
+        hotScore: 90,
+        board: mockBoard as Board,
+      }),
     ];
+
     const mockVisitors = 150;
 
     jest.spyOn(postRepository, 'find').mockResolvedValue(mockPosts);
@@ -55,19 +70,23 @@ describe('DashboardService', () => {
       popularPosts: mockPosts.map((post) => ({
         id: post.id,
         title: post.title,
-        views: post.views,
+        boardName: mockBoard.name,
+        hotScore: post.hotScore,
       })),
     });
 
-    expect(result.popularPosts[0]).toHaveProperty('id');
-    expect(result.popularPosts[0]).toHaveProperty('title');
-    expect(result.popularPosts[0]).toHaveProperty('views');
-
     expect(postRepository.find).toHaveBeenCalledWith({
-      order: { views: 'DESC' },
-      take: 3,
-      select: ['id', 'title', 'views'],
+      order: { hotScore: 'DESC' },
+      take: 10,
+      relations: ['board'],
+      select: {
+        id: true,
+        title: true,
+        hotScore: true,
+        board: { name: true },
+      },
     });
+
     expect(visitorService.getTodayVisitors).toHaveBeenCalled();
   });
 });

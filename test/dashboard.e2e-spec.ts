@@ -12,7 +12,7 @@ import { AuthModule } from '@/auth/auth.module';
 import { TestE2EDbModule } from './test-db.e2e.module';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
-import { createFakePost } from '@/posts/faker/post.faker';
+import { createPost } from '@/posts/factories/post.factory';
 import { Visitor } from '@/visitor/entities/visitor.entity';
 import { User } from '@/users/entities/user.entity';
 import { generateFakeVisitor } from '@/visitor/faker/visitor.faker';
@@ -119,7 +119,7 @@ describe('DashboardController (e2e)', () => {
   });
 
   it('/dashboard/summary (GET) should return dashboard summary', async () => {
-    const posts = [createFakePost(), createFakePost()];
+    const posts = [createPost(), createPost()];
     posts.forEach(async (post) => {
       await postRepository.save({
         ...post,

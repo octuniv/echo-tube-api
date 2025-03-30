@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUrl, IsInt } from 'class-validator';
+import { IsString, IsOptional, IsUrl } from 'class-validator';
 
 export class CreatePostDto {
   @IsString()
@@ -7,8 +7,8 @@ export class CreatePostDto {
   @IsString()
   content: string;
 
-  @IsInt()
-  boardId: number;
+  @IsString()
+  boardSlug: string;
 
   @IsUrl()
   @IsOptional()

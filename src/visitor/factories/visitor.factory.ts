@@ -1,7 +1,7 @@
 import { faker } from '@faker-js/faker';
 import { Visitor } from '../entities/visitor.entity';
 
-export function generateFakeVisitor(): Visitor {
+export function createVisitor(): Visitor {
   const visitor = new Visitor();
 
   const randomDate = faker.date.recent({ days: 30 });
@@ -17,6 +17,6 @@ export function generateFakeVisitor(): Visitor {
   return visitor;
 }
 
-export function generateFakeVisitors(count: number): Visitor[] {
-  return Array.from({ length: count }, () => generateFakeVisitor());
+export function createVisitors(count: number): Visitor[] {
+  return Array.from({ length: count }, () => createVisitor());
 }

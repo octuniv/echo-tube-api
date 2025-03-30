@@ -18,7 +18,7 @@
     "test:watch": "cross-env NODE_ENV=development jest --watch",
     "test:cov": "cross-env NODE_ENV=development jest --coverage",
     "test:debug": "cross-env NODE_ENV=development node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "cross-env NODE_ENV=test jest --runInBand --config ./test/jest-e2e.json",
+    "test:e2e": "cross-env NODE_ENV=test pnpm build && jest --runInBand --config ./test/jest-e2e.json",
     "migration:generate": "cross-env NODE_ENV=production pnpm build && npx typeorm migration:generate -d dist/db/data-source.js src/db/migrations/PostRefactoring",
     "migration:run": "cross-env NODE_ENV=production pnpm build && npx typeorm-ts-node-commonjs migration:run -d dist/db/data-source.js",
     "migration:revert": "cross-env NODE_ENV=production pnpm build && npx typeorm-ts-node-commonjs migration:revert -d dist/db/data-source.js",

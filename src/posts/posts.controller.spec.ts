@@ -41,7 +41,7 @@ describe('PostsController', () => {
       const createPostDto: CreatePostDto = {
         title: 'Test Post',
         content: 'Test Content',
-        boardId: 1,
+        boardSlug: 'exist-slug',
       };
       const req = { user: { id: 1 } } as any;
       service.create = jest.fn().mockResolvedValue({ id: 1, ...createPostDto });

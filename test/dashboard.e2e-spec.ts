@@ -9,31 +9,27 @@ import { DbModule } from '@/db/db.module';
 import { UsersModule } from '@/users/users.module';
 import { PostsModule } from '@/posts/posts.module';
 import { AuthModule } from '@/auth/auth.module';
-import { TestE2EDbModule } from './test-db.e2e.module';
+import { TestDbModule } from './test-db.e2e.module';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
 import { createPost } from '@/posts/factories/post.factory';
 import { Visitor } from '@/visitor/entities/visitor.entity';
 import { User } from '@/users/entities/user.entity';
-import { generateFakeVisitor } from '@/visitor/faker/visitor.faker';
+import { createVisitor } from '@/visitor/factories/visitor.factory';
 import { VisitorModule } from '@/visitor/visitor.module';
+import { BoardsModule } from '@/boards/boards.module';
+import { CategoriesModule } from '@/categories/categories.module';
+import { BoardsService } from '@/boards/boards.service';
 
 const userInfo = MakeCreateUserDtoFaker();
 
 const truncateAllTable = async (dataSource: DataSource) => {
-  const queryRunner = dataSource.createQueryRunner(); // QueryRunner 생성
-  await queryRunner.connect(); // 데이터베이스 연결
-  await queryRunner.startTransaction(); // 트랜잭션 시작
-
-  try {
-    await queryRunner.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE');
-    await queryRunner.query('TRUNCATE TABLE visitor RESTART IDENTITY CASCADE');
-    await queryRunner.commitTransaction(); // 트랜잭션 커밋
-  } catch (err) {
-    await queryRunner.rollbackTransaction(); // 오류 발생 시 롤백
-    throw err;
-  } finally {
-    await queryRunner.release(); // QueryRunner 해제
+  const entities = dataSource.entityMetadatas;
+  for (const entity of entities) {
+    const repository = dataSource.getRepository(entity.name);
+    await repository.query(
+      `TRUNCATE ${entity.tableName} RESTART IDENTITY CASCADE;`,
+    );
   }
 };
 
@@ -71,6 +67,7 @@ describe('DashboardController (e2e)', () => {
   let userRepository: Repository<User>;
   let postRepository: Repository<Post>;
   let visitorRepository: Repository<Visitor>;
+  let boardsService: BoardsService;
   let dataSource: DataSource;
   let accessToken: string;
 
@@ -83,10 +80,12 @@ describe('DashboardController (e2e)', () => {
         PostsModule,
         AuthModule,
         VisitorModule,
+        BoardsModule,
+        CategoriesModule,
       ],
     })
       .overrideModule(DbModule)
-      .useModule(TestE2EDbModule)
+      .useModule(TestDbModule)
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -99,6 +98,7 @@ describe('DashboardController (e2e)', () => {
     visitorRepository = moduleFixture.get<Repository<Visitor>>(
       getRepositoryToken(Visitor),
     );
+    boardsService = moduleFixture.get<BoardsService>(BoardsService);
     dataSource = moduleFixture.get<DataSource>(DataSource);
     await app.init();
   });
@@ -119,7 +119,25 @@ describe('DashboardController (e2e)', () => {
   });
 
   it('/dashboard/summary (GET) should return dashboard summary', async () => {
-    const posts = [createPost(), createPost()];
+    const boards = await boardsService.findAll();
+    const testBoard = boards[0];
+
+    const posts = [
+      createPost({
+        title: 'Hot Post 1',
+        content: 'Content 1',
+        hotScore: 95,
+        board: testBoard,
+        createdBy: user,
+      }),
+      createPost({
+        title: 'Hot Post 2',
+        content: 'Content 2',
+        hotScore: 85,
+        board: testBoard,
+        createdBy: user,
+      }),
+    ];
     posts.forEach(async (post) => {
       await postRepository.save({
         ...post,
@@ -129,26 +147,30 @@ describe('DashboardController (e2e)', () => {
     });
 
     const today = new Date().toISOString().split('T')[0];
-    const visitor = generateFakeVisitor();
+    const visitor = createVisitor();
     visitor.date = today;
     await visitorRepository.save(visitor);
 
     const response = await request(app.getHttpServer())
       .get('/dashboard/summary')
-      .set('Authorization', `Bearer ${accessToken}`)
       .expect(200);
 
     expect(response.body).toEqual({
       visitors: visitor.count,
-      popularPosts: posts
-        .map((post) => {
-          return {
-            id: expect.any(Number),
-            title: post.title,
-            views: post.views,
-          };
-        })
-        .sort((a, b) => b.views - a.views),
+      popularPosts: expect.arrayContaining([
+        expect.objectContaining({
+          id: expect.any(Number),
+          title: 'Hot Post 1',
+          boardName: testBoard.name,
+          hotScore: 95,
+        }),
+        expect.objectContaining({
+          id: expect.any(Number),
+          title: 'Hot Post 2',
+          boardName: testBoard.name,
+          hotScore: 85,
+        }),
+      ]),
     });
   });
 });

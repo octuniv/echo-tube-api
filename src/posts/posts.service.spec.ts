@@ -55,11 +55,11 @@ describe('PostsService', () => {
 
   describe('create', () => {
     it('should create and return a new post', async () => {
-      const boardId = 1;
+      const boardSlug = 'exist-slug';
       const createPostDto = {
         title: 'Test Post',
         content: 'Test Content',
-        boardId,
+        boardSlug,
       } satisfies CreatePostDto;
       const user = { id: 1 } as User;
       const mockDate = new Date('2025-03-29T00:00:00Z').getTime();
@@ -68,9 +68,8 @@ describe('PostsService', () => {
       jest.spyOn(Date, 'now').mockReturnValue(mockDate);
 
       const board = createBoard({
-        id: boardId,
         category: createCategory({ name: 'TestCategory' }),
-        slug: 'test-slug',
+        slug: boardSlug,
       });
 
       const savedPost = createPost({
@@ -90,7 +89,7 @@ describe('PostsService', () => {
 
       const result = await service.create(createPostDto, user);
 
-      expect(boardsService.findOne).toHaveBeenCalledWith(boardId);
+      expect(boardsService.findOne).toHaveBeenCalledWith(boardSlug);
       expect(categoriesService.validateSlug).toHaveBeenCalledWith(
         board.category.name,
         board.slug,

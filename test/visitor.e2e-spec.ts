@@ -6,7 +6,7 @@ import { Visitor } from '../src/visitor/entities/visitor.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DbModule } from '@/db/db.module';
-import { TestE2EDbModule } from './test-db.e2e.module';
+import { TestDbModule } from './test-db.e2e.module';
 import { INestApplication } from '@nestjs/common';
 
 describe('VisitorsController (e2e)', () => {
@@ -19,7 +19,7 @@ describe('VisitorsController (e2e)', () => {
       imports: [VisitorModule, DbModule],
     })
       .overrideModule(DbModule)
-      .useModule(TestE2EDbModule)
+      .useModule(TestDbModule)
       .compile();
 
     app = moduleFixture.createNestApplication();

@@ -20,7 +20,10 @@ export default class CategoriesAndBoardsSeeder implements Seeder {
     });
 
     if (!communityCategory) {
-      communityCategory = categoryRepository.create({ name: '커뮤니티' });
+      communityCategory = categoryRepository.create({
+        name: '커뮤니티',
+        slugs: [],
+      });
       await categoryRepository.save(communityCategory);
     }
 

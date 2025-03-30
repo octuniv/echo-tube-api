@@ -4,7 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Visitor } from './entities/visitor.entity';
 import { createMock } from '@golevelup/ts-jest';
 import { Repository } from 'typeorm';
-import { generateFakeVisitor } from './faker/visitor.faker';
+import { createVisitor } from './factories/visitor.factory';
 
 describe('VisitorService', () => {
   let service: VisitorService;
@@ -54,7 +54,7 @@ describe('VisitorService', () => {
   it('should increment existing visitor count when user is not a duplicate', async () => {
     const mockDate = '2024-03-20';
     const mockUserIdentifier = 'test@test.com';
-    const mockVisitor = generateFakeVisitor();
+    const mockVisitor = createVisitor();
     mockVisitor.date = mockDate;
     mockVisitor.count = 1;
     mockVisitor.uniqueVisitors = ['existing-user@example.com']; // 이미 존재하는 유저 식별자
@@ -79,7 +79,7 @@ describe('VisitorService', () => {
   it('should not increment visitor count when user is a duplicate', async () => {
     const mockDate = '2024-03-20';
     const mockUserIdentifier = 'test@test.com';
-    const mockVisitor = generateFakeVisitor();
+    const mockVisitor = createVisitor();
     mockVisitor.date = mockDate;
     mockVisitor.uniqueVisitors = [mockUserIdentifier]; // 이미 존재하는 유저 식별자
 
@@ -116,7 +116,7 @@ describe('VisitorService', () => {
 
   it('should return the correct visitor count for today', async () => {
     const mockDate = '2024-03-20';
-    const mockVisitor = generateFakeVisitor();
+    const mockVisitor = createVisitor();
     mockVisitor.date = mockDate;
     mockVisitor.count = 42; // 임의의 방문자 수
 

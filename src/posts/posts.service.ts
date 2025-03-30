@@ -28,7 +28,7 @@ export class PostsService {
     createPostDto: CreatePostDto,
     user: User,
   ): Promise<QueryPostDto> {
-    const board = await this.boardsService.findOne(createPostDto.boardId);
+    const board = await this.boardsService.findOne(createPostDto.boardSlug);
     await this.categoriesService.validateSlug(board.category.name, board.slug);
 
     const newPost = this.postRepository.create({

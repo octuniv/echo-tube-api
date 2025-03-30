@@ -6,7 +6,10 @@ import { NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { createMock } from '@golevelup/ts-jest';
 import { createBoard } from './factories/board.factory';
-import { createCategory } from '@/categories/factories/category.factory';
+import {
+  createCategory,
+  createCategorySlug,
+} from '@/categories/factories/category.factory';
 
 describe('BoardsService', () => {
   let service: BoardsService;
@@ -53,14 +56,77 @@ describe('BoardsService', () => {
       expect(result).toEqual(mockBoards);
       expect(boardRepository.find).toHaveBeenCalledWith({
         relations: ['category'],
-        order: { category: 'ASC', name: 'ASC' },
+        order: { category: { name: 'ASC' }, name: 'ASC' },
       });
+    });
+  });
+
+  describe('findAllForList', () => {
+    it('should return board list items with selected fields ordered by name ASC', async () => {
+      // given
+      const mockBoards = [
+        createBoard({
+          id: 1,
+          slug: 'board-a',
+          name: 'Board A',
+          description: 'Description A',
+        }),
+        createBoard({
+          id: 2,
+          slug: 'board-b',
+          name: 'Board B',
+          description: 'Description B',
+        }),
+      ];
+
+      const mockQueryBuilder = {
+        select: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue(mockBoards),
+      };
+
+      jest
+        .spyOn(boardRepository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      // when
+      const result = await service.findAllForList();
+
+      // then
+      expect(result).toEqual([
+        {
+          id: 1,
+          slug: 'board-a',
+          name: 'Board A',
+          description: 'Description A',
+        },
+        {
+          id: 2,
+          slug: 'board-b',
+          name: 'Board B',
+          description: 'Description B',
+        },
+      ]);
+
+      expect(boardRepository.createQueryBuilder).toHaveBeenCalledWith('board');
+      expect(mockQueryBuilder.select).toHaveBeenCalledWith([
+        'board.id',
+        'board.slug',
+        'board.name',
+        'board.description',
+      ]);
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
+        'board.name',
+        'ASC',
+      );
     });
   });
 
   describe('findOne', () => {
     it('should return a board when found', async () => {
-      const testCategory = createCategory({ id: 1 });
+      const testCategory = createCategory({
+        slugs: [createCategorySlug({ slug: 'test-board-slug' })],
+      });
       const testBoard = createBoard({
         id: 1,
         name: 'Test Board',
@@ -71,10 +137,10 @@ describe('BoardsService', () => {
 
       (boardRepository.findOne as jest.Mock).mockResolvedValue(testBoard);
 
-      const result = await service.findOne(1);
+      const result = await service.findOne('test-board-slug');
       expect(result).toEqual(testBoard);
       expect(boardRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { slug: 'test-board-slug' },
         relations: ['category'],
       });
     });
@@ -82,11 +148,11 @@ describe('BoardsService', () => {
     it('should throw NotFoundException when board not found', async () => {
       (boardRepository.findOne as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.findOne(999)).rejects.toThrow(
+      await expect(service.findOne('non-exist-slug')).rejects.toThrow(
         new NotFoundException('게시판을 찾을 수 없습니다'),
       );
       expect(boardRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 999 },
+        where: { slug: 'non-exist-slug' },
         relations: ['category'],
       });
     });

@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
-import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { PopularPost } from './types/popularpost.types';
 
 describe('DashboardController', () => {
@@ -19,10 +18,7 @@ describe('DashboardController', () => {
           },
         },
       ],
-    })
-      .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: jest.fn(() => true) })
-      .compile();
+    }).compile();
 
     controller = module.get<DashboardController>(DashboardController);
     service = module.get<DashboardService>(DashboardService);

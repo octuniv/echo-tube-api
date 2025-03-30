@@ -85,7 +85,7 @@ export class PostsController {
     };
   }
 
-  // 최근 게시물 조회회
+  // 최근 게시물 조회
   @Get('recent')
   async findRecent(
     @Query('boardIds', ParseArrayPipe) boardIds: number[] = [1],

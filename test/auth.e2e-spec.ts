@@ -3,7 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from '@/users/entities/user.entity';
-import { TestE2EDbModule } from './test-db.e2e.module';
+import { TestDbModule } from './test-db.e2e.module';
 import { AuthModule } from '@/auth/auth.module';
 import { UsersModule } from '@/users/users.module';
 import { PostsModule } from '@/posts/posts.module';
@@ -45,7 +45,7 @@ describe('AuthController (e2e)', () => {
       imports: [AuthModule, DbModule, UsersModule, PostsModule, VisitorModule],
     })
       .overrideModule(DbModule)
-      .useModule(TestE2EDbModule)
+      .useModule(TestDbModule)
       .compile();
 
     app = moduleFixture.createNestApplication();

@@ -13,7 +13,7 @@ import { UsersModule } from '@/users/users.module';
 import { AuthModule } from '@/auth/auth.module';
 import { PostsModule } from '@/posts/posts.module';
 import { DbModule } from '@/db/db.module';
-import { TestE2EDbModule } from './test-db.e2e.module';
+import { TestDbModule } from './test-db.e2e.module';
 import * as bcrypt from 'bcryptjs';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
@@ -33,7 +33,7 @@ describe('User - /users (e2e)', () => {
       imports: [DbModule, UsersModule, AuthModule, PostsModule],
     })
       .overrideModule(DbModule)
-      .useModule(TestE2EDbModule)
+      .useModule(TestDbModule)
       .compile();
 
     app = moduleFixture.createNestApplication();

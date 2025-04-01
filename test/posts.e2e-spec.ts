@@ -9,7 +9,7 @@ import { AuthModule } from '@/auth/auth.module';
 import { UsersModule } from '@/users/users.module';
 import { DbModule } from '@/db/db.module';
 import { TestDbModule } from './test-db.e2e.module';
-import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
+import { createUserDto } from '@/users/factory/user.factory';
 import { User } from '@/users/entities/user.entity';
 import { CreatePostDto } from '@/posts/dto/create-post.dto';
 import { UpdatePostDto } from '@/posts/dto/update-post.dto';
@@ -26,7 +26,7 @@ import { createPost } from '@/posts/factories/post.factory';
 
 const userInfos = Array(2)
   .fill('')
-  .map(() => MakeCreateUserDtoFaker());
+  .map(() => createUserDto());
 
 const truncateUsersTable = async (dataSource: DataSource) => {
   const queryRunner = dataSource.createQueryRunner(); // QueryRunner 생성
@@ -195,9 +195,16 @@ describe('Posts - /posts (e2e)', () => {
         .send(createPostDto)
         .expect(201);
 
-      expect(response.body).toHaveProperty('id');
-      expect(response.body).not.toHaveProperty('createdBy');
-      expect(response.body.title).toBe(createPostDto.title);
+      expect(response.body).toMatchObject({
+        id: expect.any(Number),
+        title: createPostDto.title,
+        board: {
+          id: expect.any(Number),
+          slug: testBoard.slug,
+          name: expect.any(String),
+        },
+        hotScore: expect.any(Number),
+      });
 
       const postId = response.body.id;
       const post = await postRepository.findOne({
@@ -271,6 +278,7 @@ describe('Posts - /posts (e2e)', () => {
         .expect(200);
 
       expect(response.body.length).toBe(2);
+      expect(response.body[0].board).toBeDefined();
     });
 
     it('should return an empty array if no posts exist (성공)', async () => {
@@ -363,6 +371,12 @@ describe('Posts - /posts (e2e)', () => {
       expect(response.body.id).toBe(post.id);
       expect(response.body.title).toBe(post.title);
       expect(response.body.views).toBe(post.views + 1);
+
+      expect(response.body.hotScore).toBeDefined();
+      expect(response.body.board).toMatchObject({
+        id: testBoard.id,
+        slug: testBoard.slug,
+      });
     });
 
     it('should return 404 if post does not exist (실패)', async () => {

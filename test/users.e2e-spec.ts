@@ -3,10 +3,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { User } from '@/users/entities/user.entity';
 import * as request from 'supertest';
 import {
-  MakeCreateUserDtoFaker,
-  MakeUpdateUserNicknameRequestFaker,
-  MakeUpdateUserPasswordRequestFaker,
-} from '@/users/faker/user.faker';
+  createUserDto,
+  updateUserNicknameDto,
+  updateUserPasswordDto,
+} from '@/users/factory/user.factory';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UsersModule } from '@/users/users.module';
@@ -68,10 +68,10 @@ describe('User - /users (e2e)', () => {
     await app.close();
   });
 
-  const userInfo = MakeCreateUserDtoFaker();
-  const anotherUserInfo = MakeCreateUserDtoFaker();
-  const updateUserPasswordRequest = MakeUpdateUserPasswordRequestFaker();
-  const updateUserNicknameRequest = MakeUpdateUserNicknameRequestFaker();
+  const userInfo = createUserDto();
+  const anotherUserInfo = createUserDto();
+  const updateUserPasswordRequest = updateUserPasswordDto();
+  const updateUserNicknameRequest = updateUserNicknameDto();
 
   beforeAll(async () => {
     // sign up a new user
@@ -118,7 +118,7 @@ describe('User - /users (e2e)', () => {
 
   describe('About creating User', () => {
     it('should return badrequest when some of the information is not included in the signUp', async () => {
-      const anotherUserInfo = MakeCreateUserDtoFaker();
+      const anotherUserInfo = createUserDto();
       await request(app.getHttpServer())
         .post('/users')
         .send({
@@ -203,7 +203,7 @@ describe('User - /users (e2e)', () => {
 
   describe('For the rest of the action without the token', () => {
     it('should not update and delete accounts that do not have access_token', async () => {
-      const anotherUser = MakeCreateUserDtoFaker();
+      const anotherUser = createUserDto();
       await userRepository.save({
         name: anotherUser.name,
         nickname: anotherUser.nickname,
@@ -361,7 +361,7 @@ describe('User - /users (e2e)', () => {
 
     it('even if the account is deleted, the nickname and e-mail should be able to be viewed.', async () => {
       // sign up a new user
-      const forThisTestUser = MakeCreateUserDtoFaker();
+      const forThisTestUser = createUserDto();
 
       let response = await request(app.getHttpServer())
         .post('/users')

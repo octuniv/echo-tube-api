@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Post } from './entities/post.entity';
 import { In, Repository } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
-import { QueryPostDto } from './dto/query-post.dto';
+import { PostResponseDto } from './dto/post-response.dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CategoriesService } from '@/categories/categories.service';
 import { BoardsService } from '@/boards/boards.service';
@@ -27,7 +27,7 @@ export class PostsService {
   async create(
     createPostDto: CreatePostDto,
     user: User,
-  ): Promise<QueryPostDto> {
+  ): Promise<PostResponseDto> {
     const { title, content, boardSlug, videoUrl } = createPostDto;
     const board = await this.boardsService.findOne(boardSlug);
     await this.categoriesService.validateSlug(board.category.name, board.slug);
@@ -42,7 +42,7 @@ export class PostsService {
     });
     const savedPost = await this.postRepository.save(newPost);
 
-    return QueryPostDto.fromEntity(savedPost);
+    return PostResponseDto.fromEntity(savedPost);
   }
 
   private calculateInitialHotScore(): number {
@@ -63,38 +63,38 @@ export class PostsService {
   }
 
   // 모든 게시글 조회
-  async findAll(): Promise<QueryPostDto[]> {
+  async findAll(): Promise<PostResponseDto[]> {
     const posts = await this.postRepository.find({
-      relations: ['createdBy'], // createdBy는 닉네임 계산을 위해 필요
+      relations: ['createdBy', 'board'],
     });
-    return posts.map(QueryPostDto.fromEntity); // DTO로 변환
+    return posts.map(PostResponseDto.fromEntity); // DTO로 변환
   }
 
   // 특정 사용자가 작성한 게시글 조회
-  async findByUser(userId: number): Promise<QueryPostDto[]> {
+  async findByUser(userId: number): Promise<PostResponseDto[]> {
     const posts = await this.postRepository.find({
       where: { createdBy: { id: userId } },
-      relations: ['createdBy'],
+      relations: ['createdBy', 'board'],
     });
-    return posts.map(QueryPostDto.fromEntity);
+    return posts.map(PostResponseDto.fromEntity);
   }
 
-  // 특정 게시글 조회, (query 전용)
+  // 특정 게시글 조회, (내부용용)
   async findById(id: number): Promise<Post> {
     const post = await this.postRepository.findOne({
       where: { id },
-      relations: ['createdBy'],
+      relations: ['createdBy', 'board'],
     });
     if (!post) throw new NotFoundException('Post not found');
     return post;
   }
 
   // 특정 ID로 게시물 조회
-  async findOne(id: number): Promise<QueryPostDto> {
+  async findOne(id: number): Promise<PostResponseDto> {
     const post = await this.findById(id);
     post.views += 1;
     await this.postRepository.save(post);
-    return QueryPostDto.fromEntity(post);
+    return PostResponseDto.fromEntity(post);
   }
 
   async update(
@@ -102,7 +102,7 @@ export class PostsService {
     updatePostDto: UpdatePostDto,
     userId: number,
     isAdmin: boolean,
-  ): Promise<QueryPostDto> {
+  ): Promise<PostResponseDto> {
     const post = await this.findById(id);
 
     if (post.createdBy.id !== userId && !isAdmin) {
@@ -113,7 +113,7 @@ export class PostsService {
 
     Object.assign(post, updatePostDto);
     const result = await this.postRepository.save(post);
-    return QueryPostDto.fromEntity(result);
+    return PostResponseDto.fromEntity(result);
   }
 
   // 게시글 삭제
@@ -136,23 +136,23 @@ export class PostsService {
   async findRecentPosts(
     boardIds: number[],
     limit: number = 10,
-  ): Promise<QueryPostDto[]> {
+  ): Promise<PostResponseDto[]> {
     const posts = await this.postRepository.find({
       where: { board: { id: In(boardIds) } },
       order: { createdAt: 'DESC' },
       take: limit,
-      relations: ['board'],
+      relations: ['createdBy', 'board'],
     });
-    return posts.map(QueryPostDto.fromEntity);
+    return posts.map(PostResponseDto.fromEntity);
   }
 
   // 보드별 게시물 조회
-  async findByBoard(boardId: number): Promise<QueryPostDto[]> {
+  async findByBoard(boardId: number): Promise<PostResponseDto[]> {
     const posts = await this.postRepository.find({
       where: { board: { id: boardId } },
       relations: ['createdBy', 'board'],
     });
-    return posts.map(QueryPostDto.fromEntity);
+    return posts.map(PostResponseDto.fromEntity);
   }
 
   // 일정 주기마다 스코어 업데이트

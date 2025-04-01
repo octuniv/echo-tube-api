@@ -11,7 +11,7 @@ import { PostsModule } from '@/posts/posts.module';
 import { AuthModule } from '@/auth/auth.module';
 import { TestDbModule } from './test-db.e2e.module';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
-import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
+import { createUserDto } from '@/users/factory/user.factory';
 import { createPost } from '@/posts/factories/post.factory';
 import { Visitor } from '@/visitor/entities/visitor.entity';
 import { User } from '@/users/entities/user.entity';
@@ -29,7 +29,7 @@ import {
 } from 'typeorm-transactional';
 import { VisitorEntry } from '@/visitor/entities/visitor-entry.entity';
 
-const userInfo = MakeCreateUserDtoFaker();
+const userInfo = createUserDto();
 
 const truncateAllTable = async (dataSource: DataSource) => {
   const entities = dataSource.entityMetadatas;

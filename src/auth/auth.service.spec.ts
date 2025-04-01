@@ -3,7 +3,7 @@ import { AuthService } from './auth.service';
 import { UsersService } from '@/users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { MakeUserEntityFaker } from '@/users/faker/user.faker';
+import { createUserEntity } from '@/users/factory/user.factory';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RefreshTokenRepository } from './refresh-token.repository';
@@ -81,7 +81,7 @@ describe('AuthService', () => {
 
   describe('validateUser', () => {
     it('should return user if credentials are valid', async () => {
-      const mockUser = MakeUserEntityFaker();
+      const mockUser = createUserEntity();
       const password = 'password123';
       mockUser.passwordHash = await bcrypt.hash(password, 10);
 
@@ -119,7 +119,7 @@ describe('AuthService', () => {
 
   describe('login', () => {
     it('should return access and refresh tokens', async () => {
-      const mockUser = MakeUserEntityFaker();
+      const mockUser = createUserEntity();
       const mockResult = {
         access_token: 'access-token',
         refresh_token: 'refresh-token',
@@ -151,7 +151,7 @@ describe('AuthService', () => {
 
   describe('refreshToken', () => {
     it('should save a new refresh token and revoke the old one', async () => {
-      const mockUser = MakeUserEntityFaker();
+      const mockUser = createUserEntity();
       const mockOldToken = 'old-refresh-token';
       const mockNewToken = 'refresh-token';
 

@@ -2,16 +2,11 @@ import { faker } from '@faker-js/faker';
 import { Post } from '@/posts/entities/post.entity';
 import { User } from '@/users/entities/user.entity';
 import { createBoard } from '@/boards/factories/board.factory';
-
-// 가짜 User 생성 함수
-const createUser = (): Partial<User> => ({
-  id: faker.number.int({ min: 1, max: 1000 }),
-  nickname: faker.person.firstName(),
-});
+import { createUserEntity } from '@/users/factory/user.factory';
 
 // 가짜 Post 생성 함수
 export const createPost = (options?: Partial<Post>): Post => {
-  const user = createUser();
+  const user = createUserEntity();
   const board = createBoard();
 
   const post = new Post();

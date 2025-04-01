@@ -9,7 +9,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { QueryPostDto } from './dto/query-post.dto';
+import { PostResponseDto } from './dto/post-response.dto';
 import { createMock } from '@golevelup/ts-jest';
 import { BoardsService } from '@/boards/boards.service';
 import { CategoriesService } from '@/categories/categories.service';
@@ -17,6 +17,7 @@ import { createBoard } from '@/boards/factories/board.factory';
 import { createCategory } from '@/categories/factories/category.factory';
 import { createPost } from './factories/post.factory';
 import { CreatePostDto } from './dto/create-post.dto';
+import { createUserEntity } from '@/users/factory/user.factory';
 
 describe('PostsService', () => {
   let service: PostsService;
@@ -105,7 +106,7 @@ describe('PostsService', () => {
       expect(postRepository.save).toHaveBeenCalledTimes(1);
       expect(postRepository.save).toHaveBeenCalledWith(savedPost);
       expect(result).toEqual(
-        QueryPostDto.fromEntity({
+        PostResponseDto.fromEntity({
           ...savedPost,
           setNickname: expect.any(Function),
         }),
@@ -115,27 +116,27 @@ describe('PostsService', () => {
 
   describe('findAll', () => {
     it('should return an array of posts', async () => {
-      const posts = [{ id: 1, title: 'Post 1' }] as Post[];
+      const posts = [{ id: 1, title: 'Post 1' }].map(createPost);
       postRepository.find = jest.fn().mockResolvedValue(posts);
 
       const result = await service.findAll();
-      expect(result).toEqual(posts);
+      expect(result).toEqual(posts.map(PostResponseDto.fromEntity));
       expect(postRepository.find).toHaveBeenCalledWith({
-        relations: ['createdBy'],
+        relations: ['createdBy', 'board'],
       });
     });
   });
 
   describe('findByUser', () => {
     it('should return an array of posts', async () => {
-      const posts = [{ id: 1, title: 'Post 1' }] as Post[];
+      const posts = [{ id: 1, title: 'Post 1' }].map(createPost);
       postRepository.find = jest.fn().mockResolvedValue(posts);
 
       const result = await service.findByUser(1);
-      expect(result).toEqual(posts);
+      expect(result).toEqual(posts.map(PostResponseDto.fromEntity));
       expect(postRepository.find).toHaveBeenCalledWith({
         where: { createdBy: { id: 1 } },
-        relations: ['createdBy'],
+        relations: ['createdBy', 'board'],
       });
     });
 
@@ -147,11 +148,17 @@ describe('PostsService', () => {
 
   describe('findOne', () => {
     it('should return a post when found', async () => {
-      const post = { id: 1, title: 'Test Post', views: 0 } as Post;
+      const post = createPost({ id: 1, title: 'Test Post', views: 0 });
       postRepository.findOne = jest.fn().mockResolvedValue(post);
 
       const result = await service.findOne(1);
-      expect(result).toEqual({ ...post, views: 1 });
+      expect(result).toEqual(
+        PostResponseDto.fromEntity({
+          ...post,
+          views: 1,
+          setNickname: expect.any(Function),
+        }),
+      );
       expect(postRepository.save).toHaveBeenCalledWith({ ...post, views: 1 });
     });
 
@@ -163,7 +170,10 @@ describe('PostsService', () => {
 
   describe('update', () => {
     it('should update and return the post if authorized', async () => {
-      const post = { id: 1, createdBy: { id: 1 } } as Post;
+      const post = createPost({
+        id: 1,
+        createdBy: createUserEntity({ id: 1 }),
+      });
       const updatePostDto = { title: 'Updated Title' };
       postRepository.findOne = jest.fn().mockResolvedValue(post);
       postRepository.save = jest
@@ -175,7 +185,10 @@ describe('PostsService', () => {
     });
 
     it('should throw UnauthorizedException if not the owner or admin', async () => {
-      const post = { id: 1, createdBy: { id: 2 } } as Post;
+      const post = createPost({
+        id: 1,
+        createdBy: createUserEntity({ id: 2 }),
+      });
       postRepository.findOne = jest.fn().mockResolvedValue(post);
 
       await expect(service.update(1, {}, 1, false)).rejects.toThrow(
@@ -186,7 +199,10 @@ describe('PostsService', () => {
 
   describe('delete', () => {
     it('should delete the post if authorized', async () => {
-      const post = { id: 1, createdBy: { id: 1 } } as Post;
+      const post = createPost({
+        id: 1,
+        createdBy: createUserEntity({ id: 1 }),
+      });
       postRepository.findOne = jest.fn().mockResolvedValue(post);
       postRepository.softDelete = jest.fn().mockResolvedValue({
         raw: [],
@@ -199,7 +215,10 @@ describe('PostsService', () => {
     });
 
     it('should throw UnauthorizedException if not the owner or admin', async () => {
-      const post = { id: 1, createdBy: { id: 2 } } as Post;
+      const post = createPost({
+        id: 1,
+        createdBy: createUserEntity({ id: 2 }),
+      });
       postRepository.findOne = jest.fn().mockResolvedValue(post);
 
       await expect(service.delete(1, 1, false)).rejects.toThrow(
@@ -208,7 +227,10 @@ describe('PostsService', () => {
     });
 
     it('should throw InternalServerErrorException if post uninstall fails', async () => {
-      const post = { id: 1, createdBy: { id: 1 } } as Post;
+      const post = createPost({
+        id: 1,
+        createdBy: createUserEntity({ id: 1 }),
+      });
       postRepository.findOne = jest.fn().mockResolvedValue(post);
       postRepository.softDelete = jest.fn().mockResolvedValue({
         raw: [],
@@ -251,9 +273,9 @@ describe('PostsService', () => {
         where: { board: { id: In(boardIds) } },
         order: { createdAt: 'DESC' },
         take: 5,
-        relations: ['board'],
+        relations: ['createdBy', 'board'],
       });
-      expect(result).toEqual(mockPosts.map(QueryPostDto.fromEntity));
+      expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
     });
 
     it('should return empty array when no posts found', async () => {
@@ -282,7 +304,7 @@ describe('PostsService', () => {
         where: { board: { id: boardId } },
         relations: ['createdBy', 'board'],
       });
-      expect(result).toEqual(mockPosts.map(QueryPostDto.fromEntity));
+      expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
     });
 
     it('should return empty array when board has no posts', async () => {

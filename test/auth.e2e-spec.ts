@@ -9,7 +9,7 @@ import { UsersModule } from '@/users/users.module';
 import { PostsModule } from '@/posts/posts.module';
 import { DbModule } from '@/db/db.module';
 import { DataSource, Repository } from 'typeorm';
-import { MakeCreateUserDtoFaker } from '@/users/faker/user.faker';
+import { createUserDto } from '@/users/factory/user.factory';
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
@@ -75,7 +75,7 @@ describe('AuthController (e2e)', () => {
 
   describe('/auth/login (POST)', () => {
     it('should return 200 and a JWT token when credentials are valid', async () => {
-      const userDto = MakeCreateUserDtoFaker();
+      const userDto = createUserDto();
       await userRepository.save({
         name: userDto.name,
         nickname: userDto.nickname,
@@ -111,7 +111,7 @@ describe('AuthController (e2e)', () => {
     });
 
     it('should return 401 if the password is entered incorrectly.', async () => {
-      const userDto = MakeCreateUserDtoFaker();
+      const userDto = createUserDto();
       await userRepository.save({
         name: userDto.name,
         nickname: userDto.nickname,
@@ -133,7 +133,7 @@ describe('AuthController (e2e)', () => {
   });
 
   describe('POST /auth/refresh', () => {
-    const userDto = MakeCreateUserDtoFaker();
+    const userDto = createUserDto();
     let jwt_token: {
       access_token: string;
       refresh_token: string;
@@ -207,7 +207,7 @@ describe('AuthController (e2e)', () => {
   });
 
   describe('/auth/validate-token (GET)', () => {
-    const userDto = MakeCreateUserDtoFaker();
+    const userDto = createUserDto();
     let user: User;
     let jwt_token: {
       access_token: string;

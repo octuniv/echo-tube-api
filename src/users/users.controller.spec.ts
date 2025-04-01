@@ -4,7 +4,7 @@ import { UsersService } from './users.service';
 import { UpdateUserPasswordRequest } from './dto/update-user-password.dto';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
-import { MakeCreateUserDtoFaker } from './faker/user.faker';
+import { createUserDto } from './factory/user.factory';
 import { UpdateUserNicknameRequest } from './dto/update-user-nickname.dto';
 import { CheckEmailRequest } from './dto/check-user-email.dto';
 import { CheckNicknameRequest } from './dto/check-user-nickname.dto';
@@ -51,10 +51,10 @@ describe('UsersController', () => {
 
   describe('Signup User', () => {
     it('should create a new user', async () => {
-      const createUserDto = MakeCreateUserDtoFaker();
-      const result = await usersController.createUser(createUserDto);
+      const userDtoForCreate = createUserDto();
+      const result = await usersController.createUser(userDtoForCreate);
       expect(result).toEqual({
-        email: createUserDto.email,
+        email: userDtoForCreate.email,
         message: 'Successfully created account',
       });
     });

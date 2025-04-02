@@ -134,7 +134,7 @@ export class PostsService {
 
   // 최근 게시물 조회
   async findRecentPosts(
-    boardIds: number[],
+    boardIds: number[] = [1],
     limit: number = 10,
   ): Promise<PostResponseDto[]> {
     const posts = await this.postRepository.find({
@@ -155,13 +155,36 @@ export class PostsService {
     return posts.map(PostResponseDto.fromEntity);
   }
 
+  async findPopularPosts(): Promise<PostResponseDto[]> {
+    const popularPosts = await this.postRepository.find({
+      order: { hotScore: 'DESC' },
+      take: 10,
+      relations: ['board'],
+      select: {
+        id: true,
+        title: true,
+        hotScore: true,
+        board: {
+          id: true,
+          name: true,
+        },
+      },
+    });
+    return popularPosts.map(PostResponseDto.fromEntity);
+  }
+
   // 일정 주기마다 스코어 업데이트
   @Cron(CronExpression.EVERY_30_MINUTES)
   async updateHotScores() {
     const posts = await this.postRepository.find();
     for (const post of posts) {
       post.hotScore = this.calculateHotScore(post);
-      await this.postRepository.save(post);
+      try {
+        await this.postRepository.save(post);
+      } catch (error) {
+        console.error(`Failed to update post ${post.id}:`, error);
+        throw new InternalServerErrorException();
+      }
     }
   }
 }

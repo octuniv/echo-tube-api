@@ -135,7 +135,27 @@ describe('DashboardController (e2e)', () => {
     const boards = await boardsService.findAll();
     const testBoard = boards[0];
 
-    const posts = [
+    const recentPosts = [
+      createPost({
+        title: 'Recent Post 1',
+        content: 'Content 1',
+        hotScore: 1,
+        createdAt: new Date('2023-10-01'),
+        board: testBoard,
+        createdBy: user,
+      }),
+      createPost({
+        title: 'Recent Post 2',
+        content: 'Content 2',
+        hotScore: 2,
+        createdAt: new Date('2023-10-02'), // Newer date
+        board: testBoard,
+        createdBy: user,
+      }),
+    ];
+    await postRepository.save(recentPosts);
+
+    const popularPosts = [
       createPost({
         title: 'Hot Post 1',
         content: 'Content 1',
@@ -151,13 +171,7 @@ describe('DashboardController (e2e)', () => {
         createdBy: user,
       }),
     ];
-    posts.forEach(async (post) => {
-      await postRepository.save({
-        ...post,
-        createdBy: user,
-        nickname: user.nickname,
-      });
-    });
+    await postRepository.save(popularPosts);
 
     const today = new Date().toISOString().split('T')[0];
     const visitor = createVisitor({ date: today });
@@ -172,18 +186,42 @@ describe('DashboardController (e2e)', () => {
 
     expect(response.body).toEqual({
       visitors: visitor.count,
-      popularPosts: expect.arrayContaining([
+      recentPosts: expect.arrayContaining([
         expect.objectContaining({
-          id: expect.any(Number),
-          title: 'Hot Post 1',
-          boardName: testBoard.name,
-          hotScore: 95,
+          title: 'Hot Post 1', // Higher hotScore
+          board: expect.objectContaining({ name: testBoard.name }),
         }),
         expect.objectContaining({
-          id: expect.any(Number),
           title: 'Hot Post 2',
-          boardName: testBoard.name,
+          board: expect.objectContaining({ name: testBoard.name }),
+        }),
+        expect.objectContaining({
+          title: 'Recent Post 2', // Should appear first (newer)
+          board: expect.objectContaining({ name: testBoard.name }),
+        }),
+        expect.objectContaining({
+          title: 'Recent Post 1',
+          board: expect.objectContaining({ name: testBoard.name }),
+        }),
+      ]),
+      popularPosts: expect.arrayContaining([
+        expect.objectContaining({
+          title: 'Hot Post 1', // Higher hotScore
+          hotScore: 95,
+          board: expect.objectContaining({ name: testBoard.name }),
+        }),
+        expect.objectContaining({
+          title: 'Hot Post 2',
           hotScore: 85,
+          board: expect.objectContaining({ name: testBoard.name }),
+        }),
+        expect.objectContaining({
+          title: 'Recent Post 2', // Should appear first (newer)
+          board: expect.objectContaining({ name: testBoard.name }),
+        }),
+        expect.objectContaining({
+          title: 'Recent Post 1',
+          board: expect.objectContaining({ name: testBoard.name }),
         }),
       ]),
     });

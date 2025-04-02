@@ -283,6 +283,22 @@ describe('PostsService', () => {
       const result = await service.findRecentPosts([999], 5);
       expect(result).toEqual([]);
     });
+
+    it('should use default boardIds when not provided', async () => {
+      const mockPosts = [createPost({ id: 1, board: createBoard({ id: 1 }) })];
+
+      postRepository.find = jest.fn().mockResolvedValue(mockPosts);
+
+      const result = await service.findRecentPosts(undefined, 5);
+
+      expect(postRepository.find).toHaveBeenCalledWith({
+        where: { board: { id: In([1]) } },
+        order: { createdAt: 'DESC' },
+        take: 5,
+        relations: ['createdBy', 'board'],
+      });
+      expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
+    });
   });
 
   describe('findByBoard', () => {
@@ -362,6 +378,64 @@ describe('PostsService', () => {
       postRepository.find = jest.fn().mockResolvedValue([]);
       await service.updateHotScores();
       expect(postRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should throw InternalServerErrorException on save failure', async () => {
+      const posts = [createPost({ id: 1 })];
+      postRepository.find = jest.fn().mockResolvedValue(posts);
+      postRepository.save = jest
+        .fn()
+        .mockRejectedValue(new Error('Database error'));
+
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      await expect(service.updateHotScores()).rejects.toThrow(
+        InternalServerErrorException,
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to update post 1:',
+        expect.any(Error),
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+  });
+
+  describe('findPopularPosts', () => {
+    it('should return popular posts ordered by hotScore descending', async () => {
+      const mockPosts = [
+        createPost({
+          id: 1,
+          title: 'Hot Post 1',
+          hotScore: 100,
+          board: createBoard({ id: 1, name: 'Board 1' }),
+        }),
+        createPost({
+          id: 2,
+          title: 'Hot Post 2',
+          hotScore: 90,
+          board: createBoard({ id: 2, name: 'Board 2' }),
+        }),
+      ];
+
+      postRepository.find = jest.fn().mockResolvedValue(mockPosts);
+
+      const result = await service.findPopularPosts();
+
+      expect(postRepository.find).toHaveBeenCalledWith({
+        order: { hotScore: 'DESC' },
+        take: 10,
+        relations: ['board'],
+        select: {
+          id: true,
+          title: true,
+          hotScore: true,
+          board: { id: true, name: true },
+        },
+      });
+      expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
     });
   });
 });

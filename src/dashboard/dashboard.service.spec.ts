@@ -1,25 +1,25 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DashboardService } from './dashboard.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Post } from '@/posts/entities/post.entity';
 import { VisitorService } from '@/visitor/visitor.service';
-import { Repository } from 'typeorm';
 import { createPost } from '@/posts/factories/post.factory';
-import { Board } from '@/boards/entities/board.entity';
+import { PostsService } from '@/posts/posts.service';
+import { createBoard } from '@/boards/factories/board.factory';
+import { PostResponseDto } from '@/posts/dto/post-response.dto';
 
 describe('DashboardService', () => {
   let service: DashboardService;
-  let postRepository: Repository<Post>;
-  let visitorService: VisitorService;
+  let postsService: PostsService;
+  let visitorsService: VisitorService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DashboardService,
         {
-          provide: getRepositoryToken(Post),
+          provide: PostsService,
           useValue: {
-            find: jest.fn(),
+            findPopularPosts: jest.fn(),
+            findRecentPosts: jest.fn(),
           },
         },
         {
@@ -31,62 +31,79 @@ describe('DashboardService', () => {
       ],
     }).compile();
 
-    service = module.get<DashboardService>(DashboardService);
-    postRepository = module.get<Repository<Post>>(getRepositoryToken(Post));
-    visitorService = module.get<VisitorService>(VisitorService);
+    service = module.get(DashboardService);
+    postsService = module.get(PostsService);
+    visitorsService = module.get(VisitorService);
   });
 
-  it('should return summary with popular posts and visitors', async () => {
-    const mockBoard = { name: '테스트 게시판' };
-    const mockPosts: Post[] = [
+  it('should return summary with recent posts, popular posts, and visitors', async () => {
+    // Arrange
+    const mockPopularPosts = [
       createPost({
         id: 1,
+        title: 'Hot Post 1',
         hotScore: 100,
-        board: mockBoard as Board,
+        board: createBoard({ name: 'Board 1' }),
       }),
       createPost({
         id: 2,
+        title: 'Hot Post 2',
         hotScore: 95,
-        board: mockBoard as Board,
+        board: createBoard({ name: 'Board 2' }),
       }),
+    ];
+
+    const mockRecentPosts = [
       createPost({
         id: 3,
-        hotScore: 90,
-        board: mockBoard as Board,
+        title: 'Recent Post 1',
+        createdAt: new Date(),
+        board: createBoard({ name: 'Board 3' }),
       }),
     ];
 
     const mockVisitors = 150;
 
-    jest.spyOn(postRepository, 'find').mockResolvedValue(mockPosts);
+    // Mock service methods
     jest
-      .spyOn(visitorService, 'getTodayVisitors')
+      .spyOn(postsService, 'findPopularPosts')
+      .mockResolvedValue(mockPopularPosts.map(PostResponseDto.fromEntity));
+
+    jest
+      .spyOn(postsService, 'findRecentPosts')
+      .mockResolvedValue(mockRecentPosts.map(PostResponseDto.fromEntity));
+
+    jest
+      .spyOn(visitorsService, 'getTodayVisitors')
       .mockResolvedValue(mockVisitors);
+
+    // Act
+    const result = await service.getDashboardSummary();
+
+    // Assert
+    expect(result).toEqual({
+      visitors: mockVisitors,
+      recentPosts: mockRecentPosts.map(PostResponseDto.fromEntity),
+      popularPosts: mockPopularPosts.map(PostResponseDto.fromEntity),
+    });
+
+    expect(postsService.findPopularPosts).toHaveBeenCalled();
+    expect(postsService.findRecentPosts).toHaveBeenCalled();
+    expect(visitorsService.getTodayVisitors).toHaveBeenCalled();
+  });
+
+  it('should handle empty posts', async () => {
+    // Mock empty responses
+    jest.spyOn(postsService, 'findPopularPosts').mockResolvedValue([]);
+    jest.spyOn(postsService, 'findRecentPosts').mockResolvedValue([]);
+    jest.spyOn(visitorsService, 'getTodayVisitors').mockResolvedValue(0);
 
     const result = await service.getDashboardSummary();
 
     expect(result).toEqual({
-      visitors: mockVisitors,
-      popularPosts: mockPosts.map((post) => ({
-        id: post.id,
-        title: post.title,
-        boardName: mockBoard.name,
-        hotScore: post.hotScore,
-      })),
+      visitors: 0,
+      recentPosts: [],
+      popularPosts: [],
     });
-
-    expect(postRepository.find).toHaveBeenCalledWith({
-      order: { hotScore: 'DESC' },
-      take: 10,
-      relations: ['board'],
-      select: {
-        id: true,
-        title: true,
-        hotScore: true,
-        board: { name: true },
-      },
-    });
-
-    expect(visitorService.getTodayVisitors).toHaveBeenCalled();
   });
 });

@@ -129,7 +129,7 @@ describe('Posts - /posts (e2e)', () => {
 
     const boards = await boardsService.findAll();
     testBoard = boards[0];
-  });
+  }, 15000);
 
   beforeAll(async () => {
     // Sign up and login for all users

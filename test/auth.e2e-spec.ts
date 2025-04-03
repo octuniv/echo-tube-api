@@ -1,9 +1,8 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from '@/users/entities/user.entity';
-import { TestDbModule } from './test-db.e2e.module';
 import { AuthModule } from '@/auth/auth.module';
 import { UsersModule } from '@/users/users.module';
 import { PostsModule } from '@/posts/posts.module';
@@ -14,12 +13,9 @@ import { LoginUserDto } from '@/auth/dto/login-user.dto';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { VisitorModule } from '@/visitor/visitor.module';
-import {
-  initializeTransactionalContext,
-  StorageDriver,
-} from 'typeorm-transactional';
+import { setupTestApp, truncateAllTables } from './utils/test.util';
 
-const truncateTables = async (dataSource: DataSource) => {
+const truncateUserTable = async (dataSource: DataSource) => {
   const queryRunner = dataSource.createQueryRunner(); // QueryRunner 생성
   await queryRunner.connect(); // 데이터베이스 연결
   await queryRunner.startTransaction(); // 트랜잭션 시작
@@ -40,36 +36,29 @@ const truncateTables = async (dataSource: DataSource) => {
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
+  let module: TestingModule;
+  let dataSource: DataSource;
   let userRepository: Repository<User>;
   let jwtService: JwtService;
-  let dataSource: DataSource;
 
   beforeAll(async () => {
-    initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AuthModule, DbModule, UsersModule, PostsModule, VisitorModule],
-    })
-      .overrideModule(DbModule)
-      .useModule(TestDbModule)
-      .compile();
+    const testApp = await setupTestApp({
+      modules: [AuthModule, DbModule, UsersModule, PostsModule, VisitorModule],
+    });
 
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true }));
-    await app.init();
+    ({ app, module, dataSource } = testApp);
 
-    userRepository = moduleFixture.get<Repository<User>>(
-      getRepositoryToken(User),
-    );
-    jwtService = moduleFixture.get<JwtService>(JwtService);
-    dataSource = moduleFixture.get<DataSource>(DataSource);
-  });
+    userRepository = module.get<Repository<User>>(getRepositoryToken(User));
+    jwtService = module.get<JwtService>(JwtService);
+    dataSource = module.get<DataSource>(DataSource);
+  }, 15000);
 
   beforeEach(async () => {
-    await truncateTables(dataSource);
+    await truncateUserTable(dataSource);
   });
 
   afterAll(async () => {
-    await truncateTables(dataSource);
+    await truncateAllTables(dataSource);
     await app.close();
   });
 

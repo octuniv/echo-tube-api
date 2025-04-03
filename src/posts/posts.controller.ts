@@ -17,7 +17,6 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { RequestWithUser } from '@/auth/types/request-with-user.interface';
-import { UserRole } from '@/users/entities/user-role.enum';
 import { DeletePostResultDto } from './dto/delete-result.dto';
 import { FindRecentPostsDto } from './dto/find-recent.dto';
 
@@ -62,10 +61,7 @@ export class PostsController {
     @Body() updatePostDto: UpdatePostDto,
     @Req() req: RequestWithUser,
   ) {
-    const isAdmin = req.user.role === UserRole.ADMIN;
-    const userId = req.user.id;
-
-    return await this.postsService.update(id, updatePostDto, userId, isAdmin);
+    return await this.postsService.update(id, updatePostDto, req.user);
   }
 
   // 게시글 삭제
@@ -75,15 +71,8 @@ export class PostsController {
     @Param('id') id: number,
     @Req() req: RequestWithUser,
   ): Promise<DeletePostResultDto> {
-    const isAdmin = req.user.role === UserRole.ADMIN;
-    try {
-      await this.postsService.delete(id, req.user.id, isAdmin);
-    } catch (error) {
-      throw error;
-    }
-    return {
-      message: 'Post deleted successfully.',
-    };
+    await this.postsService.delete(id, req.user);
+    return { message: 'Post deleted successfully.' };
   }
 
   // 최근 게시물 조회

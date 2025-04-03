@@ -3,6 +3,8 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { PostResponseDto } from './post-response.dto';
 import { Post } from '../entities/post.entity';
+import { createBoard } from '@/boards/factories/board.factory';
+import { BoardListItemDto } from '@/boards/dto/board-list-item.dto';
 
 describe('PostResponseDto', () => {
   describe('Validation', () => {
@@ -74,11 +76,13 @@ describe('PostResponseDto', () => {
         commentsCount: 5,
         createdAt: new Date(),
         updatedAt: new Date(),
-        board: {
-          id: 1,
-          slug: 'general',
-          name: 'General',
-        },
+        board: BoardListItemDto.fromEntity(
+          createBoard({
+            id: 1,
+            slug: 'general',
+            name: 'General',
+          }),
+        ),
         hotScore: 150,
       });
 
@@ -90,6 +94,14 @@ describe('PostResponseDto', () => {
   describe('fromEntity', () => {
     it('should convert Post entity to DTO correctly', () => {
       const post = new Post();
+      const board = createBoard({
+        id: 1,
+        slug: 'general',
+        name: 'General',
+        description: 'General Board',
+        category: null,
+        posts: [],
+      });
       post.id = 1;
       post.title = 'Test Post';
       post.content = 'Test Content';
@@ -99,14 +111,7 @@ describe('PostResponseDto', () => {
       post.nickname = 'UserA';
       post.createdAt = new Date('2023-10-01');
       post.updatedAt = new Date('2023-10-02');
-      post.board = {
-        id: 1,
-        slug: 'general',
-        name: 'General',
-        description: 'General Board',
-        category: null,
-        posts: [],
-      } as any;
+      post.board = board;
       post.hotScore = 150.5;
 
       const dto = PostResponseDto.fromEntity(post);
@@ -120,18 +125,18 @@ describe('PostResponseDto', () => {
         nickname: 'UserA',
         createdAt: post.createdAt,
         updatedAt: post.updatedAt,
-        board: {
-          id: 1,
-          slug: 'general',
-          name: 'General',
-          description: 'General Board',
-        },
+        board: BoardListItemDto.fromEntity(board),
         hotScore: 150.5,
       });
     });
 
     it('should handle optional fields correctly', () => {
       const post = new Post();
+      const board = createBoard({
+        id: 1,
+        slug: 'general',
+        name: 'General',
+      });
       post.id = 1;
       post.title = 'Test Post';
       post.content = 'Test Content';
@@ -139,11 +144,7 @@ describe('PostResponseDto', () => {
       post.commentsCount = 5;
       post.createdAt = new Date('2023-10-01');
       post.updatedAt = new Date('2023-10-02');
-      post.board = {
-        id: 1,
-        slug: 'general',
-        name: 'General',
-      } as any;
+      post.board = board;
       post.hotScore = 0;
 
       const dto = PostResponseDto.fromEntity(post);
@@ -155,11 +156,7 @@ describe('PostResponseDto', () => {
         commentsCount: 5,
         createdAt: post.createdAt,
         updatedAt: post.updatedAt,
-        board: {
-          id: 1,
-          slug: 'general',
-          name: 'General',
-        },
+        board: BoardListItemDto.fromEntity(board),
         hotScore: 0,
       });
       expect(dto.videoUrl).toBeUndefined();

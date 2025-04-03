@@ -3,7 +3,6 @@ import { PostsService } from './posts.service';
 import { In, Repository, UpdateResult } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Post } from './entities/post.entity';
-import { User } from '@/users/entities/user.entity';
 import {
   InternalServerErrorException,
   NotFoundException,
@@ -18,6 +17,7 @@ import { createCategory } from '@/categories/factories/category.factory';
 import { createPost } from './factories/post.factory';
 import { CreatePostDto } from './dto/create-post.dto';
 import { createUserEntity } from '@/users/factory/user.factory';
+import { UserRole } from '@/users/entities/user-role.enum';
 
 describe('PostsService', () => {
   let service: PostsService;
@@ -55,6 +55,23 @@ describe('PostsService', () => {
   });
 
   describe('create', () => {
+    it('should throw UnauthorizedException when user lacks required role', async () => {
+      const board = createBoard({ slug: 'test', requiredRole: UserRole.ADMIN });
+      jest.spyOn(boardsService, 'findOne').mockResolvedValue(board);
+      const user = createUserEntity({ id: 1, role: UserRole.USER });
+
+      await expect(
+        service.create(
+          {
+            title: 'Test',
+            content: 'Test',
+            boardSlug: 'test',
+          },
+          user,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
     it('should create and return a new post', async () => {
       const boardSlug = 'exist-slug';
       const createPostDto = {
@@ -62,7 +79,7 @@ describe('PostsService', () => {
         content: 'Test Content',
         boardSlug,
       } satisfies CreatePostDto;
-      const user = { id: 1 } as User;
+      const user = createUserEntity({ id: 1, role: UserRole.USER });
       const mockDate = new Date('2025-03-29T00:00:00Z').getTime();
       const initialHotScore = mockDate / 1000;
 
@@ -71,6 +88,7 @@ describe('PostsService', () => {
       const board = createBoard({
         category: createCategory({ name: 'TestCategory' }),
         slug: boardSlug,
+        requiredRole: UserRole.USER,
       });
 
       const savedPost = createPost({
@@ -82,7 +100,7 @@ describe('PostsService', () => {
         createdAt: new Date(),
         hotScore: initialHotScore,
         setNickname: jest.fn(),
-      }) as Post;
+      });
 
       jest.spyOn(boardsService, 'findOne').mockResolvedValue(board);
       jest.spyOn(categoriesService, 'validateSlug').mockResolvedValue();
@@ -169,10 +187,52 @@ describe('PostsService', () => {
   });
 
   describe('update', () => {
-    it('should update and return the post if authorized', async () => {
+    it('should throw UnauthorizedException when user lacks board role', async () => {
+      const board = createBoard({ requiredRole: UserRole.ADMIN });
+      const user = createUserEntity({ id: 1, role: UserRole.USER });
+      const post = createPost({
+        board,
+        createdBy: createUserEntity({ id: 2, role: UserRole.ADMIN }),
+      });
+      jest.spyOn(service, 'findById').mockResolvedValue(post);
+
+      await expect(service.update(1, {}, user)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('should throw UnauthorizedException if not the owner', async () => {
+      const user = createUserEntity({ id: 1, role: UserRole.USER });
       const post = createPost({
         id: 1,
-        createdBy: createUserEntity({ id: 1 }),
+        createdBy: createUserEntity({ id: 2 }),
+      });
+      postRepository.findOne = jest.fn().mockResolvedValue(post);
+
+      await expect(service.update(1, {}, user)).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+
+    it('should allow admin to update regardless of ownership', async () => {
+      const board = createBoard({ requiredRole: UserRole.USER });
+      const post = createPost({
+        board,
+        createdBy: createUserEntity({ id: 2, role: UserRole.USER }),
+      });
+      jest.spyOn(service, 'findById').mockResolvedValue(post);
+      const adminUser = createUserEntity({ id: 1, role: UserRole.ADMIN });
+
+      await service.update(1, { title: 'New Title' }, adminUser);
+      expect(postRepository.save).toHaveBeenCalled();
+    });
+
+    it('should update and return the post if authorized', async () => {
+      const user = createUserEntity({ id: 1 });
+      const board = createBoard({ requiredRole: UserRole.USER });
+      const post = createPost({
+        board,
+        createdBy: user,
       });
       const updatePostDto = { title: 'Updated Title' };
       postRepository.findOne = jest.fn().mockResolvedValue(post);
@@ -180,53 +240,41 @@ describe('PostsService', () => {
         .fn()
         .mockResolvedValue({ ...post, ...updatePostDto });
 
-      const result = await service.update(1, updatePostDto, 1, false);
+      const result = await service.update(1, updatePostDto, user);
       expect(result.title).toEqual('Updated Title');
-    });
-
-    it('should throw UnauthorizedException if not the owner or admin', async () => {
-      const post = createPost({
-        id: 1,
-        createdBy: createUserEntity({ id: 2 }),
-      });
-      postRepository.findOne = jest.fn().mockResolvedValue(post);
-
-      await expect(service.update(1, {}, 1, false)).rejects.toThrow(
-        UnauthorizedException,
-      );
     });
   });
 
   describe('delete', () => {
-    it('should delete the post if authorized', async () => {
+    it('should throw UnauthorizedException when user lacks board role', async () => {
+      const board = createBoard({ requiredRole: UserRole.ADMIN });
       const post = createPost({
-        id: 1,
-        createdBy: createUserEntity({ id: 1 }),
+        board,
+        createdBy: createUserEntity({ id: 2, role: UserRole.ADMIN }),
       });
-      postRepository.findOne = jest.fn().mockResolvedValue(post);
-      postRepository.softDelete = jest.fn().mockResolvedValue({
-        raw: [],
-        affected: 1,
-        generatedMaps: [],
-      } satisfies UpdateResult);
+      jest.spyOn(service, 'findById').mockResolvedValue(post);
+      const user = createUserEntity({ id: 1, role: UserRole.USER });
 
-      await expect(service.delete(1, 1, false)).resolves.toBeUndefined();
-      expect(postRepository.softDelete).toHaveBeenCalledWith(1);
+      await expect(service.delete(1, user)).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
-    it('should throw UnauthorizedException if not the owner or admin', async () => {
+    it('should throw UnauthorizedException if not the owner', async () => {
+      const user = createUserEntity({ id: 1 });
       const post = createPost({
         id: 1,
         createdBy: createUserEntity({ id: 2 }),
       });
       postRepository.findOne = jest.fn().mockResolvedValue(post);
 
-      await expect(service.delete(1, 1, false)).rejects.toThrow(
+      await expect(service.delete(1, user)).rejects.toThrow(
         UnauthorizedException,
       );
     });
 
     it('should throw InternalServerErrorException if post uninstall fails', async () => {
+      const user = createUserEntity({ id: 1 });
       const post = createPost({
         id: 1,
         createdBy: createUserEntity({ id: 1 }),
@@ -238,9 +286,44 @@ describe('PostsService', () => {
         generatedMaps: [],
       } satisfies UpdateResult);
 
-      await expect(service.delete(1, 1, false)).rejects.toThrow(
+      await expect(service.delete(1, user)).rejects.toThrow(
         InternalServerErrorException,
       );
+    });
+
+    it('should allow admin to delete regardless of ownership', async () => {
+      const board = createBoard({ requiredRole: UserRole.USER });
+      const post = createPost({
+        board,
+        createdBy: createUserEntity({ id: 2, role: UserRole.USER }),
+      });
+      jest.spyOn(service, 'findById').mockResolvedValue(post);
+      postRepository.softDelete = jest.fn().mockResolvedValue({
+        raw: [],
+        affected: 1,
+        generatedMaps: [],
+      } satisfies UpdateResult);
+      const adminUser = createUserEntity({ id: 1, role: UserRole.ADMIN });
+
+      await service.delete(1, adminUser);
+      expect(postRepository.softDelete).toHaveBeenCalled();
+    });
+
+    it('should delete the post if authorized', async () => {
+      const user = createUserEntity({ id: 1 });
+      const post = createPost({
+        id: 1,
+        createdBy: user,
+      });
+      postRepository.findOne = jest.fn().mockResolvedValue(post);
+      postRepository.softDelete = jest.fn().mockResolvedValue({
+        raw: [],
+        affected: 1,
+        generatedMaps: [],
+      } satisfies UpdateResult);
+
+      await expect(service.delete(1, user)).resolves.toBeUndefined();
+      expect(postRepository.softDelete).toHaveBeenCalledWith(1);
     });
   });
 
@@ -308,7 +391,7 @@ describe('PostsService', () => {
       const mockPosts = [
         createPost({ id: 1, title: 'Post 1', board: createBoard({ id: 1 }) }),
         createPost({ id: 2, title: 'Post 2', board: createBoard({ id: 1 }) }),
-      ] as Post[];
+      ] satisfies Post[];
 
       postRepository.find = jest.fn().mockResolvedValue(mockPosts);
 

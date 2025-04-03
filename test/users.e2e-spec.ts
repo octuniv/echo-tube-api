@@ -1,5 +1,5 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import { TestingModule } from '@nestjs/testing';
 import { User } from '@/users/entities/user.entity';
 import * as request from 'supertest';
 import {
@@ -13,7 +13,6 @@ import { UsersModule } from '@/users/users.module';
 import { AuthModule } from '@/auth/auth.module';
 import { PostsModule } from '@/posts/posts.module';
 import { DbModule } from '@/db/db.module';
-import { TestDbModule } from './test-db.e2e.module';
 import * as bcrypt from 'bcryptjs';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
@@ -22,49 +21,29 @@ import { CheckEmailRequest } from '@/users/dto/check-user-email.dto';
 import { CheckNicknameRequest } from '@/users/dto/check-user-nickname.dto';
 import { UpdateUserPasswordRequest } from '@/users/dto/update-user-password.dto';
 import {
-  initializeTransactionalContext,
-  StorageDriver,
-} from 'typeorm-transactional';
+  setupTestApp,
+  signUpAndLogin,
+  truncateAllTables,
+} from './utils/test.util';
 
 describe('User - /users (e2e)', () => {
   let app: INestApplication;
+  let module: TestingModule;
+  let dataSource: DataSource;
   let userRepository: Repository<User>;
   let authToken: string;
-  let dataSource: DataSource;
 
   beforeAll(async () => {
-    initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [DbModule, UsersModule, AuthModule, PostsModule],
-    })
-      .overrideModule(DbModule)
-      .useModule(TestDbModule)
-      .compile();
+    const testApp = await setupTestApp({
+      modules: [DbModule, UsersModule, AuthModule, PostsModule],
+    });
+    ({ app, module, dataSource } = testApp);
 
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true }));
-    await app.init();
-
-    userRepository = moduleFixture.get<Repository<User>>(
-      getRepositoryToken(User),
-    );
-    dataSource = moduleFixture.get<DataSource>(DataSource);
-  });
+    userRepository = module.get<Repository<User>>(getRepositoryToken(User));
+  }, 15000);
 
   afterAll(async () => {
-    const queryRunner = dataSource.createQueryRunner(); // QueryRunner 생성
-    await queryRunner.connect(); // 데이터베이스 연결
-    await queryRunner.startTransaction(); // 트랜잭션 시작
-
-    try {
-      await queryRunner.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE'); // users 테이블 TRUNCATE
-      await queryRunner.commitTransaction(); // 트랜잭션 커밋
-    } catch (err) {
-      await queryRunner.rollbackTransaction(); // 오류 발생 시 롤백
-      throw err;
-    } finally {
-      await queryRunner.release(); // QueryRunner 해제
-    }
+    await truncateAllTables(dataSource);
     await app.close();
   });
 
@@ -74,33 +53,7 @@ describe('User - /users (e2e)', () => {
   const updateUserNicknameRequest = updateUserNicknameDto();
 
   beforeAll(async () => {
-    // sign up a new user
-    let response = await request(app.getHttpServer())
-      .post('/users')
-      .send(userInfo)
-      .expect(201);
-
-    expect(response.body).toMatchObject({
-      email: userInfo.email,
-      message: 'Successfully created account',
-    });
-
-    // login
-    response = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({
-        email: userInfo.email,
-        password: userInfo.password,
-      } satisfies LoginUserDto)
-      .expect(200);
-
-    expect(response.body).toHaveProperty('access_token');
-    expect(response.body).toHaveProperty('refresh_token');
-    expect(response.body.name).toEqual(userInfo.name);
-    expect(response.body.nickname).toEqual(userInfo.nickname);
-    expect(response.body.email).toEqual(userInfo.email);
-
-    authToken = response.body.access_token;
+    authToken = await signUpAndLogin(app, userInfo);
   });
 
   beforeAll(async () => {

@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BoardsService } from './boards.service';
 import { Board } from './entities/board.entity';
 import { Repository } from 'typeorm';
-import { NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { createMock } from '@golevelup/ts-jest';
 import { createBoard } from './factories/board.factory';
@@ -10,6 +9,8 @@ import {
   createCategory,
   createCategorySlug,
 } from '@/categories/factories/category.factory';
+import { UserRole } from '@/users/entities/user-role.enum';
+import { NotFoundException } from '@nestjs/common';
 
 describe('BoardsService', () => {
   let service: BoardsService;
@@ -28,6 +29,10 @@ describe('BoardsService', () => {
 
     service = module.get(BoardsService);
     boardRepository = module.get(getRepositoryToken(Board));
+  });
+
+  beforeAll(() => {
+    jest.clearAllMocks();
   });
 
   describe('findAll', () => {
@@ -62,86 +67,95 @@ describe('BoardsService', () => {
   });
 
   describe('findAllForList', () => {
-    it('should return board list items with selected fields ordered by name ASC', async () => {
-      // given
+    it('should return board list items with requiredRole and proper ordering', async () => {
       const mockBoards = [
         createBoard({
           id: 1,
           slug: 'board-a',
           name: 'Board A',
           description: 'Description A',
+          requiredRole: UserRole.USER,
+          category: createCategory({ id: 1, name: 'Category 1' }),
         }),
         createBoard({
           id: 2,
           slug: 'board-b',
           name: 'Board B',
           description: 'Description B',
+          requiredRole: UserRole.ADMIN,
+          category: createCategory({ id: 2, name: 'Category 2' }),
         }),
       ];
 
-      const mockQueryBuilder = {
-        select: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue(mockBoards),
-      };
+      (boardRepository.find as jest.Mock).mockResolvedValue(mockBoards);
 
-      jest
-        .spyOn(boardRepository, 'createQueryBuilder')
-        .mockReturnValue(mockQueryBuilder as any);
-
-      // when
       const result = await service.findAllForList();
 
-      // then
       expect(result).toEqual([
         {
           id: 1,
           slug: 'board-a',
           name: 'Board A',
           description: 'Description A',
+          requiredRole: UserRole.USER,
         },
         {
           id: 2,
           slug: 'board-b',
           name: 'Board B',
           description: 'Description B',
+          requiredRole: UserRole.ADMIN,
         },
       ]);
 
-      expect(boardRepository.createQueryBuilder).toHaveBeenCalledWith('board');
-      expect(mockQueryBuilder.select).toHaveBeenCalledWith([
-        'board.id',
-        'board.slug',
-        'board.name',
-        'board.description',
-      ]);
-      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
-        'board.name',
-        'ASC',
-      );
+      expect(boardRepository.find).toHaveBeenCalledWith({
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          description: true,
+          requiredRole: true,
+        },
+        order: { category: { name: 'ASC' }, name: 'ASC' },
+      });
     });
   });
 
   describe('findOne', () => {
-    it('should return a board when found', async () => {
+    it('should return board with requiredRole information', async () => {
+      const testCategorySlug = createCategorySlug({ slug: 'test-slug' });
+
       const testCategory = createCategory({
-        slugs: [createCategorySlug({ slug: 'test-board-slug' })],
+        id: 1,
+        slugs: [testCategorySlug],
       });
+
       const testBoard = createBoard({
         id: 1,
+        slug: 'test-slug',
         name: 'Test Board',
+        description: 'Test Description',
+        requiredRole: UserRole.ADMIN,
         category: testCategory,
-        slug: 'test-board-slug',
-        description: 'Test description',
       });
 
       (boardRepository.findOne as jest.Mock).mockResolvedValue(testBoard);
 
-      const result = await service.findOne('test-board-slug');
+      const result = await service.findOne('test-slug');
+
       expect(result).toEqual(testBoard);
+
       expect(boardRepository.findOne).toHaveBeenCalledWith({
-        where: { slug: 'test-board-slug' },
+        where: { slug: 'test-slug' },
         relations: ['category'],
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          description: true,
+          requiredRole: true,
+          category: { id: true, name: true },
+        },
       });
     });
 
@@ -154,6 +168,17 @@ describe('BoardsService', () => {
       expect(boardRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'non-exist-slug' },
         relations: ['category'],
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          description: true,
+          requiredRole: true,
+          category: {
+            id: true,
+            name: true,
+          },
+        },
       });
     });
   });

@@ -2,6 +2,7 @@
 import { createCategory } from '@/categories/factories/category.factory';
 import { Board } from '../entities/board.entity';
 import { faker } from '@faker-js/faker';
+import { UserRole } from '@/users/entities/user-role.enum';
 
 export const createBoard = (overrides: Partial<Board> = {}): Board => {
   return {
@@ -10,6 +11,7 @@ export const createBoard = (overrides: Partial<Board> = {}): Board => {
     name: faker.commerce.productName(),
     description: faker.lorem.sentence(),
     category: createCategory(),
+    requiredRole: UserRole.USER,
     posts: [],
     ...overrides,
   };

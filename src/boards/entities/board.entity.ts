@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { Post } from '@/posts/entities/post.entity';
 import { Category } from '@/categories/entities/category.entity';
+import { UserRole } from '@/users/entities/user-role.enum';
 
 @Entity()
 export class Board {
@@ -32,4 +33,11 @@ export class Board {
     orphanedRowAction: 'delete',
   })
   category: Category;
+
+  @Column({
+    type: 'enum',
+    enum: UserRole,
+    default: UserRole.USER,
+  })
+  requiredRole: UserRole;
 }

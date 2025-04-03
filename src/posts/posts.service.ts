@@ -14,6 +14,7 @@ import { PostResponseDto } from './dto/post-response.dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CategoriesService } from '@/categories/categories.service';
 import { BoardsService } from '@/boards/boards.service';
+import { UserRole } from '@/users/entities/user-role.enum';
 
 @Injectable()
 export class PostsService {
@@ -23,27 +24,6 @@ export class PostsService {
     private readonly boardsService: BoardsService,
     private readonly categoriesService: CategoriesService,
   ) {}
-  // 게시글 생성
-  async create(
-    createPostDto: CreatePostDto,
-    user: User,
-  ): Promise<PostResponseDto> {
-    const { title, content, boardSlug, videoUrl } = createPostDto;
-    const board = await this.boardsService.findOne(boardSlug);
-    await this.categoriesService.validateSlug(board.category.name, board.slug);
-
-    const newPost = this.postRepository.create({
-      title,
-      content,
-      videoUrl,
-      board,
-      createdBy: user,
-      hotScore: this.calculateInitialHotScore(),
-    });
-    const savedPost = await this.postRepository.save(newPost);
-
-    return PostResponseDto.fromEntity(savedPost);
-  }
 
   private calculateInitialHotScore(): number {
     return Date.now() / 1000; // 기본값으로 현재 시간 사용
@@ -60,6 +40,37 @@ export class PostsService {
       // (post.likes?.length * 3 || 0) +
       (1 / Math.pow(ageInHours + 2, 1.5)) * 100 // 시간 감소 보정
     );
+  }
+
+  private checkRole(userRole: UserRole, requiredRole: UserRole): boolean {
+    const hierarchy = [UserRole.BOT, UserRole.USER, UserRole.ADMIN];
+    return hierarchy.indexOf(userRole) >= hierarchy.indexOf(requiredRole);
+  }
+
+  // 게시글 생성
+  async create(
+    createPostDto: CreatePostDto,
+    user: User,
+  ): Promise<PostResponseDto> {
+    const { title, content, boardSlug, videoUrl } = createPostDto;
+    const board = await this.boardsService.findOne(boardSlug);
+    await this.categoriesService.validateSlug(board.category.name, board.slug);
+
+    if (!this.checkRole(user.role, board.requiredRole)) {
+      throw new UnauthorizedException('해당 게시판에 글쓰기 권한이 없습니다');
+    }
+
+    const newPost = this.postRepository.create({
+      title,
+      content,
+      videoUrl,
+      board,
+      createdBy: user,
+      hotScore: this.calculateInitialHotScore(),
+    });
+    const savedPost = await this.postRepository.save(newPost);
+
+    return PostResponseDto.fromEntity(savedPost);
   }
 
   // 모든 게시글 조회
@@ -100,15 +111,18 @@ export class PostsService {
   async update(
     id: number,
     updatePostDto: UpdatePostDto,
-    userId: number,
-    isAdmin: boolean,
+    user: User,
   ): Promise<PostResponseDto> {
     const post = await this.findById(id);
 
-    if (post.createdBy.id !== userId && !isAdmin) {
-      throw new UnauthorizedException(
-        'You are not authorized to update this post',
-      );
+    // 게시판 권한 검사
+    if (!this.checkRole(user.role, post.board.requiredRole)) {
+      throw new UnauthorizedException('해당 게시판 수정 권한이 없습니다');
+    }
+
+    // 소유자 또는 관리자 검사
+    if (post.createdBy.id !== user.id && user.role !== UserRole.ADMIN) {
+      throw new UnauthorizedException('수정 권한이 없습니다');
     }
 
     Object.assign(post, updatePostDto);
@@ -117,13 +131,17 @@ export class PostsService {
   }
 
   // 게시글 삭제
-  async delete(id: number, userId: number, isAdmin: boolean): Promise<void> {
+  async delete(id: number, user: User): Promise<void> {
     const post = await this.findById(id);
 
-    if (post.createdBy.id !== userId && !isAdmin) {
-      throw new UnauthorizedException(
-        'You are not authorized to delete this post',
-      );
+    // 게시판 권한 검사
+    if (!this.checkRole(user.role, post.board.requiredRole)) {
+      throw new UnauthorizedException('해당 게시판 삭제 권한이 없습니다');
+    }
+
+    // 소유자 또는 관리자 검사
+    if (post.createdBy.id !== user.id && user.role !== UserRole.ADMIN) {
+      throw new UnauthorizedException('삭제 권한이 없습니다');
     }
 
     const result = await this.postRepository.softDelete(id);

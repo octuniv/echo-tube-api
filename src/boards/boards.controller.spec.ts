@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BoardsController } from './boards.controller';
 import { BoardsService } from './boards.service';
 import { BoardListItemDto } from './dto/board-list-item.dto';
+import { createBoard } from './factories/board.factory';
 
 describe('BoardsController', () => {
   let controller: BoardsController;
@@ -40,7 +41,7 @@ describe('BoardsController', () => {
           name: '질문답변',
           description: '기술 질문 게시판',
         },
-      ];
+      ].map(createBoard);
       jest.spyOn(service, 'findAllForList').mockResolvedValue(mockResponse);
 
       // Act

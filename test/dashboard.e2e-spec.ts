@@ -1,5 +1,5 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -9,8 +9,6 @@ import { DbModule } from '@/db/db.module';
 import { UsersModule } from '@/users/users.module';
 import { PostsModule } from '@/posts/posts.module';
 import { AuthModule } from '@/auth/auth.module';
-import { TestDbModule } from './test-db.e2e.module';
-import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { createUserDto } from '@/users/factory/user.factory';
 import { createPost } from '@/posts/factories/post.factory';
 import { Visitor } from '@/visitor/entities/visitor.entity';
@@ -23,67 +21,30 @@ import { VisitorModule } from '@/visitor/visitor.module';
 import { BoardsModule } from '@/boards/boards.module';
 import { CategoriesModule } from '@/categories/categories.module';
 import { BoardsService } from '@/boards/boards.service';
-import {
-  initializeTransactionalContext,
-  StorageDriver,
-} from 'typeorm-transactional';
 import { VisitorEntry } from '@/visitor/entities/visitor-entry.entity';
+import {
+  setupTestApp,
+  signUpAndLogin,
+  truncateAllTables,
+  truncatePostsTable,
+} from './utils/test.util';
 
 const userInfo = createUserDto();
 
-const truncateAllTable = async (dataSource: DataSource) => {
-  const entities = dataSource.entityMetadatas;
-  for (const entity of entities) {
-    const repository = dataSource.getRepository(entity.name);
-    await repository.query(
-      `TRUNCATE ${entity.tableName} RESTART IDENTITY CASCADE;`,
-    );
-  }
-};
-
-const signUpAndLogin = async (
-  app: INestApplication,
-  userInfo: CreateUserDto,
-) => {
-  // sign up test user to use this test
-  const signUpResponse = await request(app.getHttpServer())
-    .post('/users')
-    .send(userInfo)
-    .expect(201);
-
-  expect(signUpResponse.body).toMatchObject({
-    email: userInfo.email,
-    message: 'Successfully created account',
-  });
-
-  // log in test user
-  const loginResponse = await request(app.getHttpServer())
-    .post('/auth/login')
-    .send({
-      email: userInfo.email,
-      password: userInfo.password,
-    })
-    .expect(200);
-
-  expect(loginResponse.body).toHaveProperty('access_token');
-  return loginResponse.body.access_token as string;
-};
-
 describe('DashboardController (e2e)', () => {
   let app: INestApplication;
+  let module: TestingModule;
+  let dataSource: DataSource;
   let user: User;
   let userRepository: Repository<User>;
   let postRepository: Repository<Post>;
   let visitorRepository: Repository<Visitor>;
   let visitorEntryRepository: Repository<VisitorEntry>;
   let boardsService: BoardsService;
-  let dataSource: DataSource;
-  let accessToken: string;
 
   beforeAll(async () => {
-    initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [
+    const testApp = await setupTestApp({
+      modules: [
         DashboardModule,
         DbModule,
         UsersModule,
@@ -93,47 +54,37 @@ describe('DashboardController (e2e)', () => {
         BoardsModule,
         CategoriesModule,
       ],
-    })
-      .overrideModule(DbModule)
-      .useModule(TestDbModule)
-      .compile();
-
-    app = moduleFixture.createNestApplication();
-    userRepository = moduleFixture.get<Repository<User>>(
-      getRepositoryToken(User),
-    );
-    postRepository = moduleFixture.get<Repository<Post>>(
-      getRepositoryToken(Post),
-    );
-    visitorRepository = moduleFixture.get<Repository<Visitor>>(
+    });
+    ({ app, module, dataSource } = testApp);
+    userRepository = module.get<Repository<User>>(getRepositoryToken(User));
+    postRepository = module.get<Repository<Post>>(getRepositoryToken(Post));
+    visitorRepository = module.get<Repository<Visitor>>(
       getRepositoryToken(Visitor),
     );
-    visitorEntryRepository = moduleFixture.get<Repository<VisitorEntry>>(
+    visitorEntryRepository = module.get<Repository<VisitorEntry>>(
       getRepositoryToken(VisitorEntry),
     );
-    boardsService = moduleFixture.get<BoardsService>(BoardsService);
-    dataSource = moduleFixture.get<DataSource>(DataSource);
-    await app.init();
-  });
+    boardsService = module.get<BoardsService>(BoardsService);
+  }, 15000);
 
   beforeAll(async () => {
-    accessToken = await signUpAndLogin(app, userInfo);
+    await signUpAndLogin(app, userInfo);
     user = await userRepository.findOne({ where: { email: userInfo.email } });
-    expect(accessToken).toBeDefined();
     expect(user).toBeDefined();
   });
 
-  afterEach(async () => {
-    await truncateAllTable(dataSource);
+  beforeAll(async () => {
+    await truncatePostsTable(dataSource);
   });
 
   afterAll(async () => {
+    await truncateAllTables(dataSource);
     await app.close();
   });
 
   it('/dashboard/summary (GET) should return dashboard summary', async () => {
     const boards = await boardsService.findAll();
-    const testBoard = boards[0];
+    const testBoard = boards.find((board) => board.slug === 'free');
 
     const recentPosts = [
       createPost({

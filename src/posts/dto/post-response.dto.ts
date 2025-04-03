@@ -66,6 +66,7 @@ export class PostResponseDto {
       slug: post.board.slug,
       name: post.board.name,
       description: post.board.description,
+      requiredRole: post.board.requiredRole,
     };
     dto.hotScore = post.hotScore;
     return dto;

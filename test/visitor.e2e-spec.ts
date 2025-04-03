@@ -1,54 +1,32 @@
 import * as request from 'supertest';
-import { Test } from '@nestjs/testing';
+import { TestingModule } from '@nestjs/testing';
 import { VisitorModule } from '../src/visitor/visitor.module';
 import { VisitorService } from '../src/visitor/visitor.service';
 import { Visitor } from '../src/visitor/entities/visitor.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { DbModule } from '@/db/db.module';
-import { TestDbModule } from './test-db.e2e.module';
 import { INestApplication } from '@nestjs/common';
-import {
-  initializeTransactionalContext,
-  StorageDriver,
-} from 'typeorm-transactional';
-
-const truncateAllTable = async (dataSource: DataSource) => {
-  const entities = dataSource.entityMetadatas;
-  for (const entity of entities) {
-    const repository = dataSource.getRepository(entity.name);
-    await repository.query(
-      `TRUNCATE ${entity.tableName} RESTART IDENTITY CASCADE;`,
-    );
-  }
-};
+import { setupTestApp, truncateAllTables } from './utils/test.util';
 
 describe('VisitorsController (e2e)', () => {
   let app: INestApplication;
+  let module: TestingModule;
+  let dataSource: DataSource;
   let visitorRepository: Repository<Visitor>;
   let visitorService: VisitorService;
-  let dataSource: DataSource;
 
   beforeAll(async () => {
-    initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
-    const moduleFixture = await Test.createTestingModule({
-      imports: [VisitorModule, DbModule],
-    })
-      .overrideModule(DbModule)
-      .useModule(TestDbModule)
-      .compile();
-
-    app = moduleFixture.createNestApplication();
-    visitorRepository = moduleFixture.get<Repository<Visitor>>(
+    const testApp = await setupTestApp({ modules: [VisitorModule, DbModule] });
+    ({ app, module, dataSource } = testApp);
+    visitorRepository = module.get<Repository<Visitor>>(
       getRepositoryToken(Visitor),
     );
-    visitorService = moduleFixture.get<VisitorService>(VisitorService);
-    dataSource = moduleFixture.get<DataSource>(DataSource);
-    await app.init();
-  });
+    visitorService = module.get<VisitorService>(VisitorService);
+  }, 15000);
 
   afterEach(async () => {
-    await truncateAllTable(dataSource);
+    await truncateAllTables(dataSource);
   });
 
   afterAll(async () => {

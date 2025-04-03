@@ -1,5 +1,5 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Post } from '@/posts/entities/post.entity';
@@ -8,100 +8,42 @@ import { PostsModule } from '@/posts/posts.module';
 import { AuthModule } from '@/auth/auth.module';
 import { UsersModule } from '@/users/users.module';
 import { DbModule } from '@/db/db.module';
-import { TestDbModule } from './test-db.e2e.module';
 import { createUserDto } from '@/users/factory/user.factory';
 import { User } from '@/users/entities/user.entity';
 import { CreatePostDto } from '@/posts/dto/create-post.dto';
 import { UpdatePostDto } from '@/posts/dto/update-post.dto';
-import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { BoardsModule } from '@/boards/boards.module';
 import { CategoriesModule } from '@/categories/categories.module';
 import { BoardsService } from '@/boards/boards.service';
 import { Board } from '@/boards/entities/board.entity';
-import {
-  initializeTransactionalContext,
-  StorageDriver,
-} from 'typeorm-transactional';
 import { createPost } from '@/posts/factories/post.factory';
+import { UserRole } from '@/users/entities/user-role.enum';
+import {
+  setupTestApp,
+  signUpAndLogin,
+  truncateAllTables,
+  truncatePostsTable,
+} from './utils/test.util';
 
 const userInfos = Array(2)
   .fill('')
   .map(() => createUserDto());
 
-const truncateUsersTable = async (dataSource: DataSource) => {
-  const queryRunner = dataSource.createQueryRunner(); // QueryRunner 생성
-  await queryRunner.connect(); // 데이터베이스 연결
-  await queryRunner.startTransaction(); // 트랜잭션 시작
-
-  try {
-    await queryRunner.query('TRUNCATE TABLE users RESTART IDENTITY CASCADE'); // users, post 테이블 TRUNCATE
-    await queryRunner.commitTransaction(); // 트랜잭션 커밋
-  } catch (err) {
-    await queryRunner.rollbackTransaction(); // 오류 발생 시 롤백
-    throw err;
-  } finally {
-    await queryRunner.release(); // QueryRunner 해제
-  }
-};
-
-const truncatePostTable = async (dataSource: DataSource) => {
-  const queryRunner = dataSource.createQueryRunner(); // QueryRunner 생성
-  await queryRunner.connect(); // 데이터베이스 연결
-  await queryRunner.startTransaction(); // 트랜잭션 시작
-
-  try {
-    await queryRunner.query('TRUNCATE TABLE post RESTART IDENTITY CASCADE'); // post 테이블 TRUNCATE
-    await queryRunner.commitTransaction(); // 트랜잭션 커밋
-  } catch (err) {
-    await queryRunner.rollbackTransaction(); // 오류 발생 시 롤백
-    throw err;
-  } finally {
-    await queryRunner.release(); // QueryRunner 해제
-  }
-};
-
-const signUpAndLogin = async (
-  app: INestApplication,
-  userInfo: CreateUserDto,
-) => {
-  // sign up test user to use this test
-  const signUpResponse = await request(app.getHttpServer())
-    .post('/users')
-    .send(userInfo)
-    .expect(201);
-
-  expect(signUpResponse.body).toMatchObject({
-    email: userInfo.email,
-    message: 'Successfully created account',
-  });
-
-  // log in test user
-  const loginResponse = await request(app.getHttpServer())
-    .post('/auth/login')
-    .send({
-      email: userInfo.email,
-      password: userInfo.password,
-    })
-    .expect(200);
-
-  expect(loginResponse.body).toHaveProperty('access_token');
-  return loginResponse.body.access_token as string;
-};
-
 describe('Posts - /posts (e2e)', () => {
   let app: INestApplication;
+  let module: TestingModule;
+  let dataSource: DataSource;
   let postRepository: Repository<Post>;
   let userRepository: Repository<User>;
-  let dataSource: DataSource;
   let accessTokens: string[];
   let users: User[];
   let boardsService: BoardsService;
-  let testBoard: Board;
+  let userBoard: Board;
+  let adminBoard: Board;
 
   beforeAll(async () => {
-    initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [
+    const testApp = await setupTestApp({
+      modules: [
         PostsModule,
         DbModule,
         AuthModule,
@@ -109,26 +51,16 @@ describe('Posts - /posts (e2e)', () => {
         BoardsModule,
         CategoriesModule,
       ],
-    })
-      .overrideModule(DbModule)
-      .useModule(TestDbModule)
-      .compile();
+    });
+    ({ app, module, dataSource } = testApp);
 
-    app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true }));
-    await app.init();
-
-    postRepository = moduleFixture.get<Repository<Post>>(
-      getRepositoryToken(Post),
-    );
-    userRepository = moduleFixture.get<Repository<User>>(
-      getRepositoryToken(User),
-    );
-    boardsService = moduleFixture.get<BoardsService>(BoardsService);
-    dataSource = moduleFixture.get<DataSource>(DataSource);
+    postRepository = module.get<Repository<Post>>(getRepositoryToken(Post));
+    userRepository = module.get<Repository<User>>(getRepositoryToken(User));
+    boardsService = module.get<BoardsService>(BoardsService);
 
     const boards = await boardsService.findAll();
-    testBoard = boards[0];
+    userBoard = boards.find((board) => board.requiredRole === UserRole.USER);
+    adminBoard = boards.find((board) => board.requiredRole === UserRole.ADMIN);
   }, 15000);
 
   beforeAll(async () => {
@@ -163,12 +95,12 @@ describe('Posts - /posts (e2e)', () => {
   });
 
   beforeEach(async () => {
-    await truncatePostTable(dataSource);
+    await truncatePostsTable(dataSource);
   });
 
   afterAll(async () => {
-    await truncatePostTable(dataSource);
-    await truncateUsersTable(dataSource);
+    await truncatePostsTable(dataSource);
+    await truncateAllTables(dataSource);
     await app.close();
   });
 
@@ -186,7 +118,7 @@ describe('Posts - /posts (e2e)', () => {
       const createPostDto: CreatePostDto = {
         title: 'Test Post',
         content: 'This is a test post',
-        boardSlug: testBoard.slug,
+        boardSlug: userBoard.slug,
       };
 
       const response = await request(app.getHttpServer())
@@ -200,7 +132,7 @@ describe('Posts - /posts (e2e)', () => {
         title: createPostDto.title,
         board: {
           id: expect.any(Number),
-          slug: testBoard.slug,
+          slug: userBoard.slug,
           name: expect.any(String),
         },
         hotScore: expect.any(Number),
@@ -218,7 +150,7 @@ describe('Posts - /posts (e2e)', () => {
       const createPostDto: CreatePostDto = {
         title: 'Test Post',
         content: 'This is a test post',
-        boardSlug: testBoard.slug,
+        boardSlug: userBoard.slug,
       };
 
       await request(app.getHttpServer())
@@ -239,8 +171,24 @@ describe('Posts - /posts (e2e)', () => {
         .expect(400);
     });
 
+    it('should return 401 if user lacks board role', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/posts')
+        .set('Authorization', `Bearer ${accessToken}`) // 일반 사용자 토큰
+        .send({
+          title: 'Unauthorized Post',
+          content: 'Test',
+          boardSlug: adminBoard.slug,
+        })
+        .expect(401);
+
+      expect(response.body.message).toBe(
+        '해당 게시판에 글쓰기 권한이 없습니다',
+      );
+    });
+
     afterEach(async () => {
-      await truncatePostTable(dataSource);
+      await truncatePostsTable(dataSource);
     });
   });
 
@@ -262,13 +210,13 @@ describe('Posts - /posts (e2e)', () => {
             title: 'Post 1',
             content: 'Content 1',
             createdBy: user,
-            board: testBoard,
+            board: userBoard,
           },
           {
             title: 'Post 2',
             content: 'Content 2',
             createdBy: user,
-            board: testBoard,
+            board: userBoard,
           },
         ].map((post) => createPost(post)),
       );
@@ -290,7 +238,7 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     afterEach(async () => {
-      await truncatePostTable(dataSource);
+      await truncatePostsTable(dataSource);
     });
   });
 
@@ -312,13 +260,13 @@ describe('Posts - /posts (e2e)', () => {
             title: 'Post 1',
             content: 'Content 1',
             createdBy: user,
-            board: testBoard,
+            board: userBoard,
           },
           {
             title: 'Post 2',
             content: 'Content 2',
             createdBy: user,
-            board: testBoard,
+            board: userBoard,
           },
         ].map((post) => createPost(post)),
       );
@@ -339,7 +287,7 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     afterEach(async () => {
-      await truncatePostTable(dataSource);
+      await truncatePostsTable(dataSource);
     });
   });
 
@@ -360,7 +308,7 @@ describe('Posts - /posts (e2e)', () => {
           title: 'Test Post',
           content: 'This is a test post',
           createdBy: user,
-          board: testBoard,
+          board: userBoard,
         }),
       );
 
@@ -374,8 +322,8 @@ describe('Posts - /posts (e2e)', () => {
 
       expect(response.body.hotScore).toBeDefined();
       expect(response.body.board).toMatchObject({
-        id: testBoard.id,
-        slug: testBoard.slug,
+        id: userBoard.id,
+        slug: userBoard.slug,
       });
     });
 
@@ -384,7 +332,7 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     afterEach(async () => {
-      await truncatePostTable(dataSource);
+      await truncatePostsTable(dataSource);
     });
   });
 
@@ -404,7 +352,7 @@ describe('Posts - /posts (e2e)', () => {
           title: 'Test Post',
           content: 'This is a test post',
           createdBy: users[0],
-          board: testBoard,
+          board: userBoard,
         }),
       );
 
@@ -427,7 +375,7 @@ describe('Posts - /posts (e2e)', () => {
           title: 'Test Post',
           content: 'This is a test post',
           createdBy: users[0],
-          board: testBoard,
+          board: userBoard,
         }),
       );
 
@@ -447,7 +395,7 @@ describe('Posts - /posts (e2e)', () => {
           title: 'Test Post',
           content: 'This is a test post',
           createdBy: users[0],
-          board: testBoard,
+          board: userBoard,
         }),
       );
 
@@ -471,7 +419,7 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     afterEach(async () => {
-      await truncatePostTable(dataSource);
+      await truncatePostsTable(dataSource);
     });
   });
 
@@ -491,7 +439,7 @@ describe('Posts - /posts (e2e)', () => {
           title: 'Test Post',
           content: 'This is a test post',
           createdBy: users[0],
-          board: testBoard,
+          board: userBoard,
         }),
       );
 
@@ -523,7 +471,7 @@ describe('Posts - /posts (e2e)', () => {
           title: 'Test Post',
           content: 'This is a test post',
           createdBy: users[1],
-          board: testBoard,
+          board: userBoard,
         }),
       );
 
@@ -538,7 +486,7 @@ describe('Posts - /posts (e2e)', () => {
           title: 'Test Post',
           content: 'This is a test post',
           createdBy: users[1],
-          board: testBoard,
+          board: userBoard,
         }),
       );
 
@@ -556,7 +504,7 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     afterEach(async () => {
-      await truncatePostTable(dataSource);
+      await truncatePostsTable(dataSource);
     });
   });
 
@@ -576,13 +524,13 @@ describe('Posts - /posts (e2e)', () => {
           {
             title: 'Post 1',
             content: 'Content 1',
-            board: testBoard,
+            board: userBoard,
             createdBy: user,
           },
           {
             title: 'Post 2',
             content: 'Content 2',
-            board: testBoard,
+            board: userBoard,
             createdBy: user,
           },
         ].map((post) => createPost(post)),
@@ -590,7 +538,7 @@ describe('Posts - /posts (e2e)', () => {
 
       const response = await request(app.getHttpServer())
         .get('/posts/recent')
-        .query({ boardIds: [testBoard.id], limit: 2 })
+        .query({ boardIds: [userBoard.id], limit: 2 })
         .expect(200);
 
       expect(response.body).toHaveLength(2);
@@ -611,13 +559,13 @@ describe('Posts - /posts (e2e)', () => {
       const post = createPost({
         title: 'Test',
         content: 'Content',
-        board: testBoard,
+        board: userBoard,
         createdBy: user,
       });
       await postRepository.save(post);
 
       const response = await request(app.getHttpServer())
-        .get(`/posts/board/${testBoard.id}`)
+        .get(`/posts/board/${userBoard.id}`)
         .expect(200);
 
       expect(response.body[0]).toMatchObject({

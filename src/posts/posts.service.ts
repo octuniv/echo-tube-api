@@ -8,7 +8,7 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Post } from './entities/post.entity';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
 import { PostResponseDto } from './dto/post-response.dto';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -152,20 +152,45 @@ export class PostsService {
 
   // 최근 게시물 조회
   async findRecentPosts(
-    boardIds: number[] = [1],
+    boardIds: number[] = [],
     limit: number = 10,
+    excludedSlugs: string[] = [],
   ): Promise<PostResponseDto[]> {
-    const posts = await this.postRepository.find({
-      where: { board: { id: In(boardIds) } },
-      order: { createdAt: 'DESC' },
-      take: limit,
-      relations: ['createdBy', 'board'],
-    });
+    const query = this.postRepository
+      .createQueryBuilder('post')
+      .leftJoinAndSelect('post.board', 'board')
+      .leftJoin('post.createdBy', 'createdBy')
+      .select([
+        'post.id',
+        'post.title',
+        'post.createdAt',
+        'post.views',
+        'board.id',
+        'board.slug',
+        'board.name',
+        'createdBy.nickname', // 가상 필드 생성을 위해 필요
+      ]);
+
+    // 제외할 슬러그 처리
+    if (excludedSlugs.length > 0) {
+      query.where('board.slug NOT IN (:...excludedSlugs)', { excludedSlugs });
+    }
+
+    // 게시판 ID 필터링
+    if (boardIds.length > 0) {
+      query.andWhere('board.id IN (:...boardIds)', { boardIds });
+    }
+
+    const posts = await query
+      .orderBy('post.createdAt', 'DESC')
+      .take(limit)
+      .getMany();
+
     return posts.map(PostResponseDto.fromEntity);
   }
 
-  // 보드별 게시물 조회
-  async findByBoard(boardId: number): Promise<PostResponseDto[]> {
+  // 보드별 게시물 조회 (id)
+  async findPostsByBoardId(boardId: number): Promise<PostResponseDto[]> {
     const posts = await this.postRepository.find({
       where: { board: { id: boardId } },
       relations: ['createdBy', 'board'],
@@ -173,21 +198,41 @@ export class PostsService {
     return posts.map(PostResponseDto.fromEntity);
   }
 
-  async findPopularPosts(): Promise<PostResponseDto[]> {
-    const popularPosts = await this.postRepository.find({
-      order: { hotScore: 'DESC' },
-      take: 10,
-      relations: ['board'],
-      select: {
-        id: true,
-        title: true,
-        hotScore: true,
-        board: {
-          id: true,
-          name: true,
-        },
-      },
+  // 보드별 게시물 조회 (slug)
+  async findPostsByBoardSlug(slug: string): Promise<PostResponseDto[]> {
+    const posts = await this.postRepository.find({
+      where: { board: { slug: slug } },
+      relations: ['createdBy', 'board'],
     });
+    return posts.map(PostResponseDto.fromEntity);
+  }
+
+  // 인기도 순 게시물 조회
+  async findPopularPosts(
+    excludedSlugs: string[] = [], // 제외할 슬러그 파라미터 추가
+  ): Promise<PostResponseDto[]> {
+    const query = this.postRepository
+      .createQueryBuilder('post')
+      .leftJoinAndSelect('post.board', 'board')
+      .select([
+        'post.id',
+        'post.title',
+        'post.hotScore',
+        'board.id',
+        'board.name',
+      ]);
+
+    // 제외할 슬러그가 있는 경우 조건 추가
+    if (excludedSlugs.length > 0) {
+      query.where('board.slug NOT IN (:...excludedSlugs)', {
+        excludedSlugs,
+      });
+    }
+
+    const popularPosts = await query
+      .orderBy('post.hotScore', 'DESC')
+      .take(10)
+      .getMany();
     return popularPosts.map(PostResponseDto.fromEntity);
   }
 

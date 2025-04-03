@@ -1,7 +1,9 @@
 import { VisitorService } from '@/visitor/visitor.service';
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { PostsService } from '@/posts/posts.service';
-import { PostResponseDto } from '@/posts/dto/post-response.dto';
+import { DashboardSummaryDto } from './dto/dashboard.summary.dto';
+
+export const NOTICE_BOARD_SLUG = 'notices';
 
 @Injectable()
 export class DashboardService {
@@ -10,17 +12,27 @@ export class DashboardService {
     private visitorsService: VisitorService,
   ) {}
 
-  async getDashboardSummary(): Promise<{
-    visitors: number;
-    recentPosts: PostResponseDto[];
-    popularPosts: PostResponseDto[];
-  }> {
-    const [popularPosts, recentPosts, visitors] = await Promise.all([
-      this.postsService.findPopularPosts(),
-      this.postsService.findRecentPosts(),
-      this.visitorsService.getTodayVisitors(),
-    ]);
+  // caching 작업 필요
+  async getDashboardSummary(): Promise<DashboardSummaryDto> {
+    try {
+      const [popularPosts, recentPosts, visitors, noticesPosts] =
+        await Promise.all([
+          this.postsService.findPopularPosts([NOTICE_BOARD_SLUG]), // 공지사항 제외
+          this.postsService.findRecentPosts([], 10, [NOTICE_BOARD_SLUG]), // 공지사항 제외
+          this.visitorsService.getTodayVisitors(),
+          this.postsService.findPostsByBoardSlug('notices'),
+        ]);
 
-    return { visitors, recentPosts, popularPosts };
+      return DashboardSummaryDto.fromData(
+        visitors,
+        recentPosts,
+        popularPosts,
+        noticesPosts,
+      );
+    } catch (error) {
+      throw new InternalServerErrorException(
+        '대시보드 데이터를 불러오지 못했습니다.',
+      );
+    }
   }
 }

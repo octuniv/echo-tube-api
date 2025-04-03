@@ -4,6 +4,7 @@ import { DashboardService } from './dashboard.service';
 import { PostResponseDto } from '@/posts/dto/post-response.dto';
 import { createBoard } from '@/boards/factories/board.factory';
 import { createPost } from '@/posts/factories/post.factory';
+import { DashboardSummaryDto } from './dto/dashboard.summary.dto';
 
 describe('DashboardController', () => {
   let controller: DashboardController;
@@ -46,13 +47,26 @@ describe('DashboardController', () => {
           hotScore: 100,
         }),
       ].map(PostResponseDto.fromEntity),
-    } satisfies {
-      visitors: number;
-      recentPosts: PostResponseDto[];
-      popularPosts: PostResponseDto[];
+      noticesPosts: [
+        createPost({
+          id: 3,
+          title: 'notice 1',
+          board: createBoard({ id: 2, name: 'Board 2', slug: 'notices' }),
+          hotScore: 100,
+        }),
+      ].map(PostResponseDto.fromEntity),
     };
 
-    jest.spyOn(service, 'getDashboardSummary').mockResolvedValue(mockSummary);
+    jest
+      .spyOn(service, 'getDashboardSummary')
+      .mockResolvedValue(
+        DashboardSummaryDto.fromData(
+          mockSummary.visitors,
+          mockSummary.recentPosts,
+          mockSummary.popularPosts,
+          mockSummary.noticesPosts,
+        ),
+      );
 
     // Act
     const result = await controller.getSummary();

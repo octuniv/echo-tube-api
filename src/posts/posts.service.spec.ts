@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PostsService } from './posts.service';
-import { In, Repository, UpdateResult } from 'typeorm';
+import { Repository, UpdateResult } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Post } from './entities/post.entity';
 import {
@@ -328,9 +328,8 @@ describe('PostsService', () => {
   });
 
   describe('findRecentPosts', () => {
-    it('should return recent posts from specified boards ordered by creation date', async () => {
-      // Arrange
-      const boardIds = [1, 2];
+    it('should exclude specified slugs and filter by boardIds', async () => {
+      // given
       const mockPosts = [
         createPost({
           id: 1,
@@ -345,62 +344,65 @@ describe('PostsService', () => {
           createdAt: new Date('2023-01-01'),
         }),
       ];
+      const boardIds = [10, 20];
+      const excludedSlugs = ['notices', 'secret'];
+      const limit = 5;
 
-      postRepository.find = jest.fn().mockResolvedValue(mockPosts);
+      const queryBuilderMock = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue(mockPosts),
+      };
 
-      // Act
-      const result = await service.findRecentPosts(boardIds, 5);
+      // QueryBuilder 모킹 시 mockReturnValue 사용
+      jest
+        .spyOn(postRepository, 'createQueryBuilder')
+        .mockReturnValue(queryBuilderMock as any);
 
-      // Assert
-      expect(postRepository.find).toHaveBeenCalledWith({
-        where: { board: { id: In(boardIds) } },
-        order: { createdAt: 'DESC' },
-        take: 5,
-        relations: ['createdBy', 'board'],
-      });
-      expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
-    });
+      // when
+      const result = await service.findRecentPosts(
+        boardIds,
+        limit,
+        excludedSlugs,
+      );
 
-    it('should return empty array when no posts found', async () => {
-      postRepository.find = jest.fn().mockResolvedValue([]);
-      const result = await service.findRecentPosts([999], 5);
-      expect(result).toEqual([]);
-    });
-
-    it('should use default boardIds when not provided', async () => {
-      const mockPosts = [createPost({ id: 1, board: createBoard({ id: 1 }) })];
-
-      postRepository.find = jest.fn().mockResolvedValue(mockPosts);
-
-      const result = await service.findRecentPosts(undefined, 5);
-
-      expect(postRepository.find).toHaveBeenCalledWith({
-        where: { board: { id: In([1]) } },
-        order: { createdAt: 'DESC' },
-        take: 5,
-        relations: ['createdBy', 'board'],
-      });
+      // then
+      expect(postRepository.createQueryBuilder).toHaveBeenCalledWith('post');
+      expect(queryBuilderMock.where).toHaveBeenCalledWith(
+        'board.slug NOT IN (:...excludedSlugs)',
+        { excludedSlugs },
+      );
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'board.id IN (:...boardIds)',
+        { boardIds },
+      );
+      expect(queryBuilderMock.take).toHaveBeenCalledWith(5);
       expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
     });
   });
 
-  describe('findByBoard', () => {
+  describe('findPostsByBoardId', () => {
     it('should return all posts in the specified board', async () => {
       // Arrange
-      const boardId = 1;
+      const board = createBoard({ id: 1 });
       const mockPosts = [
-        createPost({ id: 1, title: 'Post 1', board: createBoard({ id: 1 }) }),
-        createPost({ id: 2, title: 'Post 2', board: createBoard({ id: 1 }) }),
+        createPost({ id: 1, title: 'Post 1', board: board }),
+        createPost({ id: 2, title: 'Post 2', board: board }),
       ] satisfies Post[];
 
       postRepository.find = jest.fn().mockResolvedValue(mockPosts);
 
       // Act
-      const result = await service.findByBoard(boardId);
+      const result = await service.findPostsByBoardId(board.id);
 
       // Assert
       expect(postRepository.find).toHaveBeenCalledWith({
-        where: { board: { id: boardId } },
+        where: { board: { id: board.id } },
         relations: ['createdBy', 'board'],
       });
       expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
@@ -408,7 +410,36 @@ describe('PostsService', () => {
 
     it('should return empty array when board has no posts', async () => {
       postRepository.find = jest.fn().mockResolvedValue([]);
-      const result = await service.findByBoard(999);
+      const result = await service.findPostsByBoardId(999);
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('findPostsByBoardSlug', () => {
+    it('should return all posts in the specified board', async () => {
+      // Arrange
+      const board = createBoard({ slug: 'notices' });
+      const mockPosts = [
+        createPost({ id: 1, title: 'Post 1', board: board }),
+        createPost({ id: 2, title: 'Post 2', board: board }),
+      ] satisfies Post[];
+
+      postRepository.find = jest.fn().mockResolvedValue(mockPosts);
+
+      // Act
+      const result = await service.findPostsByBoardSlug(board.slug);
+
+      // Assert
+      expect(postRepository.find).toHaveBeenCalledWith({
+        where: { board: { slug: board.slug } },
+        relations: ['createdBy', 'board'],
+      });
+      expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
+    });
+
+    it('should return empty array when board has no posts', async () => {
+      postRepository.find = jest.fn().mockResolvedValue([]);
+      const result = await service.findPostsByBoardSlug('non-existed');
       expect(result).toEqual([]);
     });
   });
@@ -487,7 +518,8 @@ describe('PostsService', () => {
   });
 
   describe('findPopularPosts', () => {
-    it('should return popular posts ordered by hotScore descending', async () => {
+    it('should exclude specified slugs when provided', async () => {
+      // given
       const mockPosts = [
         createPost({
           id: 1,
@@ -502,22 +534,34 @@ describe('PostsService', () => {
           board: createBoard({ id: 2, name: 'Board 2' }),
         }),
       ];
+      const excludedSlugs = ['notices'];
 
-      postRepository.find = jest.fn().mockResolvedValue(mockPosts);
+      const queryBuilderMock = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue(mockPosts),
+      };
 
-      const result = await service.findPopularPosts();
+      // QueryBuilder 모킹 시 mockReturnValue 사용
+      jest
+        .spyOn(postRepository, 'createQueryBuilder')
+        .mockReturnValue(queryBuilderMock as any);
 
-      expect(postRepository.find).toHaveBeenCalledWith({
-        order: { hotScore: 'DESC' },
-        take: 10,
-        relations: ['board'],
-        select: {
-          id: true,
-          title: true,
-          hotScore: true,
-          board: { id: true, name: true },
-        },
-      });
+      // when
+      const result = await service.findPopularPosts(excludedSlugs);
+
+      // then
+      expect(queryBuilderMock.where).toHaveBeenCalledWith(
+        'board.slug NOT IN (:...excludedSlugs)',
+        { excludedSlugs },
+      );
+      expect(queryBuilderMock.orderBy).toHaveBeenCalledWith(
+        'post.hotScore',
+        'DESC',
+      );
       expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
     });
   });

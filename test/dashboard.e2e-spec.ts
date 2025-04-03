@@ -26,7 +26,6 @@ import {
   setupTestApp,
   signUpAndLogin,
   truncateAllTables,
-  truncatePostsTable,
 } from './utils/test.util';
 
 const userInfo = createUserDto();
@@ -71,10 +70,6 @@ describe('DashboardController (e2e)', () => {
     await signUpAndLogin(app, userInfo);
     user = await userRepository.findOne({ where: { email: userInfo.email } });
     expect(user).toBeDefined();
-  });
-
-  beforeAll(async () => {
-    await truncatePostsTable(dataSource);
   });
 
   afterAll(async () => {
@@ -173,6 +168,13 @@ describe('DashboardController (e2e)', () => {
         expect.objectContaining({
           title: 'Recent Post 1',
           board: expect.objectContaining({ name: testBoard.name }),
+        }),
+      ]),
+      noticesPosts: expect.arrayContaining([
+        expect.objectContaining({
+          title: '공지사항',
+          content: '현재 게시판은 공지사항 입니다.',
+          board: expect.objectContaining({ slug: 'notices' }),
         }),
       ]),
     });

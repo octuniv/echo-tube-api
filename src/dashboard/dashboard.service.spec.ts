@@ -1,17 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DashboardService } from './dashboard.service';
+import { DashboardService, NOTICE_BOARD_SLUG } from './dashboard.service';
 import { VisitorService } from '@/visitor/visitor.service';
 import { createPost } from '@/posts/factories/post.factory';
 import { PostsService } from '@/posts/posts.service';
 import { createBoard } from '@/boards/factories/board.factory';
 import { PostResponseDto } from '@/posts/dto/post-response.dto';
+import { InternalServerErrorException } from '@nestjs/common';
 
 describe('DashboardService', () => {
   let service: DashboardService;
   let postsService: PostsService;
   let visitorsService: VisitorService;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         DashboardService,
@@ -20,6 +21,7 @@ describe('DashboardService', () => {
           useValue: {
             findPopularPosts: jest.fn(),
             findRecentPosts: jest.fn(),
+            findPostsByBoardSlug: jest.fn(),
           },
         },
         {
@@ -34,6 +36,10 @@ describe('DashboardService', () => {
     service = module.get(DashboardService);
     postsService = module.get(PostsService);
     visitorsService = module.get(VisitorService);
+  });
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
   });
 
   it('should return summary with recent posts, popular posts, and visitors', async () => {
@@ -64,15 +70,24 @@ describe('DashboardService', () => {
 
     const mockVisitors = 150;
 
+    const mockNoticesPosts = [
+      createPost({
+        id: 4,
+        title: '공지사항 1',
+        board: createBoard({ slug: NOTICE_BOARD_SLUG }),
+      }),
+    ];
+
     // Mock service methods
     jest
       .spyOn(postsService, 'findPopularPosts')
       .mockResolvedValue(mockPopularPosts.map(PostResponseDto.fromEntity));
-
     jest
       .spyOn(postsService, 'findRecentPosts')
       .mockResolvedValue(mockRecentPosts.map(PostResponseDto.fromEntity));
-
+    jest
+      .spyOn(postsService, 'findPostsByBoardSlug')
+      .mockResolvedValue(mockNoticesPosts.map(PostResponseDto.fromEntity));
     jest
       .spyOn(visitorsService, 'getTodayVisitors')
       .mockResolvedValue(mockVisitors);
@@ -81,29 +96,29 @@ describe('DashboardService', () => {
     const result = await service.getDashboardSummary();
 
     // Assert
+    expect(postsService.findPopularPosts).toHaveBeenCalledWith([
+      NOTICE_BOARD_SLUG,
+    ]); // 변경된 파라미터 검증
+    expect(postsService.findRecentPosts).toHaveBeenCalledWith([], 10, [
+      NOTICE_BOARD_SLUG,
+    ]); // 변경된 파라미터 검증
     expect(result).toEqual({
       visitors: mockVisitors,
       recentPosts: mockRecentPosts.map(PostResponseDto.fromEntity),
       popularPosts: mockPopularPosts.map(PostResponseDto.fromEntity),
+      noticesPosts: mockNoticesPosts.map(PostResponseDto.fromEntity), // 새 필드 검증
     });
-
-    expect(postsService.findPopularPosts).toHaveBeenCalled();
-    expect(postsService.findRecentPosts).toHaveBeenCalled();
-    expect(visitorsService.getTodayVisitors).toHaveBeenCalled();
   });
 
-  it('should handle empty posts', async () => {
-    // Mock empty responses
-    jest.spyOn(postsService, 'findPopularPosts').mockResolvedValue([]);
-    jest.spyOn(postsService, 'findRecentPosts').mockResolvedValue([]);
-    jest.spyOn(visitorsService, 'getTodayVisitors').mockResolvedValue(0);
+  it('should handle errors gracefully', async () => {
+    // Arrange
+    jest
+      .spyOn(postsService, 'findPopularPosts')
+      .mockRejectedValue(new Error('DB Error'));
 
-    const result = await service.getDashboardSummary();
-
-    expect(result).toEqual({
-      visitors: 0,
-      recentPosts: [],
-      popularPosts: [],
-    });
+    // Act & Assert
+    await expect(service.getDashboardSummary()).rejects.toThrow(
+      InternalServerErrorException,
+    );
   });
 });

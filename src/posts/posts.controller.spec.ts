@@ -145,26 +145,26 @@ describe('PostsController', () => {
         { id: 1, title: 'Test Post 1' },
         { id: 2, title: 'Test Post 2' },
       ].map((post) => createPost(post));
-      service.findByBoard = jest.fn().mockResolvedValue(mockPosts);
+      service.findPostsByBoardId = jest.fn().mockResolvedValue(mockPosts);
 
       // Act
       const result = await controller.findByBoard(boardId);
 
       // Assert
-      expect(service.findByBoard).toHaveBeenCalledWith(boardId);
+      expect(service.findPostsByBoardId).toHaveBeenCalledWith(boardId);
       expect(result).toEqual(mockPosts);
     });
 
     it('should return empty array If no post is present', async () => {
       // Arrange
       const boardId = 999;
-      service.findByBoard = jest.fn().mockResolvedValue([]);
+      service.findPostsByBoardId = jest.fn().mockResolvedValue([]);
 
       // Act
       const result = await controller.findByBoard(boardId);
 
       // Assert
-      expect(service.findByBoard).toHaveBeenCalledWith(boardId);
+      expect(service.findPostsByBoardId).toHaveBeenCalledWith(boardId);
       expect(result).toEqual([]);
     });
   });

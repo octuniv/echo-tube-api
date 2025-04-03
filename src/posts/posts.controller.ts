@@ -86,6 +86,6 @@ export class PostsController {
   // 보드별 게시물 조회
   @Get('board/:boardId')
   async findByBoard(@Param('boardId') boardId: number) {
-    return this.postsService.findByBoard(boardId);
+    return this.postsService.findPostsByBoardId(boardId);
   }
 }

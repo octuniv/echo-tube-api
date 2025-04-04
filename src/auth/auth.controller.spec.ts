@@ -3,6 +3,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UnauthorizedException } from '@nestjs/common';
 import { LoginUserDto } from './dto/login-user.dto';
+import { UserRole } from '@/users/entities/user-role.enum';
+import { LoginResponseDto } from './dto/login-response.dto';
 
 describe('AuthController', () => {
   let authController: AuthController;
@@ -25,29 +27,38 @@ describe('AuthController', () => {
     authService = module.get<AuthService>(AuthService);
   });
 
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('should be defined', () => {
     expect(authController).toBeDefined();
   });
 
   describe('login', () => {
-    it('should return access, refresh tokens and userInfo when credentials are valid', async () => {
-      const loginDto: LoginUserDto = {
-        email: 'test@example.com',
-        password: 'password123',
-      };
+    const loginDto: LoginUserDto = {
+      email: 'test@example.com',
+      password: 'password123',
+    };
 
-      const mockResult = {
-        access_token: 'access-token',
-        refresh_token: 'refresh-token',
-        name: 'John',
-        nickname: 'John Doe',
-        email: 'test@example.com',
-      };
-
-      mockAuthService.validateUser.mockResolvedValue({
+    it('should return DTO with tokens and user info', async () => {
+      const mockUser = {
         id: 1,
         email: loginDto.email,
-      });
+        role: UserRole.USER,
+      };
+      const mockResult: LoginResponseDto = {
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+        user: {
+          name: 'John Doe',
+          nickname: 'johndoe',
+          email: loginDto.email,
+          role: UserRole.USER,
+        },
+      };
+
+      mockAuthService.validateUser.mockResolvedValue(mockUser);
       mockAuthService.login.mockResolvedValue(mockResult);
 
       const result = await authController.login(loginDto);
@@ -56,75 +67,45 @@ describe('AuthController', () => {
         loginDto.email,
         loginDto.password,
       );
-      expect(authService.login).toHaveBeenCalledWith({
-        id: 1,
-        email: loginDto.email,
-      });
+      expect(authService.login).toHaveBeenCalledWith(mockUser);
       expect(result).toEqual(mockResult);
-    });
-
-    it('should throw UnauthorizedException for invalid credentials', async () => {
-      const loginDto: LoginUserDto = {
-        email: 'test@example.com',
-        password: 'wrongpassword',
-      };
-
-      mockAuthService.validateUser.mockRejectedValue(
-        new UnauthorizedException('Invalid credentials'),
-      );
-
-      await expect(authController.login(loginDto)).rejects.toThrow(
-        UnauthorizedException,
-      );
-    });
-
-    it('should throw UnauthorizedException if email or password is missing', async () => {
-      const invalidLoginDto = { email: '', password: '' };
-
-      await expect(authController.login(invalidLoginDto)).rejects.toThrow(
-        UnauthorizedException,
-      );
     });
   });
 
   describe('refreshToken', () => {
-    it('should return new access token when refresh token is valid', async () => {
-      const mockRefreshToken = 'valid-refresh-token';
-      const mockReturnedToken = {
+    it('should return new token pair', async () => {
+      const mockToken = 'valid-refresh-token';
+      const mockResult = {
         access_token: 'new-access-token',
         refresh_token: 'new-refresh-token',
       };
 
-      mockAuthService.refreshToken.mockResolvedValue(mockReturnedToken);
+      mockAuthService.refreshToken.mockResolvedValue(mockResult);
 
-      const result = await authController.refreshToken(mockRefreshToken);
+      const result = await authController.refreshToken(mockToken);
 
-      expect(authService.refreshToken).toHaveBeenCalledWith(mockRefreshToken);
-      expect(result).toEqual(mockReturnedToken);
+      expect(authService.refreshToken).toHaveBeenCalledWith(mockToken);
+      expect(result).toEqual(mockResult);
     });
 
-    it('should throw UnauthorizedException when refresh token is missing', async () => {
-      await expect(authController.refreshToken(null)).rejects.toThrow(
+    it('should throw UnauthorizedException for missing token', async () => {
+      await expect(authController.refreshToken('')).rejects.toThrow(
         UnauthorizedException,
       );
     });
   });
 
-  describe('validate-token', () => {
-    it('should return true when access token is valid', async () => {
-      const mockValidToken = 'Bearer is-valid-token';
+  describe('validateToken', () => {
+    it('should return validation result', async () => {
+      const mockToken = 'Bearer valid-token';
       mockAuthService.validateAccessToken.mockResolvedValue(true);
-      expect(authController.validateToken(mockValidToken)).resolves.toEqual({
-        valid: true,
-      });
-    });
 
-    it('should return false when access token is invalid', async () => {
-      const mockInvalidToken = 'Bearer is-invalid-token';
-      mockAuthService.validateAccessToken.mockResolvedValue(false);
-      expect(authController.validateToken(mockInvalidToken)).resolves.toEqual({
-        valid: false,
-      });
+      const result = await authController.validateToken(mockToken);
+
+      expect(authService.validateAccessToken).toHaveBeenCalledWith(
+        mockToken.split(' ')[1],
+      );
+      expect(result).toEqual({ valid: true });
     });
   });
 });

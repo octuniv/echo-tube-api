@@ -82,9 +82,10 @@ describe('AuthController (e2e)', () => {
 
       expect(response.body).toHaveProperty('access_token');
       expect(response.body).toHaveProperty('refresh_token');
-      expect(response.body.name).toEqual(userDto.name);
-      expect(response.body.nickname).toEqual(userDto.nickname);
-      expect(response.body.email).toEqual(userDto.email);
+      expect(response.body.user.name).toEqual(userDto.name);
+      expect(response.body.user.nickname).toEqual(userDto.nickname);
+      expect(response.body.user.email).toEqual(userDto.email);
+      expect(response.body.user.role).toBeDefined();
     });
 
     it('should return 401 Unauthorized if credentials are invalid', async () => {

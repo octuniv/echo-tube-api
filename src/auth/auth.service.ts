@@ -12,6 +12,7 @@ import { jwtPayloadInterface } from './types/jwt-payload.interface';
 import { User } from '@/users/entities/user.entity';
 import { VisitorService } from '@/visitor/visitor.service';
 import { Transactional } from 'typeorm-transactional';
+import { LoginResponseDto } from './dto/login-response.dto';
 
 @Injectable()
 export class AuthService {
@@ -35,42 +36,68 @@ export class AuthService {
   }
 
   @Transactional()
-  async login(user: User) {
-    const payload = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-    } satisfies jwtPayloadInterface;
-    let userInfo: User | null;
+  async login(user: Partial<User>): Promise<LoginResponseDto> {
+    const userId = user.id;
+    if (!userId) {
+      console.error('Invalid user object provided to login function');
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    let userInfo: User;
     try {
-      userInfo = await this.usersService.getUserById(payload.id);
+      userInfo = await this.usersService.getUserById(userId);
     } catch (error) {
       console.error(error);
-      throw new InternalServerErrorException('Internal Server Error');
+      throw new InternalServerErrorException(
+        'Login failed due to database error',
+      );
     }
 
     if (!userInfo) {
-      console.error('Calling user in DB is not matching');
-      throw new InternalServerErrorException('Internal Server Error');
+      console.error(`User ${userId} not found during login`);
+      throw new UnauthorizedException('Invalid credentials');
     }
 
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7일 후 만료
-    await this.refreshTokenRepo.saveToken(user.email, refreshToken, expiresAt);
-
-    const userIdentifier = user.email;
-    await this.visitorService.upsertVisitorCount(userIdentifier);
-
-    return {
-      access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
-      refresh_token: refreshToken,
-      name: userInfo.name,
-      nickname: userInfo.nickname,
+    const payload: jwtPayloadInterface = {
+      id: userInfo.id,
       email: userInfo.email,
+      role: userInfo.role,
     };
+
+    try {
+      const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      await Promise.all([
+        this.refreshTokenRepo.saveToken(
+          userInfo.email,
+          refreshToken,
+          expiresAt,
+        ),
+        this.visitorService.upsertVisitorCount(userInfo.email),
+      ]);
+
+      return {
+        access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
+        refresh_token: refreshToken,
+        user: {
+          name: userInfo.name,
+          nickname: userInfo.nickname,
+          email: userInfo.email,
+          role: userInfo.role,
+        },
+      };
+    } catch (error) {
+      console.error(
+        `Token generation failed for user ${userId}: ${error.message}`,
+      );
+      throw new InternalServerErrorException(
+        'Failed to generate authentication tokens',
+      );
+    }
   }
 
+  @Transactional()
   async refreshToken(token: string) {
     try {
       const storedToken = await this.refreshTokenRepo.findValidToken(token);

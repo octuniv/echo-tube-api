@@ -43,7 +43,7 @@ export class PostsService {
   }
 
   private checkRole(userRole: UserRole, requiredRole: UserRole): boolean {
-    const hierarchy = [UserRole.BOT, UserRole.USER, UserRole.ADMIN];
+    const hierarchy = [UserRole.USER, UserRole.BOT, UserRole.ADMIN];
     return hierarchy.indexOf(userRole) >= hierarchy.indexOf(requiredRole);
   }
 

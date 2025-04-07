@@ -351,7 +351,6 @@ describe('PostsService', () => {
       const queryBuilderMock = {
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         leftJoin: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
@@ -538,7 +537,6 @@ describe('PostsService', () => {
 
       const queryBuilderMock = {
         leftJoinAndSelect: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),

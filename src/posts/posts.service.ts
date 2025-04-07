@@ -159,17 +159,7 @@ export class PostsService {
     const query = this.postRepository
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.board', 'board')
-      .leftJoin('post.createdBy', 'createdBy')
-      .select([
-        'post.id',
-        'post.title',
-        'post.createdAt',
-        'post.views',
-        'board.id',
-        'board.slug',
-        'board.name',
-        'createdBy.nickname', // 가상 필드 생성을 위해 필요
-      ]);
+      .leftJoinAndSelect('post.createdBy', 'createdBy');
 
     // 제외할 슬러그 처리
     if (excludedSlugs.length > 0) {
@@ -213,14 +203,7 @@ export class PostsService {
   ): Promise<PostResponseDto[]> {
     const query = this.postRepository
       .createQueryBuilder('post')
-      .leftJoinAndSelect('post.board', 'board')
-      .select([
-        'post.id',
-        'post.title',
-        'post.hotScore',
-        'board.id',
-        'board.name',
-      ]);
+      .leftJoinAndSelect('post.board', 'board');
 
     // 제외할 슬러그가 있는 경우 조건 추가
     if (excludedSlugs.length > 0) {

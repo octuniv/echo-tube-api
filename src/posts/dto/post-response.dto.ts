@@ -36,9 +36,11 @@ export class PostResponseDto {
   nickname?: string; // 가상 필드
 
   @IsDate()
+  @Type(() => Date)
   createdAt: Date;
 
   @IsDate()
+  @Type(() => Date)
   updatedAt: Date;
 
   @ValidateNested({ message: '게시판 정보가 유효하지 않습니다' })

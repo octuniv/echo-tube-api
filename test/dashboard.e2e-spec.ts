@@ -27,6 +27,9 @@ import {
   signUpAndLogin,
   truncateAllTables,
 } from './utils/test.util';
+import { plainToInstance } from 'class-transformer';
+import { DashboardSummaryDto } from '@/dashboard/dto/dashboard.summary.dto';
+import { validate } from 'class-validator';
 
 const userInfo = createUserDto();
 
@@ -178,5 +181,21 @@ describe('DashboardController (e2e)', () => {
         }),
       ]),
     });
+
+    const dashboardDto = plainToInstance(DashboardSummaryDto, response.body);
+
+    const errors = await validate(dashboardDto, {
+      forbidUnknownValues: true, // 알 수 없는 필드 금지
+      whitelist: true, // 허용되지 않은 필드 제거
+      validationError: { target: false }, // 오류 메시지 간결화
+    });
+
+    if (errors.length > 0) {
+      console.error('Validation Errors:', errors);
+      throw new Error('DTO 검증 실패');
+    }
+
+    expect(dashboardDto.recentPosts[0].nickname).toBeDefined();
+    expect(dashboardDto.popularPosts[0].hotScore).toBeGreaterThan(0);
   });
 });

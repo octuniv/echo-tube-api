@@ -203,7 +203,8 @@ export class PostsService {
   ): Promise<PostResponseDto[]> {
     const query = this.postRepository
       .createQueryBuilder('post')
-      .leftJoinAndSelect('post.board', 'board');
+      .leftJoinAndSelect('post.board', 'board')
+      .leftJoinAndSelect('post.createdBy', 'createdBy');
 
     // 제외할 슬러그가 있는 경우 조건 추가
     if (excludedSlugs.length > 0) {

@@ -1,73 +1,98 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
+# EchoTube API Server 🚀
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS 기반 동영상 공유 커뮤니티 백엔드 서버
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## 📚 주요 기능
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- 사용자 인증 (JWT, OAuth 2.0)
+- 동영상 링크 CRUD API
 
-## Installation
+---
+
+## 🛠 기술 스택
+
+| Category  | Technology           |
+| --------- | -------------------- |
+| Framework | NestJS, Express      |
+| Database  | PostgreSQL (TypeORM) |
+| Auth      | Passport.js, JWT     |
+
+---
+
+## 🚀 시작하기 (Quick Start)
 
 ```bash
-$ pnpm install
+# 1. 저장소 클론
+git clone https://github.com/octuniv/echo-tube-api.git
+cd echo-tube-api
+
+# 2. 환경 변수 설정
+cp .env.example .env
+cp .env.example .env.test
+# .env 및 .env.test 파일에 DATABASE 세팅 값, JWT_SECRET 등 설정
+
+# 3. 의존성 설치 및 마이그레이션
+pnpm install
+pnpm run migraiton:generate
+pnpm run migration:run
+
+# 4. 개발 서버 실행
+pnpm run start:testEnv
 ```
 
-## Running the app
+## 🛠 빌드 & 실행 방법
+
+### 1. **프로젝트 빌드**
 
 ```bash
-# development
-$ pnpm run start
+# 개발 환경 빌드 (watch 모드)
+pnpm run start:dev
 
-# watch mode
-$ pnpm run start:dev
+# 프로덕션 빌드
+pnpm run build
 
-# production mode
-$ pnpm run start:prod
+# 프로덕션 서버 실행
+pnpm run start:prod
+
+# 테스트 전용 서버 실행
+pnpm run start:testEnv
+# 위 서버에서 실행한 결과물은 다음 실행 시 초기화 됨.
 ```
 
-## Test
+### 2. **마이그레이션**
 
 ```bash
-# unit tests
-$ pnpm run test
+# 마이그레이션 생성 (Entity 변경 후)
+pnpm run migration:generate
 
-# e2e tests
-$ pnpm run test:e2e
+# 마이그레이션 실행
+pnpm run migration:run
 
-# test coverage
-$ pnpm run test:cov
+# 마이그레이션 롤백
+pnpm run migration:revert
+
+# 초기 데이터 시딩 (Seed)
+pnpm run seed:run
+# 서버 실행 시 시딩 미적용 부분은 자동으로 시딩이 실행됨.
 ```
 
-## Support
+### 3. **테스트 실행**
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```bash
+# 단위 테스트
+pnpm test
 
-## Stay in touch
+# 테스트 실시간 감시 모드
+pnpm run test:watch
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+# 테스트 커버리지 확인
+pnpm run test:cov
 
-## License
+# E2E 테스트
+pnpm run test:e2e
 
-Nest is [MIT licensed](LICENSE).
+# 테스트 디버깅
+pnpm run test:debug
+```

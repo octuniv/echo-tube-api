@@ -5,7 +5,6 @@ import {
   IsUrl,
   IsNumber,
   ValidateNested,
-  IsDefined,
 } from 'class-validator';
 import { Post } from '../entities/post.entity';
 import { BoardListItemDto } from '@/boards/dto/board-list-item.dto';
@@ -13,53 +12,56 @@ import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class PostResponseDto {
-  @ApiProperty({ type: Number }) // Swagger 타입 명시
+  @ApiProperty({ example: 1 })
   @IsNumber()
   id: number;
 
-  @ApiProperty({ type: String })
+  @ApiProperty({ example: 'My First Post' })
   @IsString()
   title: string;
 
-  @ApiProperty({ type: String })
+  @ApiProperty({ example: 'Post content...' })
   @IsString()
   content: string;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 0 })
   @IsNumber()
   views: number;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 0 })
   @IsNumber()
   commentsCount: number;
 
-  @ApiProperty({ type: String, required: false }) // 선택적 필드
+  @ApiProperty({ example: 'https://example.com/video.mp4', required: false })
   @IsUrl()
   @IsOptional()
   videoUrl?: string;
 
-  @ApiProperty({ type: String, required: false })
+  @ApiProperty({
+    example: 'john_doe',
+    description: "Author's nickname (from User entity)",
+    required: false,
+  })
   @IsString()
   @IsOptional()
   nickname?: string;
 
-  @ApiProperty({ type: Date })
+  @ApiProperty({ example: '2023-01-01T00:00:00Z' })
   @IsDate()
   @Type(() => Date)
   createdAt: Date;
 
-  @ApiProperty({ type: Date })
+  @ApiProperty({ example: '2023-01-01T00:00:00Z' })
   @IsDate()
   @Type(() => Date)
   updatedAt: Date;
 
-  @ApiProperty({ type: BoardListItemDto }) // 중첩 객체 타입
-  @ValidateNested({ message: '게시판 정보가 유효하지 않습니다' })
-  @IsDefined({ message: '게시판 정보는 필수입니다' })
+  @ApiProperty({ type: BoardListItemDto })
+  @ValidateNested()
   @Type(() => BoardListItemDto)
   board: BoardListItemDto;
 
-  @ApiProperty({ type: Number })
+  @ApiProperty({ example: 123.45 })
   @IsNumber()
   hotScore: number;
 

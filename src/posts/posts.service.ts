@@ -90,7 +90,7 @@ export class PostsService {
     return posts.map(PostResponseDto.fromEntity);
   }
 
-  // 특정 게시글 조회, (내부용용)
+  // 특정 게시글 조회, (내부용)
   async findById(id: number): Promise<Post> {
     const post = await this.postRepository.findOne({
       where: { id },

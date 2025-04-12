@@ -126,6 +126,7 @@ describe('PostsService', () => {
       expect(result).toEqual(
         PostResponseDto.fromEntity({
           ...savedPost,
+          nickname: savedPost.createdBy.nickname,
           setNickname: expect.any(Function),
         }),
       );
@@ -166,7 +167,11 @@ describe('PostsService', () => {
 
   describe('findOne', () => {
     it('should return a post when found', async () => {
-      const post = createPost({ id: 1, title: 'Test Post', views: 0 });
+      const post = createPost({
+        id: 1,
+        title: 'Test Post',
+        views: 0,
+      });
       postRepository.findOne = jest.fn().mockResolvedValue(post);
 
       const result = await service.findOne(1);
@@ -174,6 +179,7 @@ describe('PostsService', () => {
         PostResponseDto.fromEntity({
           ...post,
           views: 1,
+          nickname: expect.any(String),
           setNickname: expect.any(Function),
         }),
       );

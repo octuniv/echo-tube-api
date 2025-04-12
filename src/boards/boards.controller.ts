@@ -1,14 +1,20 @@
 import { Controller, Get } from '@nestjs/common';
 import { BoardsService } from './boards.service';
 import { BoardListItemDto } from './dto/board-list-item.dto';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
-// boards.controller.ts
+@ApiTags('Boards')
 @Controller('boards')
 export class BoardsController {
   constructor(private readonly boardsService: BoardsService) {}
 
-  // 신규 엔드포인트 (일반 사용자용 간략 데이터)
   @Get()
+  @ApiOperation({ summary: 'Get all boards for listing' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of boards with essential information',
+    type: [BoardListItemDto],
+  })
   async findAllForList(): Promise<BoardListItemDto[]> {
     return this.boardsService.findAllForList();
   }

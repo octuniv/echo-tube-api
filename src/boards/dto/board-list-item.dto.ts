@@ -4,24 +4,33 @@ import { Board } from '../entities/board.entity';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class BoardListItemDto {
-  @ApiProperty({ type: Number }) // Swagger 타입 명시
+  @ApiProperty({ example: 1, description: 'Board identifier' })
   @IsInt()
   id: number;
 
-  @ApiProperty({ type: String })
+  @ApiProperty({ example: 'general', description: 'Unique slug' })
   @IsString()
   slug: string;
 
-  @ApiProperty({ type: String })
+  @ApiProperty({ example: 'General Discussion', description: 'Display name' })
   @IsString()
   name: string;
 
-  @ApiProperty({ type: String, required: false }) // 선택적 필드
+  @ApiProperty({
+    example: 'General discussion board',
+    required: false,
+    description: 'Optional description',
+  })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiProperty({ enum: UserRole, enumName: 'UserRole' }) // Enum 타입 명시
+  @ApiProperty({
+    enum: UserRole,
+    enumName: 'UserRole',
+    example: UserRole.USER,
+    description: 'Access permission level',
+  })
   @IsEnum(UserRole)
   requiredRole: UserRole;
 

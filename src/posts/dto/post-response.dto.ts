@@ -10,44 +10,56 @@ import {
 import { Post } from '../entities/post.entity';
 import { BoardListItemDto } from '@/boards/dto/board-list-item.dto';
 import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class PostResponseDto {
+  @ApiProperty({ type: Number }) // Swagger 타입 명시
   @IsNumber()
   id: number;
 
+  @ApiProperty({ type: String })
   @IsString()
   title: string;
 
+  @ApiProperty({ type: String })
   @IsString()
   content: string;
 
+  @ApiProperty({ type: Number })
   @IsNumber()
   views: number;
 
+  @ApiProperty({ type: Number })
   @IsNumber()
   commentsCount: number;
 
+  @ApiProperty({ type: String, required: false }) // 선택적 필드
   @IsUrl()
   @IsOptional()
   videoUrl?: string;
 
+  @ApiProperty({ type: String, required: false })
   @IsString()
   @IsOptional()
-  nickname?: string; // 가상 필드
+  nickname?: string;
 
+  @ApiProperty({ type: Date })
   @IsDate()
   @Type(() => Date)
   createdAt: Date;
 
+  @ApiProperty({ type: Date })
   @IsDate()
   @Type(() => Date)
   updatedAt: Date;
 
+  @ApiProperty({ type: BoardListItemDto }) // 중첩 객체 타입
   @ValidateNested({ message: '게시판 정보가 유효하지 않습니다' })
   @IsDefined({ message: '게시판 정보는 필수입니다' })
   @Type(() => BoardListItemDto)
   board: BoardListItemDto;
 
+  @ApiProperty({ type: Number })
   @IsNumber()
   hotScore: number;
 

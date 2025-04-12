@@ -11,6 +11,7 @@ import {
   Query,
   UsePipes,
   ValidationPipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
@@ -19,6 +20,8 @@ import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { RequestWithUser } from '@/auth/types/request-with-user.interface';
 import { DeletePostResultDto } from './dto/delete-result.dto';
 import { FindRecentPostsDto } from './dto/find-recent.dto';
+import { ApiParam } from '@nestjs/swagger';
+import { PostResponseDto } from './dto/post-response.dto';
 
 @Controller('posts')
 export class PostsController {
@@ -41,6 +44,14 @@ export class PostsController {
     return await this.postsService.findAll();
   }
 
+  // 최근 게시물 조회
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @Get('recent')
+  async findRecent(@Query() query: FindRecentPostsDto) {
+    const { boardIds = [1], limit = 5 } = query;
+    return this.postsService.findRecentPosts(boardIds, limit);
+  }
+
   // 특정 사용자가 작성한 게시글 조회
   @Get('user/:userId')
   async findByUser(@Param('userId') userId: number) {
@@ -48,8 +59,11 @@ export class PostsController {
   }
 
   // 특정 게시글 조회
-  @Get(':id(\\d+)')
-  async findOne(@Param('id') id: number) {
+  @Get(':id')
+  @ApiParam({ name: 'id', type: Number, description: '게시물 ID' })
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<PostResponseDto> {
     return await this.postsService.findOne(id);
   }
 
@@ -73,14 +87,6 @@ export class PostsController {
   ): Promise<DeletePostResultDto> {
     await this.postsService.delete(id, req.user);
     return { message: 'Post deleted successfully.' };
-  }
-
-  // 최근 게시물 조회
-  @UsePipes(new ValidationPipe({ transform: true }))
-  @Get('recent')
-  async findRecent(@Query() query: FindRecentPostsDto) {
-    const { boardIds = [1], limit = 5 } = query;
-    return this.postsService.findRecentPosts(boardIds, limit);
   }
 
   // 보드별 게시물 조회

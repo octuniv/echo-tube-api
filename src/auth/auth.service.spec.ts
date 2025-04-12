@@ -51,6 +51,11 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('should be defined', () => {
@@ -149,6 +154,10 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException when user id is missing', async () => {
       await expect(authService.login({} as User)).rejects.toThrow(
         UnauthorizedException,
+      );
+
+      expect(console.error).toHaveBeenCalledWith(
+        'Invalid user object provided to login function',
       );
     });
   });

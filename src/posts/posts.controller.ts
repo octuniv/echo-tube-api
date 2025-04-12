@@ -17,7 +17,7 @@ import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
-import { RequestWithUser } from '@/auth/types/request-with-user.interface';
+import { RequestWithUser } from '@/auth/types/request-with-user.dto';
 import { DeletePostResultDto } from './dto/delete-result.dto';
 import { FindRecentPostsDto } from './dto/find-recent.dto';
 import { ApiParam } from '@nestjs/swagger';

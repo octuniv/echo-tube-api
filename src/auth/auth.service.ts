@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { RefreshTokenRepository } from './refresh-token.repository';
-import { jwtPayloadInterface } from './types/jwt-payload.interface';
+import { jwtPayloadDto } from './types/jwt-payload.dto';
 import { User } from '@/users/entities/user.entity';
 import { VisitorService } from '@/visitor/visitor.service';
 import { Transactional } from 'typeorm-transactional';
@@ -58,7 +58,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const payload: jwtPayloadInterface = {
+    const payload: jwtPayloadDto = {
       id: userInfo.id,
       email: userInfo.email,
       role: userInfo.role,
@@ -114,7 +114,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         role: user.role,
-      } satisfies jwtPayloadInterface;
+      } satisfies jwtPayloadDto;
       const newRefreshToken = this.jwtService.sign(payload, {
         expiresIn: '7d',
       });

@@ -18,6 +18,19 @@ NestJS 기반 동영상 공유 커뮤니티 백엔드 서버
 | Framework | NestJS, Express      |
 | Database  | PostgreSQL (TypeORM) |
 | Auth      | Passport.js, JWT     |
+| API Docs  | Swagger UI           |
+
+---
+
+## 📄 API 문서
+
+Swagger를 통해 API 문서를 확인할 수 있습니다.
+
+**접근 방법:**
+
+1. 서버 실행 후 [http://localhost:3000/api-docs](http://localhost:3000/api-docs) 접속
+2. 인증이 필요한 API는 `Authorize` 버튼을 눌러 JWT 토큰 입력
+   - 토큰 형식: `Bearer {your_jwt_token}`
 
 ---
 

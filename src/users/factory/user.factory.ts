@@ -36,6 +36,7 @@ export const createUserEntity = ({
   user.id = id;
   user.email = faker.internet.email();
   user.name = faker.person.fullName();
+  user.nickname = faker.person.firstName();
   user.passwordHash = bcrypt.hashSync(password, 10);
   user.role = role;
   return user;

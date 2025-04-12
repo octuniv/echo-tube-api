@@ -6,6 +6,7 @@ import {
   initializeTransactionalContext,
   StorageDriver,
 } from 'typeorm-transactional';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
@@ -24,6 +25,18 @@ async function bootstrap() {
     exposedHeaders: ['Set-Cookie'],
   });
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
+
+  const config = new DocumentBuilder()
+    .setTitle('Echo-Tube-API')
+    .setDescription('The echotube API description')
+    .setVersion('1.0')
+    .addTag('echo-tube')
+    .addBearerAuth()
+    .build();
+
+  const documentFactory = () => SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api-docs', app, documentFactory);
+
   await app.listen(port);
 }
 bootstrap();

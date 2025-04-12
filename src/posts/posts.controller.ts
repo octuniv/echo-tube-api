@@ -11,81 +11,92 @@ import {
   Query,
   UsePipes,
   ValidationPipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
-import { RequestWithUser } from '@/auth/types/request-with-user.interface';
 import { DeletePostResultDto } from './dto/delete-result.dto';
 import { FindRecentPostsDto } from './dto/find-recent.dto';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { PostResponseDto } from './dto/post-response.dto';
 
+@ApiTags('Posts')
 @Controller('posts')
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
-  // 게시글 생성
   @Post()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create new post' })
+  @ApiResponse({ status: 201, type: PostResponseDto })
   @UseGuards(JwtAuthGuard)
-  async create(
-    @Body() createPostDto: CreatePostDto,
-    @Req() req: RequestWithUser,
-  ) {
-    const user = req.user; // 인증된 사용자 정보
-    return await this.postsService.create(createPostDto, user);
+  async create(@Body() createPostDto: CreatePostDto, @Req() req: any) {
+    return this.postsService.create(createPostDto, req.user);
   }
 
-  // 모든 게시글 조회
   @Get()
+  @ApiOperation({ summary: 'Get all posts' })
+  @ApiResponse({ status: 200, type: [PostResponseDto] })
   async findAll() {
-    return await this.postsService.findAll();
+    return this.postsService.findAll();
   }
 
-  // 특정 사용자가 작성한 게시글 조회
+  @Get('recent')
+  @ApiOperation({ summary: 'Get recent posts' })
+  @ApiResponse({ status: 200, type: [PostResponseDto] })
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async findRecent(@Query() query: FindRecentPostsDto) {
+    return this.postsService.findRecentPosts(query.boardIds, query.limit);
+  }
+
   @Get('user/:userId')
-  async findByUser(@Param('userId') userId: number) {
-    return await this.postsService.findByUser(userId);
+  @ApiOperation({ summary: 'Get user posts' })
+  @ApiResponse({ status: 200, type: [PostResponseDto] })
+  async findByUser(@Param('userId', ParseIntPipe) userId: number) {
+    return this.postsService.findByUser(userId);
   }
 
-  // 특정 게시글 조회
-  @Get(':id(\\d+)')
-  async findOne(@Param('id') id: number) {
-    return await this.postsService.findOne(id);
+  @Get(':id')
+  @ApiOperation({ summary: 'Get post details' })
+  @ApiResponse({ status: 200, type: PostResponseDto })
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.postsService.findOne(id);
   }
 
-  // 게시글 수정
   @Patch(':id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update post' })
+  @ApiResponse({ status: 200, type: PostResponseDto })
   @UseGuards(JwtAuthGuard)
   async update(
-    @Param('id') id: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updatePostDto: UpdatePostDto,
-    @Req() req: RequestWithUser,
+    @Req() req: any,
   ) {
-    return await this.postsService.update(id, updatePostDto, req.user);
+    return this.postsService.update(id, updatePostDto, req.user);
   }
 
-  // 게시글 삭제
   @Delete(':id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete post' })
+  @ApiResponse({ status: 200, type: DeletePostResultDto })
   @UseGuards(JwtAuthGuard)
-  async delete(
-    @Param('id') id: number,
-    @Req() req: RequestWithUser,
-  ): Promise<DeletePostResultDto> {
+  async delete(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     await this.postsService.delete(id, req.user);
     return { message: 'Post deleted successfully.' };
   }
 
-  // 최근 게시물 조회
-  @UsePipes(new ValidationPipe({ transform: true }))
-  @Get('recent')
-  async findRecent(@Query() query: FindRecentPostsDto) {
-    const { boardIds = [1], limit = 5 } = query;
-    return this.postsService.findRecentPosts(boardIds, limit);
-  }
-
-  // 보드별 게시물 조회
   @Get('board/:boardId')
-  async findByBoard(@Param('boardId') boardId: number) {
+  @ApiOperation({ summary: 'Get posts by board ID' })
+  @ApiResponse({ status: 200, type: [PostResponseDto] })
+  async findByBoard(@Param('boardId', ParseIntPipe) boardId: number) {
     return this.postsService.findPostsByBoardId(boardId);
   }
 }

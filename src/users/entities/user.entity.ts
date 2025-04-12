@@ -9,24 +9,30 @@ import {
 } from 'typeorm';
 import { UserRole } from './user-role.enum';
 import { Post } from '@/posts/entities/post.entity';
+import { ApiProperty } from '@nestjs/swagger';
 
-@Entity('users') // Matches the table name
+@Entity('users')
 export class User {
+  @ApiProperty({ example: 1 })
   @PrimaryGeneratedColumn()
   id: number;
 
+  @ApiProperty({ example: 'John Doe' })
   @Column({ length: 255 })
   name: string;
 
+  @ApiProperty({ example: 'johndoe123' })
   @Column({ unique: true, length: 255 })
   nickname: string;
 
+  @ApiProperty({ example: 'john.doe@example.com' })
   @Column({ unique: true, length: 255 })
   email: string;
 
   @Column({ name: 'password_hash' })
   passwordHash: string;
 
+  @ApiProperty({ enum: UserRole, default: UserRole.USER })
   @Column({
     type: 'enum',
     enum: UserRole,
@@ -34,18 +40,22 @@ export class User {
   })
   role: UserRole;
 
+  // 관계는 Swagger 스키마에 자동 포함되지 않도록 처리
   @OneToMany(() => Post, (post) => post.createdBy, {
     cascade: true,
     onDelete: 'CASCADE',
-  }) // Post와의 관계 정의
+  })
   posts: Post[];
 
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
+  @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
+  @ApiProperty({ nullable: true })
   @DeleteDateColumn()
   deletedAt: Date | null;
 }

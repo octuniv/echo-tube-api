@@ -1,30 +1,28 @@
 // auth/dto/login-response.dto.ts
-import { IsString, IsEmail, ValidateNested, IsEnum } from 'class-validator';
-import { Type } from 'class-transformer';
 import { UserRole } from '@/users/entities/user-role.enum';
+import { ApiProperty } from '@nestjs/swagger';
 
 class UserResponse {
-  @IsString()
+  @ApiProperty({ example: 'John Doe' })
   name: string;
 
-  @IsString()
+  @ApiProperty({ example: 'johndoe123' })
   nickname: string;
 
-  @IsEmail()
+  @ApiProperty({ example: 'john.doe@example.com' })
   email: string;
 
-  @IsEnum(UserRole)
+  @ApiProperty({ enum: UserRole, example: UserRole.USER })
   role: UserRole;
 }
 
 export class LoginResponseDto {
-  @IsString()
+  @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
   access_token: string;
 
-  @IsString()
+  @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
   refresh_token: string;
 
-  @ValidateNested()
-  @Type(() => UserResponse)
+  @ApiProperty({ type: UserResponse })
   user: UserResponse;
 }

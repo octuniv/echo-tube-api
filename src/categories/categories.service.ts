@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Category } from './entities/category.entity';
 import { CategorySlug } from './entities/category-slug.entity';
+import { CategoryResponseDto } from './dto/category-response.dto';
 
 @Injectable()
 export class CategoriesService {
@@ -42,9 +43,7 @@ export class CategoriesService {
     return category?.slugs.map((s) => s.slug) || [];
   }
 
-  async getAllCategoriesWithSlugs(): Promise<
-    { name: string; allowedSlugs: string[] }[]
-  > {
+  async getAllCategoriesWithSlugs(): Promise<CategoryResponseDto[]> {
     const categories = await this.categoryRepository.find({
       relations: ['slugs'],
     });

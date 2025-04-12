@@ -5,6 +5,7 @@ import { PostResponseDto } from './post-response.dto';
 import { Post } from '../entities/post.entity';
 import { createBoard } from '@/boards/factories/board.factory';
 import { BoardListItemDto } from '@/boards/dto/board-list-item.dto';
+import { User } from '@/users/entities/user.entity';
 
 describe('PostResponseDto', () => {
   describe('Validation', () => {
@@ -102,17 +103,23 @@ describe('PostResponseDto', () => {
         category: null,
         posts: [],
       });
+      const mockUser = {
+        nickname: 'UserA',
+      } as User;
+
       post.id = 1;
       post.title = 'Test Post';
       post.content = 'Test Content';
       post.views = 10;
       post.commentsCount = 5;
       post.videoUrl = 'https://example.com/video';
-      post.nickname = 'UserA';
+      post.createdBy = mockUser;
       post.createdAt = new Date('2023-10-01');
       post.updatedAt = new Date('2023-10-02');
       post.board = board;
       post.hotScore = 150.5;
+
+      post.setNickname();
 
       const dto = PostResponseDto.fromEntity(post);
       expect(dto).toEqual({

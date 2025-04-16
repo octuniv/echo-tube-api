@@ -9,10 +9,6 @@ import {
 } from '@/users/factory/user.factory';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { UsersModule } from '@/users/users.module';
-import { AuthModule } from '@/auth/auth.module';
-import { PostsModule } from '@/posts/posts.module';
-import { DbModule } from '@/db/db.module';
 import * as bcrypt from 'bcryptjs';
 import { CreateUserDto } from '@/users/dto/create-user.dto';
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
@@ -34,9 +30,7 @@ describe('User - /users (e2e)', () => {
   let authToken: string;
 
   beforeAll(async () => {
-    const testApp = await setupTestApp({
-      modules: [DbModule, UsersModule, AuthModule, PostsModule],
-    });
+    const testApp = await setupTestApp();
     ({ app, module, dataSource } = testApp);
 
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));

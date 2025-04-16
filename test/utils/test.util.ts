@@ -11,10 +11,7 @@ import { DbModule } from '@/db/db.module';
 import { TestDbModule } from './test-db.e2e.module';
 import { createUserDto } from '@/users/factory/user.factory';
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
-
-export interface TestAppModules {
-  modules: any[];
-}
+import { AppModule } from '@/app.module';
 
 export interface TestApp {
   app: INestApplication;
@@ -22,11 +19,11 @@ export interface TestApp {
   dataSource: DataSource;
 }
 
-export async function setupTestApp(options: TestAppModules): Promise<TestApp> {
+export async function setupTestApp(): Promise<TestApp> {
   initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
 
   const moduleBuilder: TestingModuleBuilder = Test.createTestingModule({
-    imports: [...options.modules],
+    imports: [AppModule],
   })
     .overrideModule(DbModule)
     .useModule(TestDbModule);

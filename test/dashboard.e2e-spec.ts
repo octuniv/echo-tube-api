@@ -4,11 +4,6 @@ import * as request from 'supertest';
 import { DataSource, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Post } from '@/posts/entities/post.entity';
-import { DashboardModule } from '@/dashboard/dashboard.module';
-import { DbModule } from '@/db/db.module';
-import { UsersModule } from '@/users/users.module';
-import { PostsModule } from '@/posts/posts.module';
-import { AuthModule } from '@/auth/auth.module';
 import { createUserDto } from '@/users/factory/user.factory';
 import { createPost } from '@/posts/factories/post.factory';
 import { Visitor } from '@/visitor/entities/visitor.entity';
@@ -17,9 +12,6 @@ import {
   createVisitor,
   createVisitorEntry,
 } from '@/visitor/factories/visitor.factory';
-import { VisitorModule } from '@/visitor/visitor.module';
-import { BoardsModule } from '@/boards/boards.module';
-import { CategoriesModule } from '@/categories/categories.module';
 import { BoardsService } from '@/boards/boards.service';
 import { VisitorEntry } from '@/visitor/entities/visitor-entry.entity';
 import {
@@ -45,18 +37,7 @@ describe('DashboardController (e2e)', () => {
   let boardsService: BoardsService;
 
   beforeAll(async () => {
-    const testApp = await setupTestApp({
-      modules: [
-        DashboardModule,
-        DbModule,
-        UsersModule,
-        PostsModule,
-        AuthModule,
-        VisitorModule,
-        BoardsModule,
-        CategoriesModule,
-      ],
-    });
+    const testApp = await setupTestApp();
     ({ app, module, dataSource } = testApp);
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
     postRepository = module.get<Repository<Post>>(getRepositoryToken(Post));

@@ -3,25 +3,12 @@ import * as request from 'supertest';
 import { Board } from '@/boards/entities/board.entity';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { setupTestApp } from './utils/test.util';
-import { UsersModule } from '@/users/users.module';
-import { PostsModule } from '@/posts/posts.module';
-import { BoardsModule } from '@/boards/boards.module';
-import { CategoriesModule } from '@/categories/categories.module';
-import { DbModule } from '@/db/db.module';
 
 describe('CategoriesController (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const testApp = await setupTestApp({
-      modules: [
-        DbModule,
-        CategoriesModule,
-        BoardsModule,
-        PostsModule,
-        UsersModule,
-      ],
-    });
+    const testApp = await setupTestApp();
     app = testApp.app;
   }, 15000);
 

@@ -3,16 +3,11 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { User } from '@/users/entities/user.entity';
-import { AuthModule } from '@/auth/auth.module';
-import { UsersModule } from '@/users/users.module';
-import { PostsModule } from '@/posts/posts.module';
-import { DbModule } from '@/db/db.module';
 import { DataSource, Repository } from 'typeorm';
 import { createUserDto } from '@/users/factory/user.factory';
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
-import { VisitorModule } from '@/visitor/visitor.module';
 import { setupTestApp, truncateAllTables } from './utils/test.util';
 
 const truncateUserTable = async (dataSource: DataSource) => {
@@ -42,9 +37,7 @@ describe('AuthController (e2e)', () => {
   let jwtService: JwtService;
 
   beforeAll(async () => {
-    const testApp = await setupTestApp({
-      modules: [AuthModule, DbModule, UsersModule, PostsModule, VisitorModule],
-    });
+    const testApp = await setupTestApp();
 
     ({ app, module, dataSource } = testApp);
 

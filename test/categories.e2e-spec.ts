@@ -1,25 +1,12 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { DbModule } from '@/db/db.module';
-import { CategoriesModule } from '@/categories/categories.module';
-import { BoardsModule } from '@/boards/boards.module';
-import { PostsModule } from '@/posts/posts.module';
-import { UsersModule } from '@/users/users.module';
 import { setupTestApp } from './utils/test.util';
 
 describe('CategoriesController (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
-    const testApp = await setupTestApp({
-      modules: [
-        DbModule,
-        CategoriesModule,
-        BoardsModule,
-        PostsModule,
-        UsersModule,
-      ],
-    });
+    const testApp = await setupTestApp();
     app = testApp.app;
   }, 15000);
 

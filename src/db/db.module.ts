@@ -1,15 +1,22 @@
 import { Module, OnApplicationBootstrap } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { dataSourceOptions } from './data-source';
+import { createNestJSDatasource } from './data-source';
 import { DataSource } from 'typeorm';
 import { runSeeders } from 'typeorm-extension';
 import { addTransactionalDataSource } from 'typeorm-transactional';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
-      useFactory() {
-        return dataSourceOptions;
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => {
+        const options = createNestJSDatasource(configService);
+        return {
+          ...options,
+          migrationsRun: false,
+        };
       },
       async dataSourceFactory(options) {
         if (!options) {
@@ -24,6 +31,8 @@ export class DbModule implements OnApplicationBootstrap {
   constructor(private dataSource: DataSource) {}
 
   async onApplicationBootstrap() {
-    await runSeeders(this.dataSource);
+    if (process.env.NODE_ENV === 'test') {
+      await runSeeders(this.dataSource);
+    }
   }
 }

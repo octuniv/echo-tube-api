@@ -4,16 +4,10 @@ import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Post } from '@/posts/entities/post.entity';
 import { DataSource, Repository } from 'typeorm';
-import { PostsModule } from '@/posts/posts.module';
-import { AuthModule } from '@/auth/auth.module';
-import { UsersModule } from '@/users/users.module';
-import { DbModule } from '@/db/db.module';
 import { createUserDto } from '@/users/factory/user.factory';
 import { User } from '@/users/entities/user.entity';
 import { CreatePostDto } from '@/posts/dto/create-post.dto';
 import { UpdatePostDto } from '@/posts/dto/update-post.dto';
-import { BoardsModule } from '@/boards/boards.module';
-import { CategoriesModule } from '@/categories/categories.module';
 import { BoardsService } from '@/boards/boards.service';
 import { Board } from '@/boards/entities/board.entity';
 import { createPost } from '@/posts/factories/post.factory';
@@ -42,16 +36,7 @@ describe('Posts - /posts (e2e)', () => {
   let adminBoard: Board;
 
   beforeAll(async () => {
-    const testApp = await setupTestApp({
-      modules: [
-        PostsModule,
-        DbModule,
-        AuthModule,
-        UsersModule,
-        BoardsModule,
-        CategoriesModule,
-      ],
-    });
+    const testApp = await setupTestApp();
     ({ app, module, dataSource } = testApp);
 
     postRepository = module.get<Repository<Post>>(getRepositoryToken(Post));

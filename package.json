@@ -22,7 +22,7 @@
     "migration:generate": "cross-env NODE_ENV=production pnpm build && npx typeorm migration:generate -d dist/db/data-source.js src/db/migrations/PostRefactoring",
     "migration:run": "cross-env NODE_ENV=production pnpm build && npx typeorm-ts-node-commonjs migration:run -d dist/db/data-source.js",
     "migration:revert": "cross-env NODE_ENV=production pnpm build && npx typeorm-ts-node-commonjs migration:revert -d dist/db/data-source.js",
-    "seed:run": "cross-env NODE_ENV=production pnpm build && ts-node src/db/run-seeder.ts"
+    "seed:run": "cross-env-shell NODE_ENV=production \"ts-node -r tsconfig-paths/register src/db/run-seeder.ts\""
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
@@ -37,6 +37,7 @@
     "@nestjs/typeorm": "^10.0.2",
     "bcryptjs": "^3.0.2",
     "dotenv": "^16.4.7",
+    "joi": "^17.13.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.13.1",

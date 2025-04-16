@@ -1,5 +1,6 @@
-import { dataSourceOptions } from '@/db/data-source';
+import { createNestJSDatasource } from '@/db/data-source';
 import { Module, OnApplicationBootstrap } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { config } from 'dotenv';
 import { DataSource } from 'typeorm';
@@ -9,9 +10,12 @@ import { addTransactionalDataSource } from 'typeorm-transactional';
 config({ path: '.env.test' });
 
 const TestE2EDatabaseModule = TypeOrmModule.forRootAsync({
-  useFactory() {
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: async (configService: ConfigService) => {
+    const options = createNestJSDatasource(configService);
     return {
-      ...dataSourceOptions,
+      ...options,
       logging: false,
       autoLoadEntities: true,
     };
@@ -31,6 +35,8 @@ export class TestDbModule implements OnApplicationBootstrap {
   constructor(private dataSource: DataSource) {}
 
   async onApplicationBootstrap() {
-    await runSeeders(this.dataSource);
+    if (process.env.NODE_ENV === 'test') {
+      await runSeeders(this.dataSource);
+    }
   }
 }

@@ -1,11 +1,9 @@
 import * as request from 'supertest';
 import { TestingModule } from '@nestjs/testing';
-import { VisitorModule } from '../src/visitor/visitor.module';
 import { VisitorService } from '../src/visitor/visitor.service';
 import { Visitor } from '../src/visitor/entities/visitor.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { DbModule } from '@/db/db.module';
 import { INestApplication } from '@nestjs/common';
 import { setupTestApp, truncateAllTables } from './utils/test.util';
 
@@ -17,7 +15,7 @@ describe('VisitorsController (e2e)', () => {
   let visitorService: VisitorService;
 
   beforeAll(async () => {
-    const testApp = await setupTestApp({ modules: [VisitorModule, DbModule] });
+    const testApp = await setupTestApp();
     ({ app, module, dataSource } = testApp);
     visitorRepository = module.get<Repository<Visitor>>(
       getRepositoryToken(Visitor),

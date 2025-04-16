@@ -7,11 +7,18 @@ import {
   StorageDriver,
 } from 'typeorm-transactional';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { DataSource } from 'typeorm';
 
 async function bootstrap() {
   initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+
+  if (configService.get<boolean>('DATABASE_MIGRATIONS_RUN')) {
+    const dataSource = app.get(DataSource);
+    await dataSource.runMigrations({ transaction: 'all' });
+  }
+
   const port = configService.get<number>('HTTP_SERVER_POST', 3000);
   const frontEndOrigin = configService.get<string>(
     'FRONTEND_ORIGIN',

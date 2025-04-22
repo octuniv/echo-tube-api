@@ -6,7 +6,7 @@ import {
   IsNumber,
   ValidateNested,
 } from 'class-validator';
-import { Post } from '../entities/post.entity';
+import { Post, PostOrigin } from '../entities/post.entity';
 import { BoardListItemDto } from '@/boards/dto/board-list-item.dto';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
@@ -65,6 +65,18 @@ export class PostResponseDto {
   @IsNumber()
   hotScore: number;
 
+  @ApiProperty({ enum: PostOrigin })
+  type: PostOrigin;
+
+  @ApiProperty({ required: false })
+  youtubeId?: string;
+
+  @ApiProperty({ required: false })
+  channelTitle?: string;
+
+  @ApiProperty({ required: false })
+  duration?: string;
+
   // Entity에서 DTO로 변환하는 정적 메서드
   static fromEntity(post: Post): PostResponseDto {
     const dto = new PostResponseDto();
@@ -85,6 +97,11 @@ export class PostResponseDto {
       requiredRole: post.board.requiredRole,
     };
     dto.hotScore = post.hotScore;
+    // 봇에 의해 수집된 영상 게시물 정보
+    dto.type = post.type;
+    dto.youtubeId = post.youtubeId || undefined;
+    dto.channelTitle = post.channelTitle || undefined;
+    dto.duration = post.duration || undefined;
     return dto;
   }
 }

@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PostsService } from './posts.service';
 import { Repository, UpdateResult } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Post } from './entities/post.entity';
+import { Post, PostOrigin } from './entities/post.entity';
 import {
   InternalServerErrorException,
   NotFoundException,
@@ -18,6 +18,8 @@ import { createPost } from './factories/post.factory';
 import { CreatePostDto } from './dto/create-post.dto';
 import { createUserEntity } from '@/users/factory/user.factory';
 import { UserRole } from '@/users/entities/user-role.enum';
+import { BoardPurpose } from '@/boards/entities/board.entity';
+import { CreateScrapedVideoDto } from '@/video-harvester/dto/create-scraped-video.dto';
 
 describe('PostsService', () => {
   let service: PostsService;
@@ -130,6 +132,7 @@ describe('PostsService', () => {
           setNickname: expect.any(Function),
         }),
       );
+      expect(result.type).toBe(PostOrigin.USER);
     });
   });
 
@@ -567,6 +570,61 @@ describe('PostsService', () => {
         'DESC',
       );
       expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
+    });
+  });
+
+  describe('createScrapedPost', () => {
+    it('should create scraped post with YouTube data', async () => {
+      const mockData: CreateScrapedVideoDto = {
+        youtubeId: 'abc123',
+        title: 'Test Video',
+        link: 'https://youtu.be/abc123',
+        thumbnailUrl: 'https://i.ytimg.com/abc123.jpg',
+        channelTitle: 'Test Channel',
+        duration: 'PT5M',
+        topic: 'test',
+      };
+
+      const board = createBoard({
+        slug: 'video-board',
+        type: BoardPurpose.EXTERNAL_VIDEO,
+      });
+
+      const systemUser = createUserEntity({
+        id: 1,
+        role: UserRole.BOT,
+      });
+      systemUser.nickname = 'BOT';
+
+      jest.spyOn(boardsService, 'findOne').mockResolvedValue(board);
+      jest.spyOn(boardsService, 'validateBoardType').mockResolvedValue();
+
+      const savedPost = createPost({
+        type: PostOrigin.SCRAPED,
+        youtubeId: mockData.youtubeId,
+        channelTitle: mockData.channelTitle,
+        duration: mockData.duration,
+        source: 'YouTube',
+        videoUrl: mockData.link,
+        board: board,
+        createdBy: systemUser,
+      });
+
+      postRepository.create = jest.fn().mockReturnValue(savedPost);
+      postRepository.save = jest.fn().mockResolvedValueOnce(savedPost);
+
+      const result = await service.createScrapedPost(
+        mockData,
+        'video-board',
+        systemUser,
+      );
+
+      expect(result.type).toBe(PostOrigin.SCRAPED);
+      expect(result.youtubeId).toBe('abc123');
+      expect(boardsService.validateBoardType).toHaveBeenCalledWith(
+        'video-board',
+        BoardPurpose.EXTERNAL_VIDEO,
+      );
     });
   });
 });

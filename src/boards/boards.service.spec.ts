@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BoardsService } from './boards.service';
-import { Board } from './entities/board.entity';
+import { Board, BoardPurpose } from './entities/board.entity';
 import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { createMock } from '@golevelup/ts-jest';
@@ -179,6 +179,33 @@ describe('BoardsService', () => {
             name: true,
           },
         },
+      });
+    });
+  });
+
+  describe('getVideoBoards', () => {
+    it('should return boards with EXTERNAL_VIDEO type', async () => {
+      const mockVideoBoards = [
+        createBoard({
+          slug: 'video-board-1',
+          name: 'Video Board 1',
+          type: BoardPurpose.EXTERNAL_VIDEO,
+        }),
+        createBoard({
+          slug: 'video-board-2',
+          name: 'Video Board 2',
+          type: BoardPurpose.EXTERNAL_VIDEO,
+        }),
+      ];
+
+      jest.spyOn(boardRepository, 'find').mockResolvedValue(mockVideoBoards);
+
+      const result = await service.getVideoBoards();
+
+      expect(result).toEqual(mockVideoBoards);
+      expect(boardRepository.find).toHaveBeenCalledWith({
+        where: { type: BoardPurpose.EXTERNAL_VIDEO },
+        select: ['slug', 'name'],
       });
     });
   });

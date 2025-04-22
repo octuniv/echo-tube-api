@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import { Post } from '@/posts/entities/post.entity';
+import { Post, PostOrigin } from '@/posts/entities/post.entity';
 import { createBoard } from '@/boards/factories/board.factory';
 import { createUserEntity } from '@/users/factory/user.factory';
 
@@ -20,6 +20,12 @@ export const createPost = (options?: Partial<Post>): Post => {
   post.deletedAt = null;
   post.board = options.board ?? createBoard();
   post.hotScore = faker.number.float({ min: 0, max: 100 });
+
+  post.type = PostOrigin.USER;
+  post.youtubeId = null;
+  post.channelTitle = null;
+  post.duration = null;
+  post.source = null;
 
   post.setNickname();
 

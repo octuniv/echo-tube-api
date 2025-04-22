@@ -7,7 +7,7 @@ import {
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Post } from './entities/post.entity';
+import { Post, PostOrigin } from './entities/post.entity';
 import { Repository } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
 import { PostResponseDto } from './dto/post-response.dto';
@@ -15,6 +15,8 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { CategoriesService } from '@/categories/categories.service';
 import { BoardsService } from '@/boards/boards.service';
 import { UserRole } from '@/users/entities/user-role.enum';
+import { CreateScrapedVideoDto } from '@/video-harvester/dto/create-scraped-video.dto';
+import { BoardPurpose } from '@/boards/entities/board.entity';
 
 @Injectable()
 export class PostsService {
@@ -233,5 +235,34 @@ export class PostsService {
         throw new InternalServerErrorException();
       }
     }
+  }
+
+  async createScrapedPost(
+    data: CreateScrapedVideoDto,
+    boardSlug: string,
+    systemUser: User,
+  ): Promise<Post> {
+    const board = await this.boardsService.findOne(boardSlug);
+
+    // 게시판 타입 검증
+    await this.boardsService.validateBoardType(
+      boardSlug,
+      BoardPurpose.EXTERNAL_VIDEO,
+    );
+
+    const newPost = this.postRepository.create({
+      type: PostOrigin.SCRAPED,
+      title: data.title,
+      videoUrl: data.link,
+      youtubeId: data.youtubeId,
+      channelTitle: data.channelTitle,
+      duration: data.duration,
+      source: 'YouTube',
+      board: board,
+      createdBy: systemUser,
+      hotScore: this.calculateInitialHotScore(),
+    });
+
+    return this.postRepository.save(newPost);
   }
 }

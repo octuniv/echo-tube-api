@@ -1,5 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Board } from './entities/board.entity';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Board, BoardPurpose } from './entities/board.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BoardListItemDto } from './dto/board-list-item.dto';
@@ -55,5 +59,21 @@ export class BoardsService {
       throw new NotFoundException('게시판을 찾을 수 없습니다');
     }
     return board;
+  }
+
+  async validateBoardType(boardSlug: string, expectedType: BoardPurpose) {
+    const board = await this.boardRepository.findOne({
+      where: { slug: boardSlug },
+    });
+    if (board.type !== expectedType) {
+      throw new BadRequestException(`This board is for ${board.type}s only`);
+    }
+  }
+
+  async getVideoBoards(): Promise<Board[]> {
+    return this.boardRepository.find({
+      where: { type: BoardPurpose.EXTERNAL_VIDEO },
+      select: ['slug', 'name'],
+    });
   }
 }

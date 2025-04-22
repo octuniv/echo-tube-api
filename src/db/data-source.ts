@@ -1,7 +1,11 @@
 import { ConfigService } from '@nestjs/config';
-import { DataSourceOptions } from 'typeorm';
+import * as dotenv from 'dotenv';
+import { DataSource, DataSourceOptions } from 'typeorm';
 import { SeederOptions } from 'typeorm-extension';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
+
+const envFile = `.env.${process.env.NODE_ENV || 'production'}`;
+dotenv.config({ path: envFile });
 
 export const createStandaloneDataSource = (): DataSourceOptions &
   SeederOptions => ({
@@ -42,4 +46,8 @@ export const createNestJSDatasource = (
   seeds: ['dist/db/seeds/**/*.seed.js'],
   factories: ['dist/db/factories/**/*.factory.js'],
   namingStrategy: new SnakeNamingStrategy(),
+});
+
+export default new DataSource({
+  ...createStandaloneDataSource(),
 });

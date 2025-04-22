@@ -11,6 +11,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { VisitorModule } from './visitor/visitor.module';
 import { BoardsModule } from './boards/boards.module';
 import { CategoriesModule } from './categories/categories.module';
+import { VideoHarvesterModule } from './video-harvester/video-harvester.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { CategoriesModule } from './categories/categories.module';
     VisitorModule,
     BoardsModule,
     CategoriesModule,
+    VideoHarvesterModule,
   ],
   controllers: [AppController],
   providers: [AppService],

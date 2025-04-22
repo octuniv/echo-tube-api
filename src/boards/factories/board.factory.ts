@@ -1,6 +1,6 @@
 // src/boards/tests/factories/board.factory.ts
 import { createCategory } from '@/categories/factories/category.factory';
-import { Board } from '../entities/board.entity';
+import { Board, BoardPurpose } from '../entities/board.entity';
 import { faker } from '@faker-js/faker';
 import { UserRole } from '@/users/entities/user-role.enum';
 
@@ -12,6 +12,7 @@ export const createBoard = (overrides: Partial<Board> = {}): Board => {
     description: faker.lorem.sentence(),
     category: createCategory(),
     requiredRole: UserRole.USER,
+    type: BoardPurpose.GENERAL,
     posts: [],
     ...overrides,
   };

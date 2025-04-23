@@ -9,6 +9,7 @@ import { LoginUserDto } from '@/auth/dto/login-user.dto';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { setupTestApp, truncateAllTables } from './utils/test.util';
+import { VideoFactory } from '@/video-harvester/factory/video.factory';
 
 const truncateUserTable = async (dataSource: DataSource) => {
   const queryRunner = dataSource.createQueryRunner(); // QueryRunner 생성
@@ -249,6 +250,55 @@ describe('AuthController (e2e)', () => {
       await request(app.getHttpServer())
         .get('/auth/validate-token')
         .expect(401);
+    });
+  });
+
+  describe('Role Guard', () => {
+    const userDto = createUserDto();
+    let jwt_token: {
+      access_token: string;
+      refresh_token: string;
+    };
+
+    beforeAll(async () => {
+      await userRepository.save({
+        name: userDto.name,
+        nickname: userDto.nickname,
+        email: userDto.email,
+        passwordHash: bcrypt.hashSync(userDto.password, 10),
+      });
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: userDto.email,
+          password: userDto.password,
+        } satisfies LoginUserDto);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('access_token');
+      expect(response.body).toHaveProperty('refresh_token');
+
+      jwt_token = {
+        access_token: response.body.access_token,
+        refresh_token: response.body.refresh_token,
+      };
+
+      await new Promise((resolve) => setTimeout(resolve, 1001));
+    });
+
+    it('should throw Forbidden when general user use a bot-only API', async () => {
+      const videoPostDto = new VideoFactory().create();
+      await request(app.getHttpServer())
+        .post('/harvest/videos')
+        .send(videoPostDto)
+        .set('Authorization', `Bearer ${jwt_token.access_token}`)
+        .expect(403);
+
+      await request(app.getHttpServer())
+        .get('/boards/scraping-targets')
+        .set('Authorization', `Bearer ${jwt_token.access_token}`)
+        .expect(403);
     });
   });
 });

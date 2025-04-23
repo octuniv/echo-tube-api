@@ -11,6 +11,7 @@ import {
 } from '@/categories/factories/category.factory';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { NotFoundException } from '@nestjs/common';
+import { ScrapingTargetBoardDto } from './dto/scraping-target-board.dto';
 
 describe('BoardsService', () => {
   let service: BoardsService;
@@ -200,9 +201,13 @@ describe('BoardsService', () => {
 
       jest.spyOn(boardRepository, 'find').mockResolvedValue(mockVideoBoards);
 
-      const result = await service.getVideoBoards();
+      const result = await service.getScrapingTargetBoards();
 
-      expect(result).toEqual(mockVideoBoards);
+      expect(result).toEqual(
+        mockVideoBoards.map((video) =>
+          ScrapingTargetBoardDto.fromEntity(video),
+        ),
+      );
       expect(boardRepository.find).toHaveBeenCalledWith({
         where: { type: BoardPurpose.EXTERNAL_VIDEO },
         select: ['slug', 'name'],

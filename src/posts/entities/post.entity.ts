@@ -93,10 +93,6 @@ export class Post {
   type: PostOrigin;
 
   // 봇에 의해 정의된 영상 게시물 정보
-
-  @Column({ nullable: true })
-  youtubeId?: string;
-
   @Column({ nullable: true })
   channelTitle?: string;
 

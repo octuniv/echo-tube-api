@@ -9,6 +9,7 @@ import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { RolesGuard } from '@/auth/roles.guard';
 import { createPost } from '@/posts/factories/post.factory';
 import { createBoard } from '@/boards/factories/board.factory';
+import { VideoFactory } from './factory/video.factory';
 
 describe('VideoHarvesterController', () => {
   let controller: VideoHarvesterController;
@@ -17,7 +18,6 @@ describe('VideoHarvesterController', () => {
   const mockPost = createPost({
     id: 1,
     title: 'Test Video',
-    youtubeId: 'abc123',
     channelTitle: 'Test Channel',
     duration: 'PT5M',
     videoUrl: 'https://youtu.be/abc123',
@@ -35,15 +35,7 @@ describe('VideoHarvesterController', () => {
     updatedAt: new Date(),
   });
 
-  const mockDto: CreateScrapedVideoDto = {
-    youtubeId: 'abc123',
-    title: 'Test Video',
-    link: 'https://youtu.be/abc123',
-    thumbnailUrl: 'https://i.ytimg.com/abc123.jpg',
-    channelTitle: 'Test Channel',
-    duration: 'PT5M',
-    topic: 'test',
-  };
+  const mockDto: CreateScrapedVideoDto = new VideoFactory().create();
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({

@@ -22,7 +22,6 @@ export const createPost = (options?: Partial<Post>): Post => {
   post.hotScore = faker.number.float({ min: 0, max: 100 });
 
   post.type = PostOrigin.USER;
-  post.youtubeId = null;
   post.channelTitle = null;
   post.duration = null;
   post.source = null;

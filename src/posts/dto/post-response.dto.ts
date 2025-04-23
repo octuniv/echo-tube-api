@@ -69,9 +69,6 @@ export class PostResponseDto {
   type: PostOrigin;
 
   @ApiProperty({ required: false })
-  youtubeId?: string;
-
-  @ApiProperty({ required: false })
   channelTitle?: string;
 
   @ApiProperty({ required: false })
@@ -99,7 +96,6 @@ export class PostResponseDto {
     dto.hotScore = post.hotScore;
     // 봇에 의해 수집된 영상 게시물 정보
     dto.type = post.type;
-    dto.youtubeId = post.youtubeId || undefined;
     dto.channelTitle = post.channelTitle || undefined;
     dto.duration = post.duration || undefined;
     return dto;

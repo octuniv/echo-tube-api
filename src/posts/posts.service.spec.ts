@@ -20,6 +20,7 @@ import { createUserEntity } from '@/users/factory/user.factory';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { BoardPurpose } from '@/boards/entities/board.entity';
 import { CreateScrapedVideoDto } from '@/video-harvester/dto/create-scraped-video.dto';
+import { VideoFactory } from '@/video-harvester/factory/video.factory';
 
 describe('PostsService', () => {
   let service: PostsService;
@@ -575,15 +576,7 @@ describe('PostsService', () => {
 
   describe('createScrapedPost', () => {
     it('should create scraped post with YouTube data', async () => {
-      const mockData: CreateScrapedVideoDto = {
-        youtubeId: 'abc123',
-        title: 'Test Video',
-        link: 'https://youtu.be/abc123',
-        thumbnailUrl: 'https://i.ytimg.com/abc123.jpg',
-        channelTitle: 'Test Channel',
-        duration: 'PT5M',
-        topic: 'test',
-      };
+      const mockData: CreateScrapedVideoDto = new VideoFactory().create();
 
       const board = createBoard({
         slug: 'video-board',
@@ -601,11 +594,10 @@ describe('PostsService', () => {
 
       const savedPost = createPost({
         type: PostOrigin.SCRAPED,
-        youtubeId: mockData.youtubeId,
         channelTitle: mockData.channelTitle,
         duration: mockData.duration,
         source: 'YouTube',
-        videoUrl: mockData.link,
+        videoUrl: `https://www.youtube.com/watch?v=${mockData.youtubeId}`,
         board: board,
         createdBy: systemUser,
       });
@@ -620,7 +612,6 @@ describe('PostsService', () => {
       );
 
       expect(result.type).toBe(PostOrigin.SCRAPED);
-      expect(result.youtubeId).toBe('abc123');
       expect(boardsService.validateBoardType).toHaveBeenCalledWith(
         'video-board',
         BoardPurpose.EXTERNAL_VIDEO,

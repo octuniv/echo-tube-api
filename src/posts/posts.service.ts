@@ -240,7 +240,7 @@ export class PostsService {
   async createScrapedPost(
     data: CreateScrapedVideoDto,
     boardSlug: string,
-    systemUser: User,
+    user: User,
   ): Promise<Post> {
     const board = await this.boardsService.findOne(boardSlug);
 
@@ -253,13 +253,13 @@ export class PostsService {
     const newPost = this.postRepository.create({
       type: PostOrigin.SCRAPED,
       title: data.title,
-      videoUrl: data.link,
-      youtubeId: data.youtubeId,
+      content: '',
+      videoUrl: `https://www.youtube.com/watch?v=${data.youtubeId}`,
       channelTitle: data.channelTitle,
       duration: data.duration,
       source: 'YouTube',
       board: board,
-      createdBy: systemUser,
+      createdBy: user,
       hotScore: this.calculateInitialHotScore(),
     });
 

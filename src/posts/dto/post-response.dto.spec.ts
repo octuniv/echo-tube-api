@@ -175,14 +175,12 @@ describe('PostResponseDto', () => {
   it('should include scraped video fields', () => {
     const post = createPost({
       type: PostOrigin.SCRAPED,
-      youtubeId: 'test123',
       channelTitle: 'Test Channel',
       duration: 'PT10M',
     });
 
     const dto = PostResponseDto.fromEntity(post);
     expect(dto.type).toBe(PostOrigin.SCRAPED);
-    expect(dto.youtubeId).toBe('test123');
     expect(dto.channelTitle).toBe('Test Channel');
     expect(dto.duration).toBe('PT10M');
   });

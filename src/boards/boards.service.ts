@@ -7,6 +7,7 @@ import { Board, BoardPurpose } from './entities/board.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BoardListItemDto } from './dto/board-list-item.dto';
+import { ScrapingTargetBoardDto } from './dto/scraping-target-board.dto';
 
 @Injectable()
 export class BoardsService {
@@ -70,10 +71,11 @@ export class BoardsService {
     }
   }
 
-  async getVideoBoards(): Promise<Board[]> {
-    return this.boardRepository.find({
+  async getScrapingTargetBoards(): Promise<ScrapingTargetBoardDto[]> {
+    const entities = await this.boardRepository.find({
       where: { type: BoardPurpose.EXTERNAL_VIDEO },
       select: ['slug', 'name'],
     });
+    return entities.map(ScrapingTargetBoardDto.fromEntity);
   }
 }

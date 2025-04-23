@@ -1,16 +1,13 @@
 // src/video-harvester/dtos/create-scraped-video.dto.ts
-import { IsString, IsUrl } from 'class-validator';
+import { IsNotEmpty, IsString, IsUrl } from 'class-validator';
 
 export class CreateScrapedVideoDto {
   @IsString()
+  @IsNotEmpty({ message: 'youtubeId should not be empty' })
   youtubeId: string;
 
   @IsString()
   title: string;
-
-  @IsUrl()
-  @IsString()
-  link: string;
 
   @IsUrl()
   @IsString()

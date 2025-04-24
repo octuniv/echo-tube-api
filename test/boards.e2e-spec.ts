@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { Board } from '@/boards/entities/board.entity';
+import { Board, BoardPurpose } from '@/boards/entities/board.entity';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { setupTestApp } from './utils/test.util';
 import { ScrapingTargetBoardDto } from '@/boards/dto/scraping-target-board.dto';
@@ -32,6 +32,7 @@ describe('CategoriesController (e2e)', () => {
           name: '자유 게시판',
           description: null,
           requiredRole: UserRole.USER,
+          boardType: BoardPurpose.GENERAL,
         }),
       );
 
@@ -42,6 +43,7 @@ describe('CategoriesController (e2e)', () => {
           name: '공지 게시판',
           description: null,
           requiredRole: UserRole.ADMIN,
+          boardType: BoardPurpose.GENERAL,
         }),
       );
 
@@ -52,6 +54,7 @@ describe('CategoriesController (e2e)', () => {
           name: 'NESTJS',
           description: null,
           requiredRole: UserRole.BOT,
+          boardType: BoardPurpose.EXTERNAL_VIDEO,
         }),
       );
 
@@ -65,6 +68,7 @@ describe('CategoriesController (e2e)', () => {
           'name',
           'description',
           'requiredRole',
+          'boardType',
         ]);
       });
     });

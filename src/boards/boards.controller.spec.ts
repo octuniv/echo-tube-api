@@ -2,9 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BoardsController } from './boards.controller';
 import { BoardsService } from './boards.service';
 import { BoardListItemDto } from './dto/board-list-item.dto';
-import { createBoard } from './factories/board.factory';
 import { ScrapingTargetBoardDto } from './dto/scraping-target-board.dto';
 import { createScrapingTargetBoard } from './factories/scraping-target-board.factory';
+import { UserRole } from '@/users/entities/user-role.enum';
+import { BoardPurpose } from './entities/board.entity';
 
 describe('BoardsController', () => {
   let controller: BoardsController;
@@ -37,14 +38,18 @@ describe('BoardsController', () => {
           slug: 'announcement',
           name: '공지사항',
           description: '공지사항 게시판',
+          requiredRole: UserRole.ADMIN,
+          boardType: BoardPurpose.GENERAL,
         },
         {
           id: 2,
           slug: 'qna',
           name: '질문답변',
           description: '기술 질문 게시판',
+          requiredRole: UserRole.USER,
+          boardType: BoardPurpose.GENERAL,
         },
-      ].map(createBoard);
+      ];
       jest.spyOn(service, 'findAllForList').mockResolvedValue(mockResponse);
 
       // Act

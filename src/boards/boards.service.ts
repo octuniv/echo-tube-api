@@ -33,6 +33,7 @@ export class BoardsService {
         name: true,
         description: true,
         requiredRole: true,
+        type: true,
       },
       order: { category: { name: 'ASC' }, name: 'ASC' },
     });

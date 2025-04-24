@@ -92,6 +92,7 @@ export class PostResponseDto {
       name: post.board.name,
       description: post.board.description,
       requiredRole: post.board.requiredRole,
+      boardType: post.board.type,
     };
     dto.hotScore = post.hotScore;
     // 봇에 의해 수집된 영상 게시물 정보

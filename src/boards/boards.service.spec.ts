@@ -12,6 +12,7 @@ import {
 import { UserRole } from '@/users/entities/user-role.enum';
 import { NotFoundException } from '@nestjs/common';
 import { ScrapingTargetBoardDto } from './dto/scraping-target-board.dto';
+import { BoardListItemDto } from './dto/board-list-item.dto';
 
 describe('BoardsService', () => {
   let service: BoardsService;
@@ -86,6 +87,15 @@ describe('BoardsService', () => {
           requiredRole: UserRole.ADMIN,
           category: createCategory({ id: 2, name: 'Category 2' }),
         }),
+        createBoard({
+          id: 3,
+          slug: 'externalWriter',
+          name: 'externalWriter',
+          description: 'Description C',
+          requiredRole: UserRole.BOT,
+          category: createCategory({ id: 3, name: 'Category 3' }),
+          type: BoardPurpose.EXTERNAL_VIDEO,
+        }),
       ];
 
       (boardRepository.find as jest.Mock).mockResolvedValue(mockBoards);
@@ -99,6 +109,7 @@ describe('BoardsService', () => {
           name: 'Board A',
           description: 'Description A',
           requiredRole: UserRole.USER,
+          boardType: BoardPurpose.GENERAL,
         },
         {
           id: 2,
@@ -106,8 +117,17 @@ describe('BoardsService', () => {
           name: 'Board B',
           description: 'Description B',
           requiredRole: UserRole.ADMIN,
+          boardType: BoardPurpose.GENERAL,
         },
-      ]);
+        {
+          id: 3,
+          slug: 'externalWriter',
+          name: 'externalWriter',
+          description: 'Description C',
+          requiredRole: UserRole.BOT,
+          boardType: BoardPurpose.EXTERNAL_VIDEO,
+        },
+      ] satisfies BoardListItemDto[]);
 
       expect(boardRepository.find).toHaveBeenCalledWith({
         select: {
@@ -116,6 +136,7 @@ describe('BoardsService', () => {
           name: true,
           description: true,
           requiredRole: true,
+          type: true,
         },
         order: { category: { name: 'ASC' }, name: 'ASC' },
       });

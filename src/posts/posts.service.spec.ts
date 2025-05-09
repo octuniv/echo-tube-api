@@ -580,7 +580,7 @@ describe('PostsService', () => {
 
       const board = createBoard({
         slug: 'video-board',
-        type: BoardPurpose.EXTERNAL_VIDEO,
+        type: BoardPurpose.AI_DIGEST,
       });
 
       const systemUser = createUserEntity({
@@ -614,7 +614,7 @@ describe('PostsService', () => {
       expect(result.type).toBe(PostOrigin.SCRAPED);
       expect(boardsService.validateBoardType).toHaveBeenCalledWith(
         'video-board',
-        BoardPurpose.EXTERNAL_VIDEO,
+        BoardPurpose.AI_DIGEST,
       );
     });
   });

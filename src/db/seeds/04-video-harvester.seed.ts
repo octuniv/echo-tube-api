@@ -24,7 +24,7 @@ export default class VideoHarvesterSeeder extends BaseSeeder implements Seeder {
       slug: 'nestjs',
       name: 'NESTJS',
       requiredRole: UserRole.BOT,
-      type: BoardPurpose.EXTERNAL_VIDEO,
+      type: BoardPurpose.AI_DIGEST,
     },
   };
 
@@ -80,7 +80,7 @@ export default class VideoHarvesterSeeder extends BaseSeeder implements Seeder {
       }
 
       let nestjsBoard = await boardRepo.findOneBy({
-        type: BoardPurpose.EXTERNAL_VIDEO,
+        type: BoardPurpose.AI_DIGEST,
         slug: this.SCRAPER_CATEGORY.slug,
       });
 

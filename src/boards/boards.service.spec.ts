@@ -94,7 +94,7 @@ describe('BoardsService', () => {
           description: 'Description C',
           requiredRole: UserRole.BOT,
           category: createCategory({ id: 3, name: 'Category 3' }),
-          type: BoardPurpose.EXTERNAL_VIDEO,
+          type: BoardPurpose.AI_DIGEST,
         }),
       ];
 
@@ -125,7 +125,7 @@ describe('BoardsService', () => {
           name: 'externalWriter',
           description: 'Description C',
           requiredRole: UserRole.BOT,
-          boardType: BoardPurpose.EXTERNAL_VIDEO,
+          boardType: BoardPurpose.AI_DIGEST,
         },
       ] satisfies BoardListItemDto[]);
 
@@ -206,17 +206,17 @@ describe('BoardsService', () => {
   });
 
   describe('getVideoBoards', () => {
-    it('should return boards with EXTERNAL_VIDEO type', async () => {
+    it('should return boards with AI_DIGEST type', async () => {
       const mockVideoBoards = [
         createBoard({
           slug: 'video-board-1',
           name: 'Video Board 1',
-          type: BoardPurpose.EXTERNAL_VIDEO,
+          type: BoardPurpose.AI_DIGEST,
         }),
         createBoard({
           slug: 'video-board-2',
           name: 'Video Board 2',
-          type: BoardPurpose.EXTERNAL_VIDEO,
+          type: BoardPurpose.AI_DIGEST,
         }),
       ];
 
@@ -230,7 +230,7 @@ describe('BoardsService', () => {
         ),
       );
       expect(boardRepository.find).toHaveBeenCalledWith({
-        where: { type: BoardPurpose.EXTERNAL_VIDEO },
+        where: { type: BoardPurpose.AI_DIGEST },
         select: ['slug', 'name'],
       });
     });

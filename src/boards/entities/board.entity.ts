@@ -14,7 +14,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export enum BoardPurpose {
   GENERAL = 'general',
-  EXTERNAL_VIDEO = 'external_video',
+  AI_DIGEST = 'ai_digest',
 }
 
 @Index(['type', 'slug'], { unique: true })

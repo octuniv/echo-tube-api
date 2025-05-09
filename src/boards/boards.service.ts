@@ -74,7 +74,7 @@ export class BoardsService {
 
   async getScrapingTargetBoards(): Promise<ScrapingTargetBoardDto[]> {
     const entities = await this.boardRepository.find({
-      where: { type: BoardPurpose.EXTERNAL_VIDEO },
+      where: { type: BoardPurpose.AI_DIGEST },
       select: ['slug', 'name'],
     });
     return entities.map(ScrapingTargetBoardDto.fromEntity);

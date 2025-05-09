@@ -54,7 +54,7 @@ describe('CategoriesController (e2e)', () => {
           name: 'NESTJS',
           description: null,
           requiredRole: UserRole.BOT,
-          boardType: BoardPurpose.EXTERNAL_VIDEO,
+          boardType: BoardPurpose.AI_DIGEST,
         }),
       );
 

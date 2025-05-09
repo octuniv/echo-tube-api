@@ -247,7 +247,7 @@ export class PostsService {
     // 게시판 타입 검증
     await this.boardsService.validateBoardType(
       boardSlug,
-      BoardPurpose.EXTERNAL_VIDEO,
+      BoardPurpose.AI_DIGEST,
     );
 
     const newPost = this.postRepository.create({

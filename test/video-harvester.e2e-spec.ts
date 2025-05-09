@@ -47,7 +47,7 @@ describe('Video-harvester (e2e)', () => {
 
   beforeAll(async () => {
     externalBoard = await boardRepository.findOneBy({
-      type: BoardPurpose.EXTERNAL_VIDEO,
+      type: BoardPurpose.AI_DIGEST,
       slug: 'nestjs',
     });
 

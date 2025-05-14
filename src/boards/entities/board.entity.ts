@@ -5,12 +5,19 @@ import {
   Column,
   OneToMany,
   ManyToOne,
+  Index,
 } from 'typeorm';
 import { Post } from '@/posts/entities/post.entity';
 import { Category } from '@/categories/entities/category.entity';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { ApiProperty } from '@nestjs/swagger';
 
+export enum BoardPurpose {
+  GENERAL = 'general',
+  AI_DIGEST = 'ai_digest',
+}
+
+@Index(['type', 'slug'], { unique: true })
 @Entity()
 export class Board {
   @ApiProperty({ description: 'Board ID' })
@@ -44,6 +51,13 @@ export class Board {
     default: UserRole.USER,
   })
   requiredRole: UserRole;
+
+  @Column({
+    type: 'enum',
+    enum: BoardPurpose,
+    default: BoardPurpose.GENERAL,
+  })
+  type: BoardPurpose;
 
   @ApiProperty({ description: 'Associated posts', type: [Post] })
   @OneToMany(() => Post, (post) => post.board)

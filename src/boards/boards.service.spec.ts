@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BoardsService } from './boards.service';
-import { Board } from './entities/board.entity';
+import { Board, BoardPurpose } from './entities/board.entity';
 import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { createMock } from '@golevelup/ts-jest';
@@ -11,6 +11,8 @@ import {
 } from '@/categories/factories/category.factory';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { NotFoundException } from '@nestjs/common';
+import { ScrapingTargetBoardDto } from './dto/scraping-target-board.dto';
+import { BoardListItemDto } from './dto/board-list-item.dto';
 
 describe('BoardsService', () => {
   let service: BoardsService;
@@ -85,6 +87,15 @@ describe('BoardsService', () => {
           requiredRole: UserRole.ADMIN,
           category: createCategory({ id: 2, name: 'Category 2' }),
         }),
+        createBoard({
+          id: 3,
+          slug: 'externalWriter',
+          name: 'externalWriter',
+          description: 'Description C',
+          requiredRole: UserRole.BOT,
+          category: createCategory({ id: 3, name: 'Category 3' }),
+          type: BoardPurpose.AI_DIGEST,
+        }),
       ];
 
       (boardRepository.find as jest.Mock).mockResolvedValue(mockBoards);
@@ -98,6 +109,7 @@ describe('BoardsService', () => {
           name: 'Board A',
           description: 'Description A',
           requiredRole: UserRole.USER,
+          boardType: BoardPurpose.GENERAL,
         },
         {
           id: 2,
@@ -105,8 +117,17 @@ describe('BoardsService', () => {
           name: 'Board B',
           description: 'Description B',
           requiredRole: UserRole.ADMIN,
+          boardType: BoardPurpose.GENERAL,
         },
-      ]);
+        {
+          id: 3,
+          slug: 'externalWriter',
+          name: 'externalWriter',
+          description: 'Description C',
+          requiredRole: UserRole.BOT,
+          boardType: BoardPurpose.AI_DIGEST,
+        },
+      ] satisfies BoardListItemDto[]);
 
       expect(boardRepository.find).toHaveBeenCalledWith({
         select: {
@@ -115,6 +136,7 @@ describe('BoardsService', () => {
           name: true,
           description: true,
           requiredRole: true,
+          type: true,
         },
         order: { category: { name: 'ASC' }, name: 'ASC' },
       });
@@ -179,6 +201,37 @@ describe('BoardsService', () => {
             name: true,
           },
         },
+      });
+    });
+  });
+
+  describe('getVideoBoards', () => {
+    it('should return boards with AI_DIGEST type', async () => {
+      const mockVideoBoards = [
+        createBoard({
+          slug: 'video-board-1',
+          name: 'Video Board 1',
+          type: BoardPurpose.AI_DIGEST,
+        }),
+        createBoard({
+          slug: 'video-board-2',
+          name: 'Video Board 2',
+          type: BoardPurpose.AI_DIGEST,
+        }),
+      ];
+
+      jest.spyOn(boardRepository, 'find').mockResolvedValue(mockVideoBoards);
+
+      const result = await service.getScrapingTargetBoards();
+
+      expect(result).toEqual(
+        mockVideoBoards.map((video) =>
+          ScrapingTargetBoardDto.fromEntity(video),
+        ),
+      );
+      expect(boardRepository.find).toHaveBeenCalledWith({
+        where: { type: BoardPurpose.AI_DIGEST },
+        select: ['slug', 'name'],
       });
     });
   });

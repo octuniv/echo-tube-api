@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Board } from './entities/board.entity';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Board, BoardPurpose } from './entities/board.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BoardListItemDto } from './dto/board-list-item.dto';
+import { ScrapingTargetBoardDto } from './dto/scraping-target-board.dto';
 
 @Injectable()
 export class BoardsService {
@@ -28,6 +33,7 @@ export class BoardsService {
         name: true,
         description: true,
         requiredRole: true,
+        type: true,
       },
       order: { category: { name: 'ASC' }, name: 'ASC' },
     });
@@ -55,5 +61,22 @@ export class BoardsService {
       throw new NotFoundException('게시판을 찾을 수 없습니다');
     }
     return board;
+  }
+
+  async validateBoardType(boardSlug: string, expectedType: BoardPurpose) {
+    const board = await this.boardRepository.findOne({
+      where: { slug: boardSlug },
+    });
+    if (board.type !== expectedType) {
+      throw new BadRequestException(`This board is for ${board.type}s only`);
+    }
+  }
+
+  async getScrapingTargetBoards(): Promise<ScrapingTargetBoardDto[]> {
+    const entities = await this.boardRepository.find({
+      where: { type: BoardPurpose.AI_DIGEST },
+      select: ['slug', 'name'],
+    });
+    return entities.map(ScrapingTargetBoardDto.fromEntity);
   }
 }

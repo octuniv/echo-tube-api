@@ -13,6 +13,11 @@ import {
 } from 'typeorm';
 import { Expose } from 'class-transformer';
 
+export enum PostOrigin {
+  USER = 'user',
+  SCRAPED = 'scraped',
+}
+
 @Entity()
 export class Post {
   @ApiProperty({ description: 'Post ID' })
@@ -83,4 +88,17 @@ export class Post {
   get nickname(): string | null {
     return this._nickname;
   }
+
+  @Column({ type: 'enum', enum: PostOrigin, default: PostOrigin.USER })
+  type: PostOrigin;
+
+  // 봇에 의해 정의된 영상 게시물 정보
+  @Column({ nullable: true })
+  channelTitle?: string;
+
+  @Column({ nullable: true })
+  duration?: string;
+
+  @Column({ nullable: true })
+  source?: string; // "YouTube" 등 출처
 }

@@ -2,10 +2,11 @@ import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { PostResponseDto } from './post-response.dto';
-import { Post } from '../entities/post.entity';
+import { Post, PostOrigin } from '../entities/post.entity';
 import { createBoard } from '@/boards/factories/board.factory';
 import { BoardListItemDto } from '@/boards/dto/board-list-item.dto';
 import { User } from '@/users/entities/user.entity';
+import { createPost } from '../factories/post.factory';
 
 describe('PostResponseDto', () => {
   describe('Validation', () => {
@@ -169,5 +170,18 @@ describe('PostResponseDto', () => {
       expect(dto.videoUrl).toBeUndefined();
       expect(dto.nickname).toBeUndefined();
     });
+  });
+
+  it('should include scraped video fields', () => {
+    const post = createPost({
+      type: PostOrigin.SCRAPED,
+      channelTitle: 'Test Channel',
+      duration: 'PT10M',
+    });
+
+    const dto = PostResponseDto.fromEntity(post);
+    expect(dto.type).toBe(PostOrigin.SCRAPED);
+    expect(dto.channelTitle).toBe('Test Channel');
+    expect(dto.duration).toBe('PT10M');
   });
 });

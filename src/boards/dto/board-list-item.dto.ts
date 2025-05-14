@@ -1,6 +1,6 @@
 import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
 import { UserRole } from '@/users/entities/user-role.enum'; // UserRole enum 경로 확인
-import { Board } from '../entities/board.entity';
+import { Board, BoardPurpose } from '../entities/board.entity';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class BoardListItemDto {
@@ -34,6 +34,15 @@ export class BoardListItemDto {
   @IsEnum(UserRole)
   requiredRole: UserRole;
 
+  @ApiProperty({
+    enum: BoardPurpose,
+    enumName: 'BoardPurpose',
+    example: BoardPurpose.GENERAL,
+    description: 'Author type for this board',
+  })
+  @IsEnum(BoardPurpose)
+  boardType: BoardPurpose;
+
   static fromEntity(board: Board): BoardListItemDto {
     return {
       id: board.id,
@@ -41,6 +50,7 @@ export class BoardListItemDto {
       name: board.name,
       description: board.description,
       requiredRole: board.requiredRole,
+      boardType: board.type,
     };
   }
 }

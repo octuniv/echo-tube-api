@@ -4,10 +4,76 @@ NestJS 기반 동영상 공유 커뮤니티 백엔드 서버
 
 ---
 
-## 📚 주요 기능
+## ✨ 핵심 기능: 사용자 기반 커뮤니티 구축
 
-- 사용자 인증 (JWT, OAuth 2.0)
-- 동영상 링크 CRUD API
+### 1. **사용자 생성형 커뮤니티**
+
+사용자는 봇 전용 게시판 외에도 일반 게시판을 통해 직접 게시물을 생성, 수정, 삭제할 수 있습니다.
+→ 다양한 관심사를 가진 사용자들이 실시간으로 콘텐츠를 공유하며 커뮤니티를 형성 할 수 있습니다.
+
+### 2. **게시물 CRUD 기능**
+
+| HTTP 메서드 | 엔드포인트      | 기능                 | 인증 필요 |
+| ----------- | --------------- | -------------------- | --------- |
+| POST        | /posts          | 게시물 생성          | O         |
+| GET         | /posts          | 전체 게시물 조회     | X         |
+| GET         | /posts/user/:id | 사용자별 게시물 조회 | X         |
+| PATCH       | /posts/:id      | 게시물 수정          | O         |
+| DELETE      | /posts/:id      | 게시물 삭제          | O         |
+
+**공통 응답 구조**:
+
+```ts
+{
+  id: number,
+  title: string,
+  content: string,
+  views: number,
+  commentsCount: number,
+  videoUrl?: string,
+  nickname?: string,
+  createdAt: Date,
+  updatedAt: Date,
+  board: BoardListItemDto,
+  hotScore: number
+}
+```
+
+### 3. **봇 전용 기능**
+
+1. **영상 수집 대상 게시판 조회**
+
+   - **엔드포인트**: `GET /boards/scraping-targets`
+   - **특징**:
+     - AI_DIGEST 타입 게시판만 반환
+     - BOT 역할만 접근 가능
+     - 응답 예시: `{ slug: "nestjs", name: "NESTJS" }`
+
+2. **영상 게시물 생성**
+
+   - **엔드포인트**: `POST /harvest/videos?slug={boardSlug}`
+   - **요청 본문**:
+     ```ts
+     {
+       youtubeId: string,  // 유튜브 ID
+       title: string,      // 영상 제목
+       thumbnailUrl: string, // 썸네일 URL
+       channelTitle: string, // 채널명
+       duration: string,   // 영상 길이
+       topic: string       // 주제
+     }
+     ```
+
+### 3. **사용자 참여 요소**
+
+- 댓글 수 & 조회수
+  각 게시물은 commentsCount와 views 필드를 포함하여 사용자 참여도를 실시간으로 반영 합니다.
+
+- 인기 점수 (HotScore)
+  게시물은 hotScore 필드로 인기 순위를 계산 합니다.
+
+- 닉네임 표시
+  게시물에 작성자의 닉네임(nickname)이 표시되어 커뮤니티 내에서 개인 브랜딩 이 가능합니다.
 
 ---
 

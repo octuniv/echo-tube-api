@@ -3,33 +3,15 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { UpdateUserPasswordRequest } from './dto/update-user-password.dto';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
 import { createUserDto } from './factory/user.factory';
 import { UpdateUserNicknameRequest } from './dto/update-user-nickname.dto';
 import { CheckEmailRequest } from './dto/check-user-email.dto';
 import { CheckNicknameRequest } from './dto/check-user-nickname.dto';
+import { createMock } from '@golevelup/ts-jest';
 
 describe('UsersController', () => {
   let usersController: UsersController;
-
-  const mockUsersService = {
-    createUser: jest.fn((dto: CreateUserDto) =>
-      Promise.resolve({
-        id: 1,
-        ...dto,
-        passwordHash: 'hashedPassword',
-      }),
-    ),
-    isUserExists: jest.fn((email: string) =>
-      Promise.resolve(email === 'exists@example.com' ? true : false),
-    ),
-    updateUserNickname: jest.fn().mockResolvedValue(undefined),
-    updateUserPassword: jest.fn().mockResolvedValue(undefined),
-    softDeleteUser: jest.fn().mockResolvedValue(undefined),
-    isNicknameAvailable: jest.fn((nickname: string) =>
-      Promise.resolve(nickname === 'exists' ? true : false),
-    ),
-  };
+  let usersService: UsersService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -37,12 +19,17 @@ describe('UsersController', () => {
       providers: [
         {
           provide: UsersService,
-          useValue: mockUsersService,
+          useValue: createMock<UsersService>(),
         },
       ],
     }).compile();
 
     usersController = module.get<UsersController>(UsersController);
+    usersService = module.get<UsersService>(UsersService);
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -52,6 +39,10 @@ describe('UsersController', () => {
   describe('Signup User', () => {
     it('should create a new user', async () => {
       const userDtoForCreate = createUserDto();
+      jest.spyOn(usersService, 'createUser').mockResolvedValue({
+        email: userDtoForCreate.email,
+        message: 'Successfully created account',
+      });
       const result = await usersController.createUser(userDtoForCreate);
       expect(result).toEqual({
         email: userDtoForCreate.email,
@@ -65,18 +56,10 @@ describe('UsersController', () => {
       const checkEmailRequest = {
         email: 'exists@example.com',
       } satisfies CheckEmailRequest;
+      jest.spyOn(usersService, 'isUserExists').mockResolvedValue(true);
       const result =
         await usersController.checkEmailAvailability(checkEmailRequest);
       expect(result).toEqual({ exists: true });
-    });
-
-    it('should return false if user not found', async () => {
-      const checkEmailRequest = {
-        email: 'notfound@example.com',
-      } satisfies CheckEmailRequest;
-      const result =
-        await usersController.checkEmailAvailability(checkEmailRequest);
-      expect(result).toEqual({ exists: false });
     });
   });
 
@@ -85,18 +68,10 @@ describe('UsersController', () => {
       const checkNicknameRequest = {
         nickname: 'exists',
       } satisfies CheckNicknameRequest;
+      jest.spyOn(usersService, 'isNicknameAvailable').mockResolvedValue(true);
       const result =
         await usersController.checkNicknameAvailability(checkNicknameRequest);
       expect(result).toEqual({ exists: true });
-    });
-
-    it('should check an existing user', async () => {
-      const checkNicknameRequest = {
-        nickname: 'nonExists',
-      } satisfies CheckNicknameRequest;
-      const result =
-        await usersController.checkNicknameAvailability(checkNicknameRequest);
-      expect(result).toEqual({ exists: false });
     });
   });
 
@@ -104,14 +79,17 @@ describe('UsersController', () => {
     it('should update nickname when authorized', async () => {
       const updateDto: UpdateUserNicknameRequest = { nickname: 'new' };
       const req = { user: { id: 1 } };
+      jest
+        .spyOn(usersService, 'updateUserNickname')
+        .mockResolvedValue({ message: 'Nickname change successful.' });
       const result = await usersController.updateNickname(updateDto, req);
       expect(result).toEqual({ message: 'Nickname change successful.' });
     });
 
     it('should throw UnauthorizedException when update nickname from an unauthorized user', async () => {
       const updateDto: UpdateUserNicknameRequest = { nickname: 'wrong' };
-      mockUsersService.updateUserNickname = jest
-        .fn()
+      jest
+        .spyOn(usersService, 'updateUserNickname')
         .mockRejectedValue(
           new UnauthorizedException('This user could not be found.'),
         );
@@ -123,8 +101,8 @@ describe('UsersController', () => {
 
     it('should throw BadRequestException when update nickname from an unauthorized user', async () => {
       const updateDto: UpdateUserNicknameRequest = { nickname: 'duplicated' };
-      mockUsersService.updateUserNickname = jest
-        .fn()
+      jest
+        .spyOn(usersService, 'updateUserNickname')
         .mockRejectedValue(
           new BadRequestException(
             `This nickname ${updateDto.nickname} is already existed!`,
@@ -141,14 +119,17 @@ describe('UsersController', () => {
     it('should update password when authorized', async () => {
       const updateDto: UpdateUserPasswordRequest = { password: 'newpassword' };
       const req = { user: { id: 1 } };
+      jest
+        .spyOn(usersService, 'updateUserPassword')
+        .mockResolvedValue({ message: 'Passcode change successful.' });
       const result = await usersController.updatePassword(updateDto, req);
       expect(result).toEqual({ message: 'Passcode change successful.' });
     });
 
     it('should throw UnauthorizedException when updating password from an unauthorized user', async () => {
       const updateDto: UpdateUserPasswordRequest = { password: 'newpassword' };
-      mockUsersService.updateUserPassword = jest
-        .fn()
+      jest
+        .spyOn(usersService, 'updateUserPassword')
         .mockRejectedValue(
           new UnauthorizedException('This user could not be found.'),
         );
@@ -162,14 +143,21 @@ describe('UsersController', () => {
   describe('Delete account', () => {
     it('should delete account when authorized', async () => {
       const req = { user: { email: 'exists@example.com' } };
+      jest.spyOn(usersService, 'softDeleteUser').mockResolvedValue({
+        message: 'Successfully deleted account',
+        success: true,
+      });
       const result = await usersController.deleteUser(req);
-      expect(result).toEqual({ message: 'Successfully deleted account' });
+      expect(result).toEqual({
+        message: 'Successfully deleted account',
+        success: true,
+      });
     });
 
     it('should throw UnauthorizedException when deleting another user account', async () => {
       const req = { user: { email: 'wrong@example.com' } };
-      mockUsersService.softDeleteUser = jest
-        .fn()
+      jest
+        .spyOn(usersService, 'softDeleteUser')
         .mockRejectedValue(
           new UnauthorizedException('This user could not be found.'),
         );

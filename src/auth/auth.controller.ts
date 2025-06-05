@@ -32,6 +32,11 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
   @ApiBadRequestResponse({ description: 'Validation failed' })
   async login(@Body() loginUserDto: LoginUserDto): Promise<LoginResponseDto> {
+    /*
+    
+    ToDO : apply two-factor authentication to adminstrator
+    
+    */
     const user = await this.authService.validateUser(
       loginUserDto.email,
       loginUserDto.password,

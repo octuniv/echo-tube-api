@@ -15,10 +15,12 @@ export class Category {
   name: string;
 
   @ApiProperty({ description: 'Associated slugs', type: [CategorySlug] })
-  @OneToMany(() => CategorySlug, (slug) => slug.category)
+  @OneToMany(() => CategorySlug, (slug) => slug.category, {
+    onDelete: 'CASCADE',
+  })
   slugs: CategorySlug[];
 
   @ApiProperty({ description: 'Associated boards', type: [Board] })
-  @OneToMany(() => Board, (board) => board.category)
+  @OneToMany(() => Board, (board) => board.category, { onDelete: 'CASCADE' })
   boards: Board[];
 }

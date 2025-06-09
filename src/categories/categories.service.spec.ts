@@ -10,11 +10,15 @@ import {
 } from './factories/category.factory';
 import { Repository } from 'typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { CategoryDetailsResponseDto } from './dto/category-details-response.dto';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { createBoard } from '@/boards/factories/board.factory';
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
   let categoryRepository: Repository<Category>;
-  // let categorySlugRepository: Repository<CategorySlug>;
+  let categorySlugRepository: Repository<CategorySlug>;
 
   const mockCategoryName = 'Test Category';
   const mockSlugs = ['valid-slug-1', 'valid-slug-2'];
@@ -36,7 +40,7 @@ describe('CategoriesService', () => {
 
     service = module.get(CategoriesService);
     categoryRepository = module.get(getRepositoryToken(Category));
-    // categorySlugRepository = module.get(getRepositoryToken(CategorySlug));
+    categorySlugRepository = module.get(getRepositoryToken(CategorySlug));
   });
 
   describe('validateSlug', () => {
@@ -132,6 +136,125 @@ describe('CategoriesService', () => {
       categoryRepository.find = jest.fn().mockResolvedValue([]);
       const result = await service.getAllCategoriesWithSlugs();
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('create', () => {
+    const dto: CreateCategoryDto = {
+      name: 'New Category',
+      allowedSlugs: ['slug1', 'slug2'],
+    };
+
+    it('should throw BadRequestException if category with same name exists', async () => {
+      const existingCategory = createCategory({ name: dto.name });
+      categoryRepository.findOne = jest
+        .fn()
+        .mockResolvedValue(existingCategory);
+
+      await expect(service.create(dto)).rejects.toThrow(BadRequestException);
+    });
+
+    it('should create category and return full details with slugs', async () => {
+      const category = createCategory({ name: dto.name });
+      const savedCategory = createCategory({ ...category, id: 1 });
+      const fullCategory = createCategory({
+        ...savedCategory,
+        slugs: dto.allowedSlugs.map((slug) => createCategorySlug({ slug })),
+        boards: [],
+      });
+
+      categoryRepository.findOne = jest
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(fullCategory);
+      categoryRepository.create = jest.fn().mockReturnValue(category);
+      categoryRepository.save = jest.fn().mockResolvedValue(savedCategory);
+      categorySlugRepository.create = jest
+        .fn()
+        .mockImplementation((data) => data as CategorySlug);
+      categorySlugRepository.save = jest.fn();
+
+      const result = await service.create(dto);
+
+      expect(result.name).toBe(dto.name);
+      expect(result.allowedSlugs).toEqual(dto.allowedSlugs);
+      expect(result.boardIds).toEqual([]);
+    });
+  });
+
+  describe('update', () => {
+    const dto: UpdateCategoryDto = {
+      name: 'Updated Name',
+      allowedSlugs: ['new-slug'],
+    };
+
+    it('should update category and return full details with slugs', async () => {
+      const originalCategory = createCategory({
+        id: 1,
+        name: 'Old Name',
+        slugs: [createCategorySlug({ slug: 'old-slug' })],
+        boards: [],
+      });
+      const updatedCategory = createCategory({
+        id: 1,
+        name: dto.name,
+        slugs: dto.allowedSlugs.map((slug) => createCategorySlug({ slug })),
+        boards: [],
+      });
+
+      categoryRepository.findOne = jest
+        .fn()
+        .mockResolvedValueOnce(originalCategory)
+        .mockResolvedValueOnce(updatedCategory);
+      categorySlugRepository.delete = jest.fn();
+      categorySlugRepository.create = jest
+        .fn()
+        .mockImplementation((data) => data as CategorySlug);
+      categorySlugRepository.save = jest.fn();
+      categoryRepository.save = jest.fn().mockResolvedValue(undefined);
+
+      const result = await service.update(1, dto);
+
+      expect(result.name).toBe(dto.name);
+      expect(result.allowedSlugs).toEqual(dto.allowedSlugs);
+    });
+  });
+
+  describe('remove', () => {
+    it('should delete category', async () => {
+      const category = createCategory({
+        id: 1,
+        name: 'Test',
+        slugs: [],
+        boards: [],
+      });
+      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(category);
+      jest.spyOn(categoryRepository, 'remove').mockResolvedValue(undefined);
+
+      await service.remove(1);
+      expect(categoryRepository.remove).toHaveBeenCalledWith(category);
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return category details', async () => {
+      const category = createCategory({
+        id: 1,
+        name: 'Test',
+        slugs: [{ id: 1, slug: 'slug', category: null }],
+        boards: [
+          createBoard({
+            id: 100,
+            slug: 'board',
+            name: 'Board',
+            category: null,
+          }),
+        ],
+      });
+      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(category);
+
+      const result = await service.findOne(1);
+      expect(result).toEqual(CategoryDetailsResponseDto.fromEntity(category));
     });
   });
 });

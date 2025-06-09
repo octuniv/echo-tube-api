@@ -1,16 +1,14 @@
+// src/categories/dto/create-category.dto.ts
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsString } from 'class-validator';
+import { IsString, IsArray } from 'class-validator';
 
 export class CreateCategoryDto {
-  @ApiProperty({ description: 'Category name' })
+  @ApiProperty({ example: 'Technology' })
   @IsString()
   name: string;
 
-  @ApiProperty({
-    description: 'List of allowed slugs',
-    type: [String],
-  })
+  @ApiProperty({ example: ['tech', 'innovation'] })
   @IsArray()
   @IsString({ each: true })
-  slugs: string[];
+  allowedSlugs: string[];
 }

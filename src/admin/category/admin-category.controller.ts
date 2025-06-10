@@ -44,7 +44,8 @@ export class AdminCategoryController {
   async getCategoryDetails(
     @Param('id') id: string,
   ): Promise<CategoryDetailsResponseDto> {
-    return this.categoriesService.findOne(+id);
+    const category = await this.categoriesService.findOne(+id);
+    return CategoryDetailsResponseDto.fromEntity(category);
   }
 
   @Patch(':id')

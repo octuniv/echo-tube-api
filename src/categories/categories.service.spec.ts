@@ -10,7 +10,6 @@ import {
 } from './factories/category.factory';
 import { Repository } from 'typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { CategoryDetailsResponseDto } from './dto/category-details-response.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { createBoard } from '@/boards/factories/board.factory';
@@ -254,7 +253,7 @@ describe('CategoriesService', () => {
       jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(category);
 
       const result = await service.findOne(1);
-      expect(result).toEqual(CategoryDetailsResponseDto.fromEntity(category));
+      expect(result).toEqual(category);
     });
   });
 });

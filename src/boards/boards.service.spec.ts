@@ -13,10 +13,13 @@ import { UserRole } from '@/users/entities/user-role.enum';
 import { NotFoundException } from '@nestjs/common';
 import { ScrapingTargetBoardDto } from './dto/scraping-target-board.dto';
 import { BoardListItemDto } from './dto/board-list-item.dto';
+import { CategoriesService } from '@/categories/categories.service';
+import { UpdateBoardDto } from './dto/update-board.dto';
 
 describe('BoardsService', () => {
   let service: BoardsService;
   let boardRepository: Repository<Board>;
+  let categoriesService: CategoriesService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -26,11 +29,18 @@ describe('BoardsService', () => {
           provide: getRepositoryToken(Board),
           useValue: createMock<Repository<Board>>(),
         },
+        {
+          provide: CategoriesService,
+          useValue: {
+            findOne: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get(BoardsService);
     boardRepository = module.get(getRepositoryToken(Board));
+    categoriesService = module.get(CategoriesService);
   });
 
   beforeAll(() => {
@@ -130,20 +140,12 @@ describe('BoardsService', () => {
       ] satisfies BoardListItemDto[]);
 
       expect(boardRepository.find).toHaveBeenCalledWith({
-        select: {
-          id: true,
-          slug: true,
-          name: true,
-          description: true,
-          requiredRole: true,
-          type: true,
-        },
         order: { category: { name: 'ASC' }, name: 'ASC' },
       });
     });
   });
 
-  describe('findOne', () => {
+  describe('findOneBySlug', () => {
     it('should return board with requiredRole information', async () => {
       const testCategorySlug = createCategorySlug({ slug: 'test-slug' });
 
@@ -163,44 +165,25 @@ describe('BoardsService', () => {
 
       (boardRepository.findOne as jest.Mock).mockResolvedValue(testBoard);
 
-      const result = await service.findOne('test-slug');
+      const result = await service.findOneBySlug('test-slug');
 
       expect(result).toEqual(testBoard);
 
       expect(boardRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'test-slug' },
         relations: ['category'],
-        select: {
-          id: true,
-          slug: true,
-          name: true,
-          description: true,
-          requiredRole: true,
-          category: { id: true, name: true },
-        },
       });
     });
 
     it('should throw NotFoundException when board not found', async () => {
       (boardRepository.findOne as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.findOne('non-exist-slug')).rejects.toThrow(
+      await expect(service.findOneBySlug('non-exist-slug')).rejects.toThrow(
         new NotFoundException('게시판을 찾을 수 없습니다'),
       );
       expect(boardRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'non-exist-slug' },
         relations: ['category'],
-        select: {
-          id: true,
-          slug: true,
-          name: true,
-          description: true,
-          requiredRole: true,
-          category: {
-            id: true,
-            name: true,
-          },
-        },
       });
     });
   });
@@ -233,6 +216,169 @@ describe('BoardsService', () => {
         where: { type: BoardPurpose.AI_DIGEST },
         select: ['slug', 'name'],
       });
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return a board with category when found', async () => {
+      const board = createBoard({ id: 1, category: createCategory({ id: 1 }) });
+      (boardRepository.findOne as jest.Mock).mockResolvedValue(board);
+
+      const result = await service.findOne(1);
+      expect(result).toEqual(board);
+      expect(boardRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 1 },
+        relations: ['category'],
+      });
+    });
+
+    it('should throw NotFoundException when board not found', async () => {
+      (boardRepository.findOne as jest.Mock).mockResolvedValue(null);
+
+      await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
+      expect(boardRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 999 },
+        relations: ['category'],
+      });
+    });
+  });
+
+  describe('create', () => {
+    it('should create a board with category', async () => {
+      const dto = {
+        slug: 'new-board',
+        name: 'New Board',
+        description: 'New Description',
+        requiredRole: UserRole.USER,
+        type: BoardPurpose.GENERAL,
+        categoryId: 1,
+      };
+      const category = createCategory({ id: 1 });
+      const createdBoard = createBoard({ ...dto, category });
+
+      jest.spyOn(categoriesService, 'findOne').mockResolvedValue(category);
+      jest.spyOn(boardRepository, 'create').mockReturnValue(createdBoard);
+      jest.spyOn(boardRepository, 'save').mockResolvedValue(createdBoard);
+
+      const result = await service.create(dto);
+      expect(result).toEqual(createdBoard);
+      expect(categoriesService.findOne).toHaveBeenCalledWith(1);
+      expect(boardRepository.create).toHaveBeenCalledWith({
+        slug: dto.slug,
+        name: dto.name,
+        description: dto.description,
+        requiredRole: dto.requiredRole,
+        type: dto.type,
+        category,
+      });
+      expect(boardRepository.save).toHaveBeenCalledWith(createdBoard);
+    });
+
+    it('should throw NotFoundException if category not found', async () => {
+      const dto = {
+        slug: 'new-board',
+        name: 'New Board',
+        categoryId: 999,
+      };
+
+      jest
+        .spyOn(categoriesService, 'findOne')
+        .mockRejectedValue(new NotFoundException('Category not found'));
+
+      await expect(service.create(dto)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('update', () => {
+    it('should update board properties', async () => {
+      const existingBoard = createBoard({ id: 1, slug: 'old-slug' });
+      const dto = {
+        slug: 'updated-slug',
+        name: 'Updated Board',
+        description: 'Updated Description',
+        requiredRole: UserRole.ADMIN,
+        type: BoardPurpose.AI_DIGEST,
+        categoryId: 2,
+      } satisfies UpdateBoardDto;
+      const updatedCategory = createCategory({ id: 2 });
+
+      jest.spyOn(boardRepository, 'findOne').mockResolvedValue(existingBoard);
+      jest
+        .spyOn(categoriesService, 'findOne')
+        .mockResolvedValue(updatedCategory);
+      jest.spyOn(boardRepository, 'save').mockResolvedValue({
+        ...existingBoard,
+        ...dto,
+        category: updatedCategory,
+      } as any);
+
+      const result = await service.update(1, dto);
+      expect(result).toEqual({
+        ...existingBoard,
+        ...dto,
+        category: updatedCategory,
+      });
+      expect(boardRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 1 },
+        relations: ['category'],
+      });
+      expect(categoriesService.findOne).toHaveBeenCalledWith(2);
+      expect(boardRepository.save).toHaveBeenCalledWith({
+        ...existingBoard,
+        ...dto,
+        category: updatedCategory,
+      });
+    });
+
+    it('should throw NotFoundException if board not found', async () => {
+      jest.spyOn(boardRepository, 'findOne').mockResolvedValue(null);
+
+      await expect(service.update(999, {})).rejects.toThrow(NotFoundException);
+    });
+
+    it('should update board without changing category if categoryId not provided', async () => {
+      const existingBoard = createBoard({
+        id: 1,
+        slug: 'old-slug',
+        category: createCategory({ id: 1 }),
+      });
+      const dto = { name: 'Updated Name' };
+
+      jest.spyOn(boardRepository, 'findOne').mockResolvedValue(existingBoard);
+      jest.spyOn(boardRepository, 'save').mockResolvedValue({
+        ...existingBoard,
+        ...dto,
+      } as any);
+
+      const result = await service.update(1, dto);
+      expect(result).toEqual({
+        ...existingBoard,
+        name: 'Updated Name',
+      });
+      expect(boardRepository.save).toHaveBeenCalledWith({
+        ...existingBoard,
+        name: 'Updated Name',
+      });
+    });
+  });
+
+  describe('remove', () => {
+    it('should delete a board successfully', async () => {
+      jest
+        .spyOn(boardRepository, 'delete')
+        .mockResolvedValue({ affected: 1 } as any);
+
+      await expect(service.remove(1)).resolves.not.toThrow();
+      expect(boardRepository.delete).toHaveBeenCalledWith(1);
+    });
+
+    it('should throw NotFoundException if board not found', async () => {
+      jest
+        .spyOn(boardRepository, 'delete')
+        .mockResolvedValue({ affected: 0 } as any);
+
+      await expect(service.remove(999)).rejects.toThrow(NotFoundException);
+      expect(boardRepository.delete).toHaveBeenCalledWith(999);
     });
   });
 });

@@ -2,7 +2,11 @@ import { LoginUserDto } from '@/auth/dto/login-user.dto';
 import { INestApplication } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import * as request from 'supertest';
-import { setupTestApp, truncateAllTables } from '../utils/test.util';
+import {
+  setupTestApp,
+  signUpAndLogin,
+  truncateAllTables,
+} from '../utils/test.util';
 import { DataSource } from 'typeorm';
 import { CreateCategoryDto } from '@/categories/dto/create-category.dto';
 import { UpdateCategoryDto } from '@/categories/dto/update-category.dto';
@@ -19,6 +23,7 @@ describe('User - /users (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let adminToken: string;
+  let nonAdminToken: string;
   let categoryId: number;
   const TEST_CATEGORY_NAME = 'TEST_CATEGORY_FOR_E2E';
 
@@ -42,6 +47,30 @@ describe('User - /users (e2e)', () => {
       .expect(200);
 
     adminToken = loginResponse.body.access_token;
+  });
+
+  beforeAll(async () => {
+    nonAdminToken = await signUpAndLogin(app);
+  });
+
+  describe('Authenticaton/Authorization Test', () => {
+    it('should return 401 if non-login user access this entry.', async () => {
+      return request(app.getHttpServer()).get('/admin/categories').expect(401);
+    });
+
+    it('should return 403 if non-admin user access this entry.', async () => {
+      return request(app.getHttpServer())
+        .get('/admin/categories')
+        .set('Authorization', `Bearer ${nonAdminToken}`)
+        .expect(403);
+    });
+
+    it('should return 200 if admin access this entry.', async () => {
+      return request(app.getHttpServer())
+        .get('/admin/categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+    });
   });
 
   describe('POST /admin/categories', () => {

@@ -55,7 +55,7 @@ export class PostsService {
     user: User,
   ): Promise<PostResponseDto> {
     const { title, content, boardSlug, videoUrl } = createPostDto;
-    const board = await this.boardsService.findOne(boardSlug);
+    const board = await this.boardsService.findOneBySlug(boardSlug);
     await this.categoriesService.validateSlug(board.category.name, board.slug);
 
     if (!this.checkRole(user.role, board.requiredRole)) {
@@ -242,7 +242,7 @@ export class PostsService {
     boardSlug: string,
     user: User,
   ): Promise<Post> {
-    const board = await this.boardsService.findOne(boardSlug);
+    const board = await this.boardsService.findOneBySlug(boardSlug);
 
     // 게시판 타입 검증
     await this.boardsService.validateBoardType(

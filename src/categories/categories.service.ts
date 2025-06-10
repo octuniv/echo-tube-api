@@ -125,13 +125,13 @@ export class CategoriesService {
     await this.categoryRepository.remove(category);
   }
 
-  async findOne(id: number): Promise<CategoryDetailsResponseDto> {
+  async findOne(id: number): Promise<Category> {
     const category = await this.categoryRepository.findOne({
       where: { id },
       relations: ['slugs', 'boards'],
     });
     if (!category) throw new NotFoundException('Category not found');
 
-    return CategoryDetailsResponseDto.fromEntity(category);
+    return category;
   }
 }

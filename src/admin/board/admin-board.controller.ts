@@ -1,21 +1,23 @@
 import {
   Controller,
-  // Get,
-  // Post,
-  // Patch,
-  // Delete,
-  // Param,
-  // Body,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
   UseGuards,
+  ParseIntPipe,
 } from '@nestjs/common';
-// import { CreateBoardDto } from './dto/create-board.dto';
-// import { UpdateBoardDto } from './dto/update-board.dto';
 import { ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { Roles } from '@/auth/roles.decorator';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { RolesGuard } from '@/auth/roles.guard';
 import { BoardsService } from '@/boards/boards.service';
+import { UpdateBoardDto } from '@/boards/dto/update-board.dto';
+import { CreateBoardDto } from '@/boards/dto/create-board.dto';
+import { AdminBoardResponseDto } from '@/boards/dto/admin-board-response.dto';
 
 @ApiTags('admin-boards')
 @Controller('admin/boards')
@@ -24,33 +26,42 @@ import { BoardsService } from '@/boards/boards.service';
 export class AdminBoardController {
   constructor(private readonly boardsService: BoardsService) {}
 
-  // @Get()
-  // async getBoards() {
-  //   // 전체 게시판 조회 (카테고리 포함)
-  //   return this.boardService.findAll();
-  // }
+  @Get()
+  async getBoards(): Promise<AdminBoardResponseDto[]> {
+    const boards = await this.boardsService.findAll();
+    return boards.map(AdminBoardResponseDto.fromEntity);
+  }
 
-  // @Post()
-  // async createBoard(@Body() dto: CreateBoardDto) {
-  //   // 새 게시판 생성
-  //   return this.boardService.create(dto);
-  // }
+  @Get(':id')
+  async getBoardDetails(
+    @Param('id', ParseIntPipe) id: string,
+  ): Promise<AdminBoardResponseDto> {
+    const board = await this.boardsService.findOne(+id);
+    return AdminBoardResponseDto.fromEntity(board);
+  }
 
-  // @Get(':id')
-  // async getBoardDetails(@Param('id') id: string) {
-  //   // 특정 게시판 상세 조회
-  //   return this.boardService.findOne(+id);
-  // }
+  @Post()
+  async createBoard(
+    @Body() dto: CreateBoardDto,
+  ): Promise<AdminBoardResponseDto> {
+    // 새 게시판 생성
+    const board = await this.boardsService.create(dto);
+    return AdminBoardResponseDto.fromEntity(board);
+  }
 
-  // @Patch(':id')
-  // async updateBoard(@Param('id') id: string, @Body() dto: UpdateBoardDto) {
-  //   // 게시판 정보 업데이트
-  //   return this.boardService.update(+id, dto);
-  // }
+  @Patch(':id')
+  async updateBoard(
+    @Param('id', ParseIntPipe) id: string,
+    @Body() dto: UpdateBoardDto,
+  ): Promise<AdminBoardResponseDto> {
+    // 게시판 정보 업데이트
+    const board = await this.boardsService.update(+id, dto);
+    return AdminBoardResponseDto.fromEntity(board);
+  }
 
-  // @Delete(':id')
-  // async deleteBoard(@Param('id') id: string) {
-  //   // 게시판 삭제
-  //   return this.boardService.remove(+id);
-  // }
+  @Delete(':id')
+  async deleteBoard(@Param('id', ParseIntPipe) id: string): Promise<void> {
+    // 게시판 삭제
+    return this.boardsService.remove(+id);
+  }
 }

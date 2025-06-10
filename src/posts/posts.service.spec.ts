@@ -60,7 +60,7 @@ describe('PostsService', () => {
   describe('create', () => {
     it('should throw UnauthorizedException when user lacks required role', async () => {
       const board = createBoard({ slug: 'test', requiredRole: UserRole.ADMIN });
-      jest.spyOn(boardsService, 'findOne').mockResolvedValue(board);
+      jest.spyOn(boardsService, 'findOneBySlug').mockResolvedValue(board);
       const user = createUserEntity({ id: 1, role: UserRole.USER });
 
       await expect(
@@ -105,14 +105,14 @@ describe('PostsService', () => {
         setNickname: jest.fn(),
       });
 
-      jest.spyOn(boardsService, 'findOne').mockResolvedValue(board);
+      jest.spyOn(boardsService, 'findOneBySlug').mockResolvedValue(board);
       jest.spyOn(categoriesService, 'validateSlug').mockResolvedValue();
       postRepository.create = jest.fn().mockReturnValue(savedPost);
       postRepository.save = jest.fn().mockResolvedValueOnce(savedPost);
 
       const result = await service.create(createPostDto, user);
 
-      expect(boardsService.findOne).toHaveBeenCalledWith(boardSlug);
+      expect(boardsService.findOneBySlug).toHaveBeenCalledWith(boardSlug);
       expect(categoriesService.validateSlug).toHaveBeenCalledWith(
         board.category.name,
         board.slug,

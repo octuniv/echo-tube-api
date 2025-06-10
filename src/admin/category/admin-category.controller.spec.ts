@@ -10,11 +10,24 @@ import { UpdateCategoryDto } from '@/categories/dto/update-category.dto';
 import { CategoryResponseDto } from '@/categories/dto/category-response.dto';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { UserRole } from '@/users/entities/user-role.enum';
+import { Category } from '@/categories/entities/category.entity';
+import {
+  createCategory,
+  createCategorySlug,
+} from '@/categories/factories/category.factory';
+import { createBoard } from '@/boards/factories/board.factory';
 
 describe('AdminCategoryController', () => {
   let app: INestApplication;
   //   let controller: AdminCategoryController;
   let categoriesService: CategoriesService;
+
+  const mockCategory: Category = createCategory({
+    id: 1,
+    name: 'Test Category',
+    slugs: [createCategorySlug({ slug: 'test' })],
+    boards: [createBoard({ id: 100 })],
+  });
 
   const mockCategoryDto: CategoryDetailsResponseDto = {
     id: 1,
@@ -92,9 +105,7 @@ describe('AdminCategoryController', () => {
 
   describe('GET /admin/categories/:id', () => {
     it('should return category details', async () => {
-      jest
-        .spyOn(categoriesService, 'findOne')
-        .mockResolvedValue(mockCategoryDto);
+      jest.spyOn(categoriesService, 'findOne').mockResolvedValue(mockCategory);
 
       const res = await request(app.getHttpServer()).get('/admin/categories/1');
       expect(res.status).toBe(200);

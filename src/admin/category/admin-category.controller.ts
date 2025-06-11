@@ -8,7 +8,14 @@ import {
   Body,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBody,
+  ApiParam,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { Roles } from '@/auth/roles.decorator';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
@@ -23,24 +30,71 @@ import { CategoryDetailsResponseDto } from '@/categories/dto/category-details-re
 @Controller('admin/categories')
 @Roles(UserRole.ADMIN)
 @UseGuards(JwtAuthGuard, RolesGuard)
+@ApiBearerAuth()
 export class AdminCategoryController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
+  @ApiOperation({
+    summary: '모든 카테고리 조회',
+    description: '관리자 권한으로 모든 카테고리 목록을 조회합니다.',
+  })
+  @ApiResponse({
+    status: 200,
+    type: [CategoryResponseDto],
+    description: '성공적으로 조회됨',
+  })
   async getCategories(): Promise<CategoryResponseDto[]> {
-    // 전체 카테고리 조회
     return this.categoriesService.getAllCategoriesWithSlugs();
   }
 
   @Post()
+  @ApiOperation({
+    summary: '새 카테고리 생성',
+    description: '새로운 카테고리를 생성합니다.',
+  })
+  @ApiBody({
+    type: CreateCategoryDto,
+    examples: {
+      default: {
+        value: {
+          name: 'Technology',
+          allowedSlugs: ['tech', 'innovation'],
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    type: CategoryDetailsResponseDto,
+    description: '성공적으로 생성됨',
+  })
   async createCategory(
     @Body() dto: CreateCategoryDto,
   ): Promise<CategoryDetailsResponseDto> {
-    // 새로운 카테고리 생성
     return this.categoriesService.create(dto);
   }
 
   @Get(':id')
+  @ApiOperation({
+    summary: '카테고리 상세 조회',
+    description: '특정 ID의 카테고리 상세 정보를 조회합니다.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'number',
+    example: 1,
+    description: '조회할 카테고리의 ID',
+  })
+  @ApiResponse({
+    status: 200,
+    type: CategoryDetailsResponseDto,
+    description: '성공적으로 조회됨',
+  })
+  @ApiResponse({
+    status: 404,
+    description: '카테고리를 찾을 수 없음',
+  })
   async getCategoryDetails(
     @Param('id') id: string,
   ): Promise<CategoryDetailsResponseDto> {
@@ -49,17 +103,60 @@ export class AdminCategoryController {
   }
 
   @Patch(':id')
+  @ApiOperation({
+    summary: '카테고리 정보 업데이트',
+    description: '특정 ID의 카테고리 정보를 업데이트합니다.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'number',
+    example: 1,
+    description: '업데이트할 카테고리의 ID',
+  })
+  @ApiBody({
+    type: UpdateCategoryDto,
+    examples: {
+      default: {
+        value: {
+          name: 'Updated Technology',
+          allowedSlugs: ['technology', 'tech-news'],
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    type: CategoryDetailsResponseDto,
+    description: '성공적으로 업데이트됨',
+  })
   async updateCategory(
     @Param('id') id: string,
     @Body() dto: UpdateCategoryDto,
   ): Promise<CategoryDetailsResponseDto> {
-    // 카테고리 정보 업데이트
     return this.categoriesService.update(+id, dto);
   }
 
   @Delete(':id')
+  @ApiOperation({
+    summary: '카테고리 삭제',
+    description:
+      '특정 ID의 카테고리를 삭제합니다 (연관된 게시판도 함께 삭제됩니다).',
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'number',
+    example: 1,
+    description: '삭제할 카테고리의 ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '성공적으로 삭제됨',
+  })
+  @ApiResponse({
+    status: 404,
+    description: '카테고리를 찾을 수 없음',
+  })
   async deleteCategory(@Param('id') id: string): Promise<void> {
-    // 카테고리 삭제 (연관 게시판도 삭제)
     return this.categoriesService.remove(+id);
   }
 }

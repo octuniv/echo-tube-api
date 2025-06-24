@@ -126,6 +126,26 @@ describe('User - /users (e2e)', () => {
         })
         .expect(400);
     });
+
+    it('should return 409 if nickname is duplicated', async () => {
+      const duplicatedEmailDto = {
+        ...createUserDto(),
+        nickname: adminCreateUserDto.nickname,
+        role: UserRole.ADMIN,
+      } satisfies AdminCreateUserDto;
+
+      const res = await request(app.getHttpServer())
+        .post('/admin/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(duplicatedEmailDto)
+        .expect(409);
+
+      expect(res.body).toEqual({
+        message: `This nickname ${duplicatedEmailDto.nickname} is already existed!`,
+        error: 'Conflict',
+        statusCode: 409,
+      });
+    });
   });
 
   describe('List users', () => {
@@ -215,11 +235,17 @@ describe('User - /users (e2e)', () => {
     });
 
     it('should return 409 if nickname is duplicated', async () => {
-      await request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .patch(`/admin/users/${user.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ nickname: normalUserInfo.nickname })
         .expect(409);
+
+      expect(res.body).toEqual({
+        message: `This nickname ${normalUserInfo.nickname} is already existed!`,
+        error: 'Conflict',
+        statusCode: 409,
+      });
     });
 
     it('should return 400 for empty nickname update', async () => {

@@ -180,6 +180,10 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
+    if (user.deletedAt) {
+      throw new NotFoundException('User is deleted');
+    }
+
     if ('role' in dto && dto.role) {
       user.role = dto.role;
     }
@@ -190,7 +194,7 @@ export class UsersService {
       const nicknameExist = await this.isNicknameAvailable(dto.nickname);
       if (nicknameExist) {
         throw new ConflictException(
-          `Nickname ${dto.nickname} is already taken`,
+          `This nickname ${dto.nickname} is already existed!`,
         );
       }
       user.nickname = dto.nickname;

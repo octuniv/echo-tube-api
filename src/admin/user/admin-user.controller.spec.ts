@@ -154,7 +154,7 @@ describe('AdminUserController', () => {
 
   describe('getUserDetails', () => {
     it('should return user details', async () => {
-      const userId = '1';
+      const userId = 1;
       const mockUser: AdminUserDetailResponseDto = createUserEntity({ id: 1 });
 
       jest.spyOn(usersService, 'getAdminUserById').mockResolvedValue(mockUser);
@@ -165,7 +165,7 @@ describe('AdminUserController', () => {
     });
 
     it('should throw NotFoundException when user not found', async () => {
-      const userId = '999';
+      const userId = 999;
 
       jest
         .spyOn(usersService, 'getAdminUserById')
@@ -181,7 +181,7 @@ describe('AdminUserController', () => {
 
   describe('updateUser', () => {
     it('should update user successfully', async () => {
-      const userId = '1';
+      const userId = 1;
       const dto: AdminUpdateUserDto = {
         name: 'Updated Name',
         nickname: 'updateduser',
@@ -201,7 +201,7 @@ describe('AdminUserController', () => {
     });
 
     it('should throw NotFoundException when user not found', async () => {
-      const userId = '999';
+      const userId = 999;
       const dto: AdminUpdateUserDto = {
         name: 'Updated Name',
       };
@@ -218,7 +218,7 @@ describe('AdminUserController', () => {
     });
 
     it('should throw ConflictException when nickname is taken', async () => {
-      const userId = '1';
+      const userId = 1;
       const dto: AdminUpdateUserDto = {
         nickname: 'taken',
       };
@@ -237,7 +237,7 @@ describe('AdminUserController', () => {
 
   describe('deleteUser', () => {
     it('should delete user successfully', async () => {
-      const userId = '1';
+      const userId = 1;
 
       const mockResponse: UserDeleteResponseDto = {
         message: 'Successfully deleted user',
@@ -254,7 +254,7 @@ describe('AdminUserController', () => {
     });
 
     it('should throw NotFoundException when user not found', async () => {
-      const userId = '999';
+      const userId = 999;
 
       jest
         .spyOn(usersService, 'softDeleteUser')
@@ -268,7 +268,7 @@ describe('AdminUserController', () => {
     });
 
     it('should throw InternalServerErrorException on deletion failure', async () => {
-      const userId = '1';
+      const userId = 1;
 
       jest
         .spyOn(usersService, 'softDeleteUser')

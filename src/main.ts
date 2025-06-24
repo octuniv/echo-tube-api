@@ -9,6 +9,7 @@ import {
 } from 'typeorm-transactional';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { DataSource } from 'typeorm';
+import { LoggingMiddleware } from './common/middleware/logging.middleware';
 
 async function bootstrap() {
   initializeTransactionalContext({ storageDriver: StorageDriver.AUTO });
@@ -39,6 +40,7 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+  app.use(new LoggingMiddleware().use);
 
   const config = new DocumentBuilder()
     .setTitle('Echo-Tube-API')

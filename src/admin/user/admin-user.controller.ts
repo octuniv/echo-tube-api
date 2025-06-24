@@ -8,6 +8,7 @@ import {
   Body,
   UseGuards,
   Query,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -109,7 +110,7 @@ export class AdminUserController {
     description: '조회할 사용자의 고유 ID',
   })
   async getUserDetails(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
   ): Promise<AdminUserDetailResponseDto> {
     return this.userService.getAdminUserById(+id);
   }
@@ -136,7 +137,7 @@ export class AdminUserController {
   })
   @ApiBody({ type: AdminUpdateUserDto })
   async updateUser(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: AdminUpdateUserDto,
   ): Promise<AdminUserUpdateResponseDto> {
     // 사용자 정보 업데이트
@@ -155,7 +156,9 @@ export class AdminUserController {
   @ApiNotFoundResponse({
     description: '삭제할 사용자를 찾을 수 없습니다.',
   })
-  async deleteUser(@Param('id') id: string): Promise<UserDeleteResponseDto> {
+  async deleteUser(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<UserDeleteResponseDto> {
     // 사용자 삭제
     return this.userService.softDeleteUser(+id);
   }

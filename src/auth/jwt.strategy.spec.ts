@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { jwtPayloadDto, jwtValidatedOutputDto } from './types/jwt-payload.dto';
+import * as crypto from 'crypto';
 
 describe('JwtStrategy', () => {
   let jwtStrategy: JwtStrategy;
@@ -43,6 +44,7 @@ describe('JwtStrategy', () => {
       id: 1,
       email: 'test@example.com',
       role: UserRole.USER,
+      nonce: crypto.randomUUID(),
     } satisfies jwtPayloadDto;
     const result = await jwtStrategy.validate(payload);
 

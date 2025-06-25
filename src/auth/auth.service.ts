@@ -13,6 +13,7 @@ import { User } from '@/users/entities/user.entity';
 import { VisitorService } from '@/visitor/visitor.service';
 import { Transactional } from 'typeorm-transactional';
 import { LoginResponseDto } from './dto/login-response.dto';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -62,20 +63,19 @@ export class AuthService {
       id: userInfo.id,
       email: userInfo.email,
       role: userInfo.role,
+      nonce: crypto.randomUUID(),
     };
 
     try {
       const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-      await Promise.all([
-        this.refreshTokenRepo.saveToken(
-          userInfo.email,
-          refreshToken,
-          expiresAt,
-        ),
-        this.visitorService.upsertVisitorCount(userInfo.email),
-      ]);
+      await this.refreshTokenRepo.saveToken(
+        userInfo.email,
+        refreshToken,
+        expiresAt,
+      );
+      await this.visitorService.upsertVisitorCount(userInfo.email);
 
       return {
         access_token: this.jwtService.sign(payload, { expiresIn: '15m' }),
@@ -114,6 +114,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         role: user.role,
+        nonce: crypto.randomUUID(),
       } satisfies jwtPayloadDto;
       const newRefreshToken = this.jwtService.sign(payload, {
         expiresIn: '7d',

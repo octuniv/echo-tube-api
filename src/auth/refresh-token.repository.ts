@@ -23,6 +23,7 @@ export class RefreshTokenRepository {
   async findValidToken(token: string): Promise<RefreshToken> {
     return this.repo.findOne({
       where: { token, revoked: false },
+      lock: { mode: 'pessimistic_write' },
     });
   }
 

@@ -11,6 +11,7 @@ import { VisitorService } from '@/visitor/visitor.service';
 import { createMock } from '@golevelup/ts-jest';
 import { User } from '@/users/entities/user.entity';
 import { UserRole } from '@/users/entities/user-role.enum';
+import * as crypto from 'crypto';
 
 jest.mock('typeorm-transactional', () => ({
   Transactional: () => () => ({}),
@@ -117,8 +118,11 @@ describe('AuthService', () => {
         deletedAt: null,
         posts: [],
       };
-
       jest.spyOn(usersService, 'getUserById').mockResolvedValue(mockUserInfo);
+
+      const mockNonce = '123e4567-e89b-42d3-a456-726614174000';
+      jest.spyOn(crypto, 'randomUUID').mockReturnValue(mockNonce);
+
       jest
         .spyOn(jwtService, 'sign')
         .mockReturnValueOnce('refresh-token')
@@ -126,11 +130,28 @@ describe('AuthService', () => {
 
       const result = await authService.login(mockUser);
 
-      expect(usersService.getUserById).toHaveBeenCalledWith(mockUser.id);
-      expect(jwtService.sign).toHaveBeenCalledWith(
-        { id: 1, email: 'test@example.com', role: UserRole.USER },
+      expect(jwtService.sign).toHaveBeenNthCalledWith(
+        1,
+        {
+          id: 1,
+          email: 'test@example.com',
+          role: UserRole.USER,
+          nonce: mockNonce,
+        },
         { expiresIn: '7d' },
       );
+
+      expect(jwtService.sign).toHaveBeenNthCalledWith(
+        2,
+        {
+          id: 1,
+          email: 'test@example.com',
+          role: UserRole.USER,
+          nonce: mockNonce,
+        },
+        { expiresIn: '15m' },
+      );
+
       expect(refreshTokenRepo.saveToken).toHaveBeenCalledWith(
         mockUser.email,
         'refresh-token',
@@ -171,7 +192,6 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() + 86400000),
         revoked: false,
       };
-
       const mockUser: User = {
         id: 1,
         email: 'test@example.com',
@@ -184,11 +204,14 @@ describe('AuthService', () => {
         deletedAt: null,
         posts: [],
       };
-
       jest
         .spyOn(refreshTokenRepo, 'findValidToken')
         .mockResolvedValue(mockStoredToken);
       jest.spyOn(usersService, 'getUserByEmail').mockResolvedValue(mockUser);
+
+      const mockNonce = '123e4567-e89b-42d3-a456-726614174000';
+      jest.spyOn(crypto, 'randomUUID').mockReturnValue(mockNonce);
+
       jest.spyOn(jwtService, 'sign').mockReturnValue('new-refresh-token');
 
       const result = await authService.refreshToken('old-token');
@@ -199,10 +222,17 @@ describe('AuthService', () => {
         'new-refresh-token',
         expect.any(Date),
       );
+
       expect(jwtService.sign).toHaveBeenCalledWith(
-        { id: 1, email: 'test@example.com', role: UserRole.USER },
-        { expiresIn: '7d' },
+        {
+          id: 1,
+          email: 'test@example.com',
+          role: UserRole.USER,
+          nonce: mockNonce,
+        },
+        { expiresIn: '15m' },
       );
+
       expect(result).toHaveProperty('access_token');
       expect(result).toHaveProperty('refresh_token');
     });

@@ -2,7 +2,7 @@ import { ApiTags, ApiProperty } from '@nestjs/swagger';
 import { Entity, Column, PrimaryGeneratedColumn, Index } from 'typeorm';
 
 @ApiTags('refresh-token')
-@Index(['token', 'revoked'])
+@Index(['token', 'revoked'], { where: 'revoked = false' })
 @Entity()
 export class RefreshToken {
   @ApiProperty({

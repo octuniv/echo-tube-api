@@ -383,7 +383,7 @@ describe('UsersService', () => {
       jest.clearAllMocks();
     });
 
-    it('should return paginated users with default pagination (page=1, limit=10)', async () => {
+    it('should return paginated users with default pagination', async () => {
       const mockUsers = Array.from({ length: 10 }, (_, i) =>
         createUserEntity({ id: i + 1 }),
       );
@@ -400,7 +400,7 @@ describe('UsersService', () => {
         withDeleted: true,
         skip: 0,
         take: 10,
-        order: { id: 'ASC' },
+        order: { createdAt: 'DESC' },
       });
 
       expect(result.data).toHaveLength(mockUsers.length);
@@ -429,7 +429,7 @@ describe('UsersService', () => {
         withDeleted: true,
         skip,
         take: limit,
-        order: { id: 'ASC' },
+        order: { createdAt: 'DESC' },
       });
 
       expect(result.data).toHaveLength(mockUsers.length);
@@ -481,6 +481,140 @@ describe('UsersService', () => {
       expect(result.data).toHaveLength(2);
       expect(result.data[0].deletedAt).toEqual(mockUsers[0].deletedAt);
       expect(result.data[1].deletedAt).toEqual(mockUsers[1].deletedAt);
+    });
+
+    it('should sort by createdAt DESC when specified', async () => {
+      const mockUsers = Array.from({ length: 10 }, (_, i) =>
+        createUserEntity({ id: i + 1, createdAt: new Date(2023 - i, 0, 1) }),
+      );
+
+      jest.spyOn(repository, 'findAndCount').mockResolvedValue([mockUsers, 10]);
+
+      const result = await service.findAllWithPagination(
+        1,
+        10,
+        'createdAt',
+        'DESC',
+      );
+
+      const sorted = [...mockUsers].sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+      );
+      expect(result.data.map((d) => d.id)).toEqual(sorted.map((u) => u.id));
+    });
+
+    it('should default to createdAt DESC if no sort/order provided', async () => {
+      const mockUsers = Array.from({ length: 10 }, (_, i) =>
+        createUserEntity({ id: i + 1, createdAt: new Date(2023 - i, 0, 1) }),
+      );
+
+      jest.spyOn(repository, 'findAndCount').mockResolvedValue([mockUsers, 10]);
+
+      const result = await service.findAllWithPagination();
+
+      // 기본값: createdAt DESC
+      const sorted = [...mockUsers].sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+      );
+      expect(result.data.map((d) => d.id)).toEqual(sorted.map((u) => u.id));
+    });
+
+    it('should sort by updatedAt DESC when specified', async () => {
+      const mockUsers = Array.from({ length: 3 }, (_, i) =>
+        createUserEntity({
+          id: i + 1,
+          updatedAt: new Date(2023 - i, 0, 1), // 시간 차이 생성
+        }),
+      );
+
+      jest.spyOn(repository, 'findAndCount').mockResolvedValue([mockUsers, 3]);
+
+      const result = await service.findAllWithPagination(
+        1,
+        10,
+        'updatedAt',
+        'DESC',
+      );
+
+      const sorted = [...mockUsers].sort(
+        (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
+      );
+      expect(result.data.map((d) => d.id)).toEqual(sorted.map((u) => u.id));
+    });
+  });
+
+  describe('findUsersWithSearch', () => {
+    it('should apply email filter and sort by createdAt DESC', async () => {
+      const mockUser = createUserEntity({
+        id: 1,
+        email: 'john.doe@example.com',
+      });
+      const filters = { email: 'john' };
+
+      jest.spyOn(repository, 'createQueryBuilder').mockReturnValue({
+        withDeleted: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[mockUser], 1]),
+      } as any);
+
+      const result = await service.findUsersWithSearch(
+        1,
+        10,
+        filters,
+        'createdAt',
+        'DESC',
+      );
+
+      expect(repository.createQueryBuilder).toHaveBeenCalled();
+      expect(result.data).toHaveLength(1);
+      expect(result.totalItems).toBe(1);
+    });
+
+    it('should apply nickname filter and sort by updatedAt ASC', async () => {
+      const mockUser = createUserEntity({ id: 1, nickname: 'johndoe123' });
+      const filters = { nickname: 'johndoe' };
+
+      jest.spyOn(repository, 'createQueryBuilder').mockReturnValue({
+        withDeleted: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[mockUser], 1]),
+      } as any);
+
+      const result = await service.findUsersWithSearch(
+        1,
+        10,
+        filters,
+        'updatedAt',
+        'ASC',
+      );
+
+      expect(repository.createQueryBuilder).toHaveBeenCalled();
+      expect(result.data).toHaveLength(1);
+      expect(result.totalItems).toBe(1);
+    });
+
+    it('should include soft-deleted users', async () => {
+      const mockUser = createUserEntity({ id: 1, deletedAt: new Date() });
+
+      jest.spyOn(repository, 'createQueryBuilder').mockReturnValue({
+        withDeleted: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[mockUser], 1]),
+      } as any);
+
+      const result = await service.findUsersWithSearch(1, 10, {});
+
+      expect(repository.createQueryBuilder).toHaveBeenCalled();
+      expect(result.data[0].deletedAt).toEqual(mockUser.deletedAt);
     });
   });
 });

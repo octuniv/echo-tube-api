@@ -18,6 +18,7 @@ import {
 } from '@nestjs/common';
 import { CreateUserResponseDto } from '@/users/dto/user-create-response.dto';
 import { createUserEntity } from '@/users/factory/user.factory';
+import { SearchUserDto } from './dto/search-user.dto';
 
 describe('AdminUserController', () => {
   let adminUserController: AdminUserController;
@@ -131,7 +132,12 @@ describe('AdminUserController', () => {
 
       const result = await adminUserController.listUsers(paginationDto);
       expect(result).toEqual(mockResponse);
-      expect(usersService.findAllWithPagination).toHaveBeenCalledWith(1, 10);
+      expect(usersService.findAllWithPagination).toHaveBeenCalledWith(
+        1,
+        10,
+        'createdAt',
+        'DESC',
+      );
     });
 
     it('should use default pagination values when not provided', async () => {
@@ -148,7 +154,12 @@ describe('AdminUserController', () => {
 
       const result = await adminUserController.listUsers({});
       expect(result).toEqual(mockResponse);
-      expect(usersService.findAllWithPagination).toHaveBeenCalledWith(1, 10);
+      expect(usersService.findAllWithPagination).toHaveBeenCalledWith(
+        1,
+        10,
+        'createdAt',
+        'DESC',
+      );
     });
   });
 
@@ -278,6 +289,66 @@ describe('AdminUserController', () => {
 
       await expect(adminUserController.deleteUser(userId)).rejects.toThrow(
         InternalServerErrorException,
+      );
+    });
+  });
+
+  describe('searchUsers', () => {
+    it('should return filtered and paginated user list', async () => {
+      const searchDto: SearchUserDto = {
+        page: 1,
+        limit: 10,
+        searchEmail: 'john',
+        searchRole: UserRole.USER,
+        sort: 'createdAt',
+        order: 'DESC',
+      };
+      const mockUsers: AdminUserListResponseDto[] = [
+        createUserEntity({ id: 1, email: 'john.doe@example.com' }),
+      ];
+      const mockResponse: PaginatedResponseDto<AdminUserListResponseDto> = {
+        data: mockUsers,
+        currentPage: 1,
+        totalItems: 1,
+        totalPages: 1,
+      };
+
+      jest
+        .spyOn(usersService, 'findUsersWithSearch')
+        .mockResolvedValue(mockResponse);
+
+      const result = await adminUserController.searchUsers(searchDto);
+      expect(result).toEqual(mockResponse);
+      expect(usersService.findUsersWithSearch).toHaveBeenCalledWith(
+        1,
+        10,
+        { email: 'john', role: UserRole.USER },
+        'createdAt',
+        'DESC',
+      );
+    });
+
+    it('should use default values when no search params provided', async () => {
+      const searchDto: SearchUserDto = {};
+      const mockResponse: PaginatedResponseDto<AdminUserListResponseDto> = {
+        data: [],
+        currentPage: 1,
+        totalItems: 0,
+        totalPages: 0,
+      };
+
+      jest
+        .spyOn(usersService, 'findUsersWithSearch')
+        .mockResolvedValue(mockResponse);
+
+      const result = await adminUserController.searchUsers(searchDto);
+      expect(result).toEqual(mockResponse);
+      expect(usersService.findUsersWithSearch).toHaveBeenCalledWith(
+        1,
+        10,
+        {},
+        'createdAt',
+        'DESC',
       );
     });
   });

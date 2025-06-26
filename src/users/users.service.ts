@@ -210,6 +210,8 @@ export class UsersService {
   async findAllWithPagination(
     page: number = 1,
     limit: number = 10,
+    sort: 'createdAt' | 'updatedAt' = 'createdAt',
+    order: 'ASC' | 'DESC' = 'DESC',
   ): Promise<PaginatedResponseDto<AdminUserListResponseDto>> {
     const skip = (page - 1) * limit;
 
@@ -218,7 +220,7 @@ export class UsersService {
       withDeleted: true,
       skip,
       take: limit,
-      order: { id: 'ASC' },
+      order: { [sort]: order },
     });
 
     const data = users.map((user) =>
@@ -246,5 +248,49 @@ export class UsersService {
     }
 
     return plainToInstance(AdminUserDetailResponseDto, user);
+  }
+
+  async findUsersWithSearch(
+    page: number,
+    limit: number,
+    filters: { email?: string; nickname?: string; role?: UserRole },
+    sort: 'createdAt' | 'updatedAt' = 'createdAt',
+    order: 'ASC' | 'DESC' = 'DESC',
+  ): Promise<PaginatedResponseDto<AdminUserListResponseDto>> {
+    const skip = (page - 1) * limit;
+    const queryBuilder = this.usersRepository
+      .createQueryBuilder('user')
+      .withDeleted();
+
+    // 검색 조건 적용
+    if (filters.email) {
+      queryBuilder.andWhere('user.email ILIKE :email', {
+        email: `%${filters.email}%`,
+      });
+    }
+    if (filters.nickname) {
+      queryBuilder.andWhere('user.nickname ILIKE :nickname', {
+        nickname: `%${filters.nickname}%`,
+      });
+    }
+    if (filters.role) {
+      queryBuilder.andWhere('user.role = :role', { role: filters.role });
+    }
+
+    // 정렬 적용
+    queryBuilder.orderBy(`user.${sort}`, order);
+
+    // 페이지네이션 적용
+    queryBuilder.skip(skip).take(limit);
+
+    const [users, totalItems] = await queryBuilder.getManyAndCount();
+    return {
+      data: users.map((user) =>
+        plainToInstance(AdminUserListResponseDto, user),
+      ),
+      currentPage: page,
+      totalItems,
+      totalPages: Math.ceil(totalItems / limit),
+    };
   }
 }

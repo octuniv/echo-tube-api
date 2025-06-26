@@ -35,6 +35,7 @@ import { AdminUserUpdateResponseDto } from '@/users/dto/admin/admin-user-update-
 import { UserDeleteResponseDto } from '@/users/dto/user-delete-response.dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
+import { SearchUserDto } from './dto/search-user.dto';
 
 @ApiTags('admin-users')
 @Controller('admin/users')
@@ -64,32 +65,77 @@ export class AdminUserController {
 
   @Get()
   @ApiOperation({
-    summary: '전체 사용자 목록 조회 (페이지화 적용)',
-    description: '시스템에 등록된 모든 사용자 목록을 페이지 단위로 조회합니다.',
+    summary: '전체 사용자 목록 조회 (페이지화 및 정렬)',
+    description:
+      '페이지 단위로 사용자 목록을 조회하며, createdAt 기준 정렬 가능',
+  })
+  @ApiOkResponse({
+    type: PaginatedResponseDto<AdminUserListResponseDto>,
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    enum: ['createdAt', 'updatedAt'],
+    example: 'createdAt',
+  })
+  @ApiQuery({
+    name: 'order',
+    required: false,
+    enum: ['ASC', 'DESC'],
+    example: 'DESC',
+  })
+  async listUsers(
+    @Query() paginationDto: PaginationDto,
+  ): Promise<PaginatedResponseDto<AdminUserListResponseDto>> {
+    const {
+      page = 1,
+      limit = 10,
+      sort = 'createdAt',
+      order = 'DESC',
+    } = paginationDto;
+
+    return this.userService.findAllWithPagination(page, limit, sort, order);
+  }
+
+  @Get('search')
+  @ApiOperation({
+    summary: '검색 가능한 사용자 목록 조회',
+    description: '검색 조건에 따라 페이지화된 사용자 목록을 조회합니다.',
   })
   @ApiOkResponse({
     type: PaginatedResponseDto<AdminUserListResponseDto>,
     description: '성공적으로 사용자 목록을 페이지 단위로 조회했습니다.',
   })
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    example: 1,
-    description: '페이지 번호',
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    example: 10,
-    description: '페이지당 항목 수',
-  })
-  async listUsers(
-    @Query() paginationDto: PaginationDto,
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({ name: 'searchEmail', required: false, type: String })
+  @ApiQuery({ name: 'searchNickname', required: false, type: String })
+  @ApiQuery({ name: 'searchRole', required: false, enum: UserRole })
+  async searchUsers(
+    @Query() searchDto: SearchUserDto,
   ): Promise<PaginatedResponseDto<AdminUserListResponseDto>> {
-    const { page = 1, limit = 10 } = paginationDto;
-    return this.userService.findAllWithPagination(page, limit);
+    const {
+      page = 1,
+      limit = 10,
+      sort = 'createdAt',
+      order = 'DESC',
+      searchEmail,
+      searchNickname,
+      searchRole,
+    } = searchDto;
+    return this.userService.findUsersWithSearch(
+      page,
+      limit,
+      {
+        email: searchEmail,
+        nickname: searchNickname,
+        role: searchRole,
+      },
+      sort,
+      order,
+    );
   }
 
   @Get(':id')

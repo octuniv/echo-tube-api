@@ -21,26 +21,20 @@ export const updateUserNicknameDto = (): UpdateUserNicknameRequest => ({
   nickname: faker.person.firstName(),
 });
 
-interface UserEntityOptions {
-  id?: number;
-  role?: UserRole;
-  password?: string;
-}
-
-export const createUserEntity = ({
-  id = 1,
-  role = UserRole.USER,
-  password = faker.internet.password({ length: 20 }),
-}: UserEntityOptions = {}): User => {
+export const createUserEntity = (options: Partial<User> = {}): User => {
   const user = new User();
-  user.id = id;
-  user.email = faker.internet.email();
-  user.name = faker.person.fullName();
-  user.nickname = faker.person.firstName();
-  user.passwordHash = bcrypt.hashSync(password, 10);
-  user.role = role;
-  user.createdAt = new Date();
-  user.updatedAt = new Date();
-  user.deletedAt = null;
+
+  user.id = options.id ?? 1;
+  user.name = options.name ?? faker.person.fullName();
+  user.nickname = options.nickname ?? faker.person.firstName();
+  user.email = options.email ?? faker.internet.email();
+  user.passwordHash =
+    options.passwordHash ??
+    bcrypt.hashSync(faker.internet.password({ length: 20 }), 10);
+  user.role = options.role ?? UserRole.USER;
+  user.createdAt = options.createdAt ?? new Date();
+  user.updatedAt = options.updatedAt ?? new Date();
+  user.deletedAt = options.deletedAt ?? null;
+
   return user;
 };

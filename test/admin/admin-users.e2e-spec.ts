@@ -41,6 +41,18 @@ describe('User - /users (e2e)', () => {
     await app.close();
   });
 
+  const createTestUser = async (overrides: Partial<User> = {}) => {
+    const user = userRepository.create({
+      name: 'Test User',
+      nickname: `testuser_${Math.random().toString(36).substring(7)}`,
+      email: `test_${Math.random().toString(36).substring(7)}@example.com`,
+      passwordHash: bcrypt.hashSync('password123', 10),
+      role: UserRole.USER,
+      ...overrides,
+    });
+    return userRepository.save(user);
+  };
+
   const normalUserInfo = createUserDto();
 
   beforeAll(async () => {
@@ -149,6 +161,13 @@ describe('User - /users (e2e)', () => {
   });
 
   describe('List users', () => {
+    beforeAll(async () => {
+      // 정렬 테스트용 유저 생성
+      await createTestUser({ updatedAt: new Date('2023-01-01') });
+      await createTestUser({ updatedAt: new Date('2024-01-01') });
+      await createTestUser({ updatedAt: new Date('2025-01-01') });
+    });
+
     it('should return paginated user list', async () => {
       await request(app.getHttpServer())
         .get('/admin/users')
@@ -168,6 +187,32 @@ describe('User - /users (e2e)', () => {
         .query({ page: 'abc', limit: 'xyz' })
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(400);
+    });
+
+    it('updatedAt ASC sorting', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/users')
+        .query({ sort: 'updatedAt', order: 'ASC' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const updatedAts = res.body.data.map((u: any) => new Date(u.updatedAt));
+      expect(updatedAts).toEqual(
+        [...updatedAts].sort((a, b) => a.getTime() - b.getTime()),
+      );
+    });
+
+    it('updatedAt DESC sorting', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/users')
+        .query({ sort: 'updatedAt', order: 'DESC' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const updatedAts = res.body.data.map((u: any) => new Date(u.updatedAt));
+      expect(updatedAts).toEqual(
+        [...updatedAts].sort((a, b) => b.getTime() - a.getTime()),
+      );
     });
   });
 
@@ -257,7 +302,7 @@ describe('User - /users (e2e)', () => {
     });
   });
 
-  describe('delete User', () => {
+  describe('Delete User', () => {
     let userInfo: CreateUserDto;
     let user: User;
 
@@ -293,6 +338,88 @@ describe('User - /users (e2e)', () => {
         withDeleted: true,
       });
       expect(deletedUser.deletedAt).not.toBeNull();
+    });
+  });
+
+  describe('Search Users', () => {
+    beforeAll(async () => {
+      // 검색 테스트용 유저 생성
+      await createTestUser({
+        name: 'John Doe',
+        nickname: 'john123',
+        email: 'john.doe@example.com',
+        role: UserRole.USER,
+      });
+      await createTestUser({
+        name: 'Jane Smith',
+        nickname: 'jane456',
+        email: 'jane.smith@example.com',
+        role: UserRole.ADMIN,
+      });
+    });
+
+    it('search email', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/users/search')
+        .query({ searchEmail: 'john' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].email).toContain('john.doe@example.com');
+    });
+
+    it('search nickname', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/users/search')
+        .query({ searchNickname: 'jane' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].nickname).toBe('jane456');
+    });
+
+    it('filter by role', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/users/search')
+        .query({ searchRole: UserRole.ADMIN })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(3); // Previous tests should be considered.
+      expect(res.body.data[0].role).toBe(UserRole.ADMIN);
+    });
+
+    it('search and sort combination', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/users/search')
+        .query({ searchEmail: 'john', sort: 'updatedAt', order: 'ASC' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].email).toContain('john.doe@example.com');
+    });
+
+    it('search for non-existent users', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/users/search')
+        .query({ searchEmail: 'notexist' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(0);
+    });
+
+    it('Invalid alignment parameter', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/users/search')
+        .query({ sort: 'invalid' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
+
+      expect(res.body.statusCode).toBe(400);
     });
   });
 });

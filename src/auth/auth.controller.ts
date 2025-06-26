@@ -87,4 +87,22 @@ export class AuthController {
 
     return { valid: isValid };
   }
+
+  @Post('logout')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Logout user by invalidating refresh token' })
+  @ApiUnauthorizedResponse({ description: 'Invalid refresh token' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { refresh_token: { type: 'string' } },
+    },
+  })
+  async logout(@Body('refresh_token') refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token is required');
+    }
+    await this.authService.logout(refreshToken);
+    return { message: 'Successfully logged out' };
+  }
 }

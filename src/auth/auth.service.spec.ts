@@ -4,7 +4,11 @@ import { UsersService } from '@/users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { createUserEntity } from '@/users/factory/user.factory';
-import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  InternalServerErrorException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RefreshTokenRepository } from './refresh-token.repository';
 import { VisitorService } from '@/visitor/visitor.service';
@@ -251,6 +255,53 @@ describe('AuthService', () => {
         secret: 'test-secret',
       });
       expect(result).toBe(true);
+    });
+  });
+
+  describe('logout', () => {
+    it('should successfully revoke refresh token', async () => {
+      const mockToken = 'valid-refresh-token';
+      const mockStoredToken = {
+        id: 'token-id-123',
+        userEmail: 'test@example.com',
+        token: mockToken,
+        expiresAt: new Date(Date.now() + 86400000),
+        revoked: false,
+      };
+
+      jest
+        .spyOn(refreshTokenRepo, 'findValidToken')
+        .mockResolvedValue(mockStoredToken);
+      jest.spyOn(refreshTokenRepo, 'revokeToken').mockResolvedValue();
+
+      await authService.logout(mockToken);
+
+      expect(refreshTokenRepo.findValidToken).toHaveBeenCalledWith(mockToken);
+      expect(refreshTokenRepo.revokeToken).toHaveBeenCalledWith(
+        mockStoredToken.id,
+      );
+    });
+
+    it('should throw UnauthorizedException for invalid token', async () => {
+      jest.spyOn(refreshTokenRepo, 'findValidToken').mockResolvedValue(null);
+
+      await expect(authService.logout('invalid-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(refreshTokenRepo.findValidToken).toHaveBeenCalledWith(
+        'invalid-token',
+      );
+    });
+
+    it('should throw InternalServerErrorException for database errors', async () => {
+      jest
+        .spyOn(refreshTokenRepo, 'findValidToken')
+        .mockRejectedValue(new Error('Database error'));
+
+      await expect(authService.logout('any-token')).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 });

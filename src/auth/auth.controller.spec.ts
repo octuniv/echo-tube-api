@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { UnauthorizedException } from '@nestjs/common';
+import {
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { LoginUserDto } from './dto/login-user.dto';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { LoginResponseDto } from './dto/login-response.dto';
@@ -15,6 +18,7 @@ describe('AuthController', () => {
     login: jest.fn(),
     refreshToken: jest.fn(),
     validateAccessToken: jest.fn(),
+    logout: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -106,6 +110,38 @@ describe('AuthController', () => {
         mockToken.split(' ')[1],
       );
       expect(result).toEqual({ valid: true });
+    });
+  });
+
+  describe('logout', () => {
+    it('should call authService.logout with refresh token', async () => {
+      const mockToken = 'valid-refresh-token';
+      mockAuthService.logout.mockResolvedValue(undefined);
+
+      await authController.logout(mockToken);
+
+      expect(authService.logout).toHaveBeenCalledWith(mockToken);
+    });
+
+    it('should throw UnauthorizedException for missing refresh token', async () => {
+      jest
+        .spyOn(mockAuthService, 'logout')
+        .mockRejectedValue(new UnauthorizedException('Invalid refresh token.'));
+      await expect(authController.logout('')).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(authService.logout).not.toHaveBeenCalled();
+    });
+
+    it('should propagate InternalServerErrorException from authService', async () => {
+      jest
+        .spyOn(mockAuthService, 'logout')
+        .mockRejectedValue(new InternalServerErrorException('Logout failed.'));
+
+      await expect(authController.logout('valid-token')).rejects.toThrow(
+        InternalServerErrorException,
+      );
     });
   });
 });

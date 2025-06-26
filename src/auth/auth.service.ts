@@ -153,4 +153,21 @@ export class AuthService {
       return false; // 토큰이 유효하지 않으면 false 반환
     }
   }
+
+  async logout(refreshToken: string): Promise<void> {
+    try {
+      const storedToken =
+        await this.refreshTokenRepo.findValidToken(refreshToken);
+      if (!storedToken) {
+        throw new UnauthorizedException('Invalid refresh token.');
+      }
+      await this.refreshTokenRepo.revokeToken(storedToken.id);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      console.error(error);
+      throw new InternalServerErrorException('Logout failed.');
+    }
+  }
 }

@@ -22,7 +22,7 @@ import { AdminUpdateUserDto } from './dto/admin/admin-update-user-dto';
 import { CreateUserResponseDto } from './dto/user-create-response.dto';
 import { UserDeleteResponseDto } from './dto/user-delete-response.dto';
 import { plainToInstance } from 'class-transformer';
-import { AdminUserListResponseDto } from './dto/admin/admin-user-list-response.dto';
+import { AdminUserDetailResponseDto } from './dto/admin/admin-user-detail-response.dto';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -449,7 +449,7 @@ describe('UsersService', () => {
       expect(result.totalPages).toBe(0);
     });
 
-    it('should transform entities to AdminUserListResponseDto', async () => {
+    it('should transform entities to AdminUserDetailResponseDto', async () => {
       const mockUser = {
         id: 1,
         name: 'John Doe',
@@ -464,7 +464,7 @@ describe('UsersService', () => {
 
       const result = await service.findAllWithPagination();
 
-      const expectedDto = plainToInstance(AdminUserListResponseDto, mockUser);
+      const expectedDto = plainToInstance(AdminUserDetailResponseDto, mockUser);
 
       expect(result.data[0]).toEqual(expectedDto);
     });

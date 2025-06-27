@@ -4,7 +4,6 @@ import { UsersService } from '@/users/users.service';
 import { AdminCreateUserDto } from '@/users/dto/admin/admin-create-user-dto';
 import { AdminUpdateUserDto } from '@/users/dto/admin/admin-update-user-dto';
 import { AdminUserDetailResponseDto } from '@/users/dto/admin/admin-user-detail-response.dto';
-import { AdminUserListResponseDto } from '@/users/dto/admin/admin-user-list-response.dto';
 import { AdminUserUpdateResponseDto } from '@/users/dto/admin/admin-user-update-response.dto';
 import { UserDeleteResponseDto } from '@/users/dto/user-delete-response.dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
@@ -115,11 +114,11 @@ describe('AdminUserController', () => {
   describe('listUsers', () => {
     it('should return paginated user list', async () => {
       const paginationDto: PaginationDto = { page: 1, limit: 10 };
-      const mockUsers: AdminUserListResponseDto[] = [
+      const mockUsers: AdminUserDetailResponseDto[] = [
         createUserEntity({ id: 1 }),
       ];
 
-      const mockResponse: PaginatedResponseDto<AdminUserListResponseDto> = {
+      const mockResponse: PaginatedResponseDto<AdminUserDetailResponseDto> = {
         data: mockUsers,
         currentPage: 1,
         totalItems: 1,
@@ -141,7 +140,7 @@ describe('AdminUserController', () => {
     });
 
     it('should use default pagination values when not provided', async () => {
-      const mockResponse: PaginatedResponseDto<AdminUserListResponseDto> = {
+      const mockResponse: PaginatedResponseDto<AdminUserDetailResponseDto> = {
         data: [],
         currentPage: 1,
         totalItems: 0,
@@ -303,10 +302,10 @@ describe('AdminUserController', () => {
         sort: 'createdAt',
         order: 'DESC',
       };
-      const mockUsers: AdminUserListResponseDto[] = [
+      const mockUsers: AdminUserDetailResponseDto[] = [
         createUserEntity({ id: 1, email: 'john.doe@example.com' }),
       ];
-      const mockResponse: PaginatedResponseDto<AdminUserListResponseDto> = {
+      const mockResponse: PaginatedResponseDto<AdminUserDetailResponseDto> = {
         data: mockUsers,
         currentPage: 1,
         totalItems: 1,
@@ -330,7 +329,7 @@ describe('AdminUserController', () => {
 
     it('should use default values when no search params provided', async () => {
       const searchDto: SearchUserDto = {};
-      const mockResponse: PaginatedResponseDto<AdminUserListResponseDto> = {
+      const mockResponse: PaginatedResponseDto<AdminUserDetailResponseDto> = {
         data: [],
         currentPage: 1,
         totalItems: 0,

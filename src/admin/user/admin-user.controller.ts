@@ -29,7 +29,6 @@ import { UsersService } from '@/users/users.service';
 import { AdminCreateUserDto } from '@/users/dto/admin/admin-create-user-dto';
 import { AdminUpdateUserDto } from '@/users/dto/admin/admin-update-user-dto';
 import { AdminUserDetailResponseDto } from '@/users/dto/admin/admin-user-detail-response.dto';
-import { AdminUserListResponseDto } from '@/users/dto/admin/admin-user-list-response.dto';
 import { CreateUserResponseDto } from '@/users/dto/user-create-response.dto';
 import { AdminUserUpdateResponseDto } from '@/users/dto/admin/admin-user-update-response.dto';
 import { UserDeleteResponseDto } from '@/users/dto/user-delete-response.dto';
@@ -70,7 +69,7 @@ export class AdminUserController {
       '페이지 단위로 사용자 목록을 조회하며, createdAt 기준 정렬 가능',
   })
   @ApiOkResponse({
-    type: PaginatedResponseDto<AdminUserListResponseDto>,
+    type: PaginatedResponseDto<AdminUserDetailResponseDto>,
   })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
@@ -88,7 +87,7 @@ export class AdminUserController {
   })
   async listUsers(
     @Query() paginationDto: PaginationDto,
-  ): Promise<PaginatedResponseDto<AdminUserListResponseDto>> {
+  ): Promise<PaginatedResponseDto<AdminUserDetailResponseDto>> {
     const {
       page = 1,
       limit = 10,
@@ -105,7 +104,7 @@ export class AdminUserController {
     description: '검색 조건에 따라 페이지화된 사용자 목록을 조회합니다.',
   })
   @ApiOkResponse({
-    type: PaginatedResponseDto<AdminUserListResponseDto>,
+    type: PaginatedResponseDto<AdminUserDetailResponseDto>,
     description: '성공적으로 사용자 목록을 페이지 단위로 조회했습니다.',
   })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
@@ -115,7 +114,7 @@ export class AdminUserController {
   @ApiQuery({ name: 'searchRole', required: false, enum: UserRole })
   async searchUsers(
     @Query() searchDto: SearchUserDto,
-  ): Promise<PaginatedResponseDto<AdminUserListResponseDto>> {
+  ): Promise<PaginatedResponseDto<AdminUserDetailResponseDto>> {
     const {
       page = 1,
       limit = 10,

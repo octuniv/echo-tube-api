@@ -16,7 +16,6 @@ import { UserRole } from './entities/user-role.enum';
 import { AdminUpdateUserDto } from './dto/admin/admin-update-user-dto';
 import { AdminUserDetailResponseDto } from './dto/admin/admin-user-detail-response.dto';
 import { plainToInstance } from 'class-transformer';
-import { AdminUserListResponseDto } from './dto/admin/admin-user-list-response.dto';
 import { AdminUserUpdateResponseDto } from './dto/admin/admin-user-update-response.dto';
 import { UserDeleteResponseDto } from './dto/user-delete-response.dto';
 import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
@@ -212,7 +211,7 @@ export class UsersService {
     limit: number = 10,
     sort: 'createdAt' | 'updatedAt' = 'createdAt',
     order: 'ASC' | 'DESC' = 'DESC',
-  ): Promise<PaginatedResponseDto<AdminUserListResponseDto>> {
+  ): Promise<PaginatedResponseDto<AdminUserDetailResponseDto>> {
     const skip = (page - 1) * limit;
 
     const [users, totalItems] = await this.usersRepository.findAndCount({
@@ -224,7 +223,7 @@ export class UsersService {
     });
 
     const data = users.map((user) =>
-      plainToInstance(AdminUserListResponseDto, user),
+      plainToInstance(AdminUserDetailResponseDto, user),
     );
 
     const totalPages = Math.ceil(totalItems / limit);
@@ -256,7 +255,7 @@ export class UsersService {
     filters: { email?: string; nickname?: string; role?: UserRole },
     sort: 'createdAt' | 'updatedAt' = 'createdAt',
     order: 'ASC' | 'DESC' = 'DESC',
-  ): Promise<PaginatedResponseDto<AdminUserListResponseDto>> {
+  ): Promise<PaginatedResponseDto<AdminUserDetailResponseDto>> {
     const skip = (page - 1) * limit;
     const queryBuilder = this.usersRepository
       .createQueryBuilder('user')
@@ -286,7 +285,7 @@ export class UsersService {
     const [users, totalItems] = await queryBuilder.getManyAndCount();
     return {
       data: users.map((user) =>
-        plainToInstance(AdminUserListResponseDto, user),
+        plainToInstance(AdminUserDetailResponseDto, user),
       ),
       currentPage: page,
       totalItems,

@@ -12,6 +12,10 @@ import * as bcrypt from 'bcryptjs';
 import { setupTestApp, truncateAllTables } from '../utils/test.util';
 import { DataSource, Repository } from 'typeorm';
 import { AdminCreateUserDto } from '@/users/dto/admin/admin-create-user-dto';
+import 'reflect-metadata';
+import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
+import { AdminUserDetailResponseDto } from '@/users/dto/admin/admin-user-detail-response.dto';
 
 const envFile = `.env.${process.env.NODE_ENV || 'production'}`;
 dotenv.config({ path: envFile });
@@ -420,6 +424,103 @@ describe('User - /users (e2e)', () => {
         .expect(400);
 
       expect(res.body.statusCode).toBe(400);
+    });
+  });
+
+  const validateAdminUserResponse = (data: any): AdminUserDetailResponseDto => {
+    const dto = plainToInstance(AdminUserDetailResponseDto, data);
+    const errors = validateSync(dto);
+
+    if (errors.length > 0) {
+      throw new Error(`Validation failed: ${JSON.stringify(errors)}`);
+    }
+
+    return dto;
+  };
+
+  describe('Admin User Detail Response Validation', () => {
+    let testUser: User;
+    let adminUser: User;
+
+    beforeAll(async () => {
+      testUser = await createTestUser({
+        name: 'Validation Test',
+        nickname: 'val_tester',
+        email: 'validation.test@example.com',
+      });
+
+      adminUser = await createTestUser({
+        name: 'Validation Admin',
+        nickname: 'val_admin',
+        email: 'validation.admin@example.com',
+        role: UserRole.ADMIN,
+      });
+    });
+
+    afterAll(async () => {
+      await userRepository.softDelete(testUser.id);
+      await userRepository.softDelete(adminUser.id);
+    });
+
+    it('should validate single user response format', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/admin/users/${testUser.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const dto = validateAdminUserResponse(res.body);
+      expect(dto).toBeInstanceOf(AdminUserDetailResponseDto);
+    });
+
+    it('should validate list user response format', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/users')
+        .query({ page: 1, limit: 10 })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const paginationData = res.body;
+
+      expect(paginationData).toHaveProperty('data');
+      expect(paginationData).toHaveProperty('totalItems');
+      expect(paginationData).toHaveProperty('currentPage');
+
+      paginationData.data.forEach((item: any) => {
+        const dto = validateAdminUserResponse(item);
+        expect(dto).toBeInstanceOf(AdminUserDetailResponseDto);
+      });
+    });
+
+    it('should validate searching user response format', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/users/search')
+        .query({ searchNickname: 'val_tester' })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const paginationData = res.body;
+
+      expect(paginationData).toHaveProperty('data');
+      expect(paginationData).toHaveProperty('totalItems');
+      expect(paginationData).toHaveProperty('currentPage');
+
+      paginationData.data.forEach((item: any) => {
+        const dto = validateAdminUserResponse(item);
+        expect(dto).toBeInstanceOf(AdminUserDetailResponseDto);
+      });
+    });
+
+    it('should validate soft-deleted user response', async () => {
+      await userRepository.softDelete(testUser.id);
+
+      const res = await request(app.getHttpServer())
+        .get(`/admin/users/${testUser.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const dto = validateAdminUserResponse(res.body);
+      expect(dto.deletedAt).toBeInstanceOf(Date);
+      expect(dto.deletedAt).not.toBeNull();
     });
   });
 });

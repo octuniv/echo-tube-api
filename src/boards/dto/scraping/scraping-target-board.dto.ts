@@ -1,6 +1,5 @@
-import { Board } from '../entities/board.entity';
+import { Board } from '../../entities/board.entity';
 
-// src/boards/dto/scraping-target-board.dto.ts
 export class ScrapingTargetBoardDto {
   slug: string;
   name: string;

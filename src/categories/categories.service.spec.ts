@@ -10,9 +10,10 @@ import {
 } from './factories/category.factory';
 import { Repository } from 'typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { CreateCategoryDto } from './dto/create-category.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
+import { CreateCategoryDto } from './dto/CRUD/create-category.dto';
+import { UpdateCategoryDto } from './dto/CRUD/update-category.dto';
 import { createBoard } from '@/boards/factories/board.factory';
+import { BoardPurpose } from '@/boards/entities/board.entity';
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
@@ -254,6 +255,66 @@ describe('CategoriesService', () => {
 
       const result = await service.findOne(1);
       expect(result).toEqual(category);
+    });
+  });
+
+  describe('getCategoriesWithBoards', () => {
+    it('보드를 목적별로 그룹화하여 반환해야 함', async () => {
+      // 테스트 데이터 구성
+      const mockCategory = createCategory({
+        name: '공지사항',
+        boards: [
+          createBoard({
+            id: 1,
+            slug: 'notice-board',
+            name: '공지게시판',
+            type: BoardPurpose.GENERAL,
+          }),
+          createBoard({
+            id: 2,
+            slug: 'faq-board',
+            name: 'FAQ',
+            type: BoardPurpose.GENERAL,
+          }),
+          createBoard({
+            id: 3,
+            slug: 'LOG',
+            name: 'LOG',
+            type: BoardPurpose.AI_DIGEST,
+          }),
+        ],
+      });
+
+      // Repository mock 설정
+      categoryRepository.find = jest.fn().mockResolvedValue([mockCategory]);
+
+      // 실행 및 검증
+      const result = await service.getCategoriesWithBoards();
+
+      expect(result).toEqual([
+        {
+          name: '공지사항',
+          boardGroups: [
+            {
+              purpose: BoardPurpose.GENERAL,
+              boards: [
+                { id: 1, slug: 'notice-board', name: '공지게시판' },
+                { id: 2, slug: 'faq-board', name: 'FAQ' },
+              ],
+            },
+            {
+              purpose: BoardPurpose.AI_DIGEST,
+              boards: [
+                {
+                  id: 3,
+                  slug: 'LOG',
+                  name: 'LOG',
+                },
+              ],
+            },
+          ],
+        },
+      ]);
     });
   });
 });

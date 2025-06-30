@@ -1,5 +1,6 @@
 // src/boards/factories/scraping-target-board.factory.ts
-import { ScrapingTargetBoardDto } from '../dto/scraping-target-board.dto';
+
+import { ScrapingTargetBoardDto } from '../dto/scraping/scraping-target-board.dto';
 
 export const createScrapingTargetBoard = (
   overrides?: Partial<ScrapingTargetBoardDto>,

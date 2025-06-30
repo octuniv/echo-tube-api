@@ -7,7 +7,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Post, PostOrigin } from '../entities/post.entity';
-import { BoardListItemDto } from '@/boards/dto/board-list-item.dto';
+import { BoardListItemDto } from '@/boards/dto/list/board-list-item.dto';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 

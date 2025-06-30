@@ -22,10 +22,10 @@ import { Roles } from '@/auth/roles.decorator';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { RolesGuard } from '@/auth/roles.guard';
 import { BoardsService } from '@/boards/boards.service';
-import { UpdateBoardDto } from '@/boards/dto/update-board.dto';
-import { CreateBoardDto } from '@/boards/dto/create-board.dto';
-import { AdminBoardResponseDto } from '@/boards/dto/admin-board-response.dto';
+import { UpdateBoardDto } from '@/boards/dto/CRUD/update-board.dto';
+import { CreateBoardDto } from '@/boards/dto/CRUD/create-board.dto';
 import { BoardPurpose } from '@/boards/entities/board.entity';
+import { AdminBoardResponseDto } from '@/boards/dto/admin/admin-board-response.dto';
 
 @ApiTags('admin-boards')
 @Controller('admin/boards')

@@ -8,11 +8,15 @@ import {
   truncateAllTables,
 } from '../utils/test.util';
 import { DataSource } from 'typeorm';
-import { CreateCategoryDto } from '@/categories/dto/create-category.dto';
-import { CreateBoardDto } from '@/boards/dto/create-board.dto';
+import { CreateCategoryDto } from '@/categories/dto/CRUD/create-category.dto';
+import { CreateBoardDto } from '@/boards/dto/CRUD/create-board.dto';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { BoardPurpose } from '@/boards/entities/board.entity';
-import { UpdateBoardDto } from '@/boards/dto/update-board.dto';
+import { UpdateBoardDto } from '@/boards/dto/CRUD/update-board.dto';
+import 'reflect-metadata';
+import { plainToInstance } from 'class-transformer';
+import { validateSync } from 'class-validator';
+import { AdminBoardResponseDto } from '@/boards/dto/admin/admin-board-response.dto';
 
 const envFile = `.env.${process.env.NODE_ENV || 'production'}`;
 dotenv.config({ path: envFile });
@@ -22,18 +26,15 @@ const SYSTEM_USER = {
   password: process.env.SYSTEM_USER_PASSWORD || 'system1234',
 };
 
-const validateAdminBordResponse = (board) => {
-  const requiredFields = [
-    'id',
-    'slug',
-    'name',
-    'requiredRole',
-    'type',
-    'categoryId',
-    'categoryName',
-  ];
-  requiredFields.forEach((field) => expect(board).toHaveProperty(field));
-  expect(board).toHaveProperty('description');
+const validateAdminBordResponse = (data: any): AdminBoardResponseDto => {
+  const dto = plainToInstance(AdminBoardResponseDto, data);
+  const errors = validateSync(dto);
+
+  if (errors.length > 0) {
+    throw new Error(`Validation failed: ${JSON.stringify(errors)}`);
+  }
+
+  return dto;
 };
 
 describe('User - /users (e2e)', () => {
@@ -127,7 +128,8 @@ describe('User - /users (e2e)', () => {
         .send(dto)
         .expect(201)
         .then((res) => {
-          validateAdminBordResponse(res.body);
+          const dto = validateAdminBordResponse(res.body);
+          expect(dto).toBeInstanceOf(AdminBoardResponseDto);
         });
     });
 
@@ -215,7 +217,8 @@ describe('User - /users (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      validateAdminBordResponse(res.body);
+      const dto = validateAdminBordResponse(res.body);
+      expect(dto).toBeInstanceOf(AdminBoardResponseDto);
     });
 
     it('should throw a not found error if id does not exist', async () => {

@@ -8,8 +8,8 @@ import {
   truncateAllTables,
 } from '../utils/test.util';
 import { DataSource } from 'typeorm';
-import { CreateCategoryDto } from '@/categories/dto/create-category.dto';
-import { UpdateCategoryDto } from '@/categories/dto/update-category.dto';
+import { CreateCategoryDto } from '@/categories/dto/CRUD/create-category.dto';
+import { UpdateCategoryDto } from '@/categories/dto/CRUD/update-category.dto';
 
 const envFile = `.env.${process.env.NODE_ENV || 'production'}`;
 dotenv.config({ path: envFile });

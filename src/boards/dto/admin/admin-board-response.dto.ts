@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '@/users/entities/user-role.enum';
-import { BoardPurpose } from '../entities/board.entity';
+import { BoardPurpose } from '../../entities/board.entity';
 
 export class AdminBoardResponseDto {
   @ApiProperty({

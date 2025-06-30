@@ -21,10 +21,10 @@ import { Roles } from '@/auth/roles.decorator';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { RolesGuard } from '@/auth/roles.guard';
 import { CategoriesService } from '@/categories/categories.service';
-import { CategoryResponseDto } from '@/categories/dto/category-response.dto';
-import { CreateCategoryDto } from '@/categories/dto/create-category.dto';
-import { UpdateCategoryDto } from '@/categories/dto/update-category.dto';
-import { CategoryDetailsResponseDto } from '@/categories/dto/category-details-response.dto';
+import { CategoryResponseDto } from '@/categories/dto/list/category-response.dto';
+import { CreateCategoryDto } from '@/categories/dto/CRUD/create-category.dto';
+import { UpdateCategoryDto } from '@/categories/dto/CRUD/update-category.dto';
+import { CategoryDetailsResponseDto } from '@/categories/dto/detail/category-details-response.dto';
 
 @ApiTags('admin-categories')
 @Controller('admin/categories')

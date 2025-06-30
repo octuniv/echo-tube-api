@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsArray, IsNumber, IsString } from 'class-validator';
-import { Category } from '../entities/category.entity';
+import { Category } from '../../entities/category.entity';
 
 export class CategoryDetailsResponseDto {
   @ApiProperty({

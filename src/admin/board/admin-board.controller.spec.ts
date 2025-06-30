@@ -7,14 +7,14 @@ import {
 import * as request from 'supertest';
 import { AdminBoardController } from './admin-board.controller';
 import { BoardsService } from '@/boards/boards.service';
-import { CreateBoardDto } from '@/boards/dto/create-board.dto';
-import { UpdateBoardDto } from '@/boards/dto/update-board.dto';
-import { AdminBoardResponseDto } from '@/boards/dto/admin-board-response.dto';
+import { CreateBoardDto } from '@/boards/dto/CRUD/create-board.dto';
+import { UpdateBoardDto } from '@/boards/dto/CRUD/update-board.dto';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { BoardPurpose } from '@/boards/entities/board.entity';
 import { createBoard } from '@/boards/factories/board.factory';
 import { createCategory } from '@/categories/factories/category.factory';
+import { AdminBoardResponseDto } from '@/boards/dto/admin/admin-board-response.dto';
 
 describe('AdminBoardController', () => {
   let app: INestApplication;

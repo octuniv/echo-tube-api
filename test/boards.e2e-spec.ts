@@ -3,7 +3,7 @@ import * as request from 'supertest';
 import { Board, BoardPurpose } from '@/boards/entities/board.entity';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { setupTestApp } from './utils/test.util';
-import { ScrapingTargetBoardDto } from '@/boards/dto/scraping-target-board.dto';
+import { ScrapingTargetBoardDto } from '@/boards/dto/scraping/scraping-target-board.dto';
 
 describe('CategoriesController (e2e)', () => {
   let app: INestApplication;

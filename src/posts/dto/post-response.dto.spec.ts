@@ -4,7 +4,7 @@ import { validate } from 'class-validator';
 import { PostResponseDto } from './post-response.dto';
 import { Post, PostOrigin } from '../entities/post.entity';
 import { createBoard } from '@/boards/factories/board.factory';
-import { BoardListItemDto } from '@/boards/dto/board-list-item.dto';
+import { BoardListItemDto } from '@/boards/dto/list/board-list-item.dto';
 import { User } from '@/users/entities/user.entity';
 import { createPost } from '../factories/post.factory';
 

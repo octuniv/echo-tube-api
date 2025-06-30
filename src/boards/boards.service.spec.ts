@@ -11,10 +11,10 @@ import {
 } from '@/categories/factories/category.factory';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { NotFoundException } from '@nestjs/common';
-import { ScrapingTargetBoardDto } from './dto/scraping-target-board.dto';
-import { BoardListItemDto } from './dto/board-list-item.dto';
+import { BoardListItemDto } from './dto/list/board-list-item.dto';
 import { CategoriesService } from '@/categories/categories.service';
-import { UpdateBoardDto } from './dto/update-board.dto';
+import { UpdateBoardDto } from './dto/CRUD/update-board.dto';
+import { ScrapingTargetBoardDto } from './dto/scraping/scraping-target-board.dto';
 
 describe('BoardsService', () => {
   let service: BoardsService;
@@ -308,14 +308,22 @@ describe('BoardsService', () => {
         .mockResolvedValue(updatedCategory);
       jest.spyOn(boardRepository, 'save').mockResolvedValue({
         ...existingBoard,
-        ...dto,
+        slug: dto.slug,
+        name: dto.name,
+        description: dto.description,
+        requiredRole: dto.requiredRole,
+        type: dto.type,
         category: updatedCategory,
       } as any);
 
       const result = await service.update(1, dto);
       expect(result).toEqual({
         ...existingBoard,
-        ...dto,
+        slug: dto.slug,
+        name: dto.name,
+        description: dto.description,
+        requiredRole: dto.requiredRole,
+        type: dto.type,
         category: updatedCategory,
       });
       expect(boardRepository.findOne).toHaveBeenCalledWith({
@@ -325,7 +333,11 @@ describe('BoardsService', () => {
       expect(categoriesService.findOne).toHaveBeenCalledWith(2);
       expect(boardRepository.save).toHaveBeenCalledWith({
         ...existingBoard,
-        ...dto,
+        slug: dto.slug,
+        name: dto.name,
+        description: dto.description,
+        requiredRole: dto.requiredRole,
+        type: dto.type,
         category: updatedCategory,
       });
     });
@@ -337,14 +349,16 @@ describe('BoardsService', () => {
     });
 
     it('should update board without changing category if categoryId not provided', async () => {
+      const category = createCategory({ id: 1 });
       const existingBoard = createBoard({
         id: 1,
         slug: 'old-slug',
-        category: createCategory({ id: 1 }),
+        category,
       });
       const dto = { name: 'Updated Name' };
 
       jest.spyOn(boardRepository, 'findOne').mockResolvedValue(existingBoard);
+      jest.spyOn(categoriesService, 'findOne').mockResolvedValue(category);
       jest.spyOn(boardRepository, 'save').mockResolvedValue({
         ...existingBoard,
         ...dto,

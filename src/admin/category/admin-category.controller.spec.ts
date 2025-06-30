@@ -4,10 +4,9 @@ import { ExecutionContext, INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { AdminCategoryController } from '@/admin/category/admin-category.controller';
 import { CategoriesService } from '@/categories/categories.service';
-import { CategoryDetailsResponseDto } from '@/categories/dto/category-details-response.dto';
-import { CreateCategoryDto } from '@/categories/dto/create-category.dto';
-import { UpdateCategoryDto } from '@/categories/dto/update-category.dto';
-import { CategoryResponseDto } from '@/categories/dto/category-response.dto';
+import { CreateCategoryDto } from '@/categories/dto/CRUD/create-category.dto';
+import { UpdateCategoryDto } from '@/categories/dto/CRUD/update-category.dto';
+import { CategoryResponseDto } from '@/categories/dto/list/category-response.dto';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { Category } from '@/categories/entities/category.entity';
@@ -16,6 +15,7 @@ import {
   createCategorySlug,
 } from '@/categories/factories/category.factory';
 import { createBoard } from '@/boards/factories/board.factory';
+import { CategoryDetailsResponseDto } from '@/categories/dto/detail/category-details-response.dto';
 
 describe('AdminCategoryController', () => {
   let app: INestApplication;

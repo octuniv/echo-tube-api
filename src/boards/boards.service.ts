@@ -6,11 +6,12 @@ import {
 import { Board, BoardPurpose } from './entities/board.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BoardListItemDto } from './dto/board-list-item.dto';
-import { ScrapingTargetBoardDto } from './dto/scraping-target-board.dto';
-import { CreateBoardDto } from './dto/create-board.dto';
-import { UpdateBoardDto } from './dto/update-board.dto';
+import { BoardListItemDto } from './dto/list/board-list-item.dto';
+import { ScrapingTargetBoardDto } from './dto/scraping/scraping-target-board.dto';
+import { CreateBoardDto } from './dto/CRUD/create-board.dto';
+import { UpdateBoardDto } from './dto/CRUD/update-board.dto';
 import { CategoriesService } from '@/categories/categories.service';
+import { UserRole } from '@/users/entities/user-role.enum';
 
 @Injectable()
 export class BoardsService {
@@ -78,6 +79,14 @@ export class BoardsService {
 
   async create(dto: CreateBoardDto): Promise<Board> {
     const { categoryId, ...rest } = dto;
+    if (
+      dto.type === BoardPurpose.AI_DIGEST &&
+      dto.requiredRole === UserRole.USER
+    ) {
+      throw new BadRequestException(
+        'AI_DIGEST 보드는 USER 이상의 권한이 필요합니다.',
+      );
+    }
     const category = await this.categoriesService.findOne(categoryId);
     const board = this.boardRepository.create({
       ...rest,
@@ -94,7 +103,23 @@ export class BoardsService {
       board.category = category;
     }
 
-    Object.assign(board, dto);
+    // 명시적 프로퍼티 업데이트
+    if (dto.slug !== undefined) board.slug = dto.slug;
+    if (dto.name !== undefined) board.name = dto.name;
+    if (dto.description !== undefined) board.description = dto.description;
+    if (dto.requiredRole !== undefined) board.requiredRole = dto.requiredRole;
+    if (dto.type !== undefined) board.type = dto.type;
+
+    // 검증 로직 강화
+    if (
+      board.type === BoardPurpose.AI_DIGEST &&
+      board.requiredRole === UserRole.USER
+    ) {
+      throw new BadRequestException(
+        'AI_DIGEST 보드는 USER 이상의 권한이 필요합니다.',
+      );
+    }
+
     return this.boardRepository.save(board);
   }
 

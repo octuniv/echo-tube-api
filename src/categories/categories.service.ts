@@ -7,10 +7,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Category } from './entities/category.entity';
 import { CategorySlug } from './entities/category-slug.entity';
-import { CategoryResponseDto } from './dto/category-response.dto';
-import { CategoryDetailsResponseDto } from './dto/category-details-response.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
-import { CreateCategoryDto } from './dto/create-category.dto';
+import { CategoryResponseDto } from './dto/list/category-response.dto';
+import { CategoryDetailsResponseDto } from './dto/detail/category-details-response.dto';
+import { UpdateCategoryDto } from './dto/CRUD/update-category.dto';
+import { CreateCategoryDto } from './dto/CRUD/create-category.dto';
+import { CategoryWithBoardsResponse } from './dto/category-specific/category-with-boards.dto';
+import { BoardPurpose } from '@/boards/entities/board.entity';
+import { plainToClass } from 'class-transformer';
+import { CategoryBoardGroup } from './dto/category-specific/category-board-group.dto';
+import { CategoryBoardSummary } from './dto/category-specific/category-board-summary.dto';
 
 @Injectable()
 export class CategoriesService {
@@ -133,5 +138,39 @@ export class CategoriesService {
     if (!category) throw new NotFoundException('Category not found');
 
     return category;
+  }
+
+  async getCategoriesWithBoards(): Promise<CategoryWithBoardsResponse[]> {
+    const categories = await this.categoryRepository.find({
+      relations: ['boards'],
+    });
+
+    return categories.map((category) => {
+      const boardGroups = Object.values(BoardPurpose).map((purpose) => {
+        const boards = category.boards
+          .filter((board) => board.type === purpose)
+          .map((board) =>
+            plainToClass(CategoryBoardSummary, {
+              id: board.id,
+              slug: board.slug,
+              name: board.name,
+            }),
+          );
+
+        const boardGroup = plainToClass(CategoryBoardGroup, {
+          purpose,
+          boards,
+        });
+
+        return boardGroup;
+      });
+
+      const dto = plainToClass(CategoryWithBoardsResponse, {
+        name: category.name,
+        boardGroups,
+      });
+
+      return dto;
+    });
   }
 }

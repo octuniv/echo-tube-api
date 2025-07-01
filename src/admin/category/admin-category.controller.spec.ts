@@ -1,12 +1,15 @@
 // src/admin/category/admin-category.controller.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
-import { ExecutionContext, INestApplication } from '@nestjs/common';
+import {
+  ExecutionContext,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
 import * as request from 'supertest';
 import { AdminCategoryController } from '@/admin/category/admin-category.controller';
 import { CategoriesService } from '@/categories/categories.service';
 import { CreateCategoryDto } from '@/categories/dto/CRUD/create-category.dto';
 import { UpdateCategoryDto } from '@/categories/dto/CRUD/update-category.dto';
-import { CategoryResponseDto } from '@/categories/dto/list/category-response.dto';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { Category } from '@/categories/entities/category.entity';
@@ -16,10 +19,10 @@ import {
 } from '@/categories/factories/category.factory';
 import { createBoard } from '@/boards/factories/board.factory';
 import { CategoryDetailsResponseDto } from '@/categories/dto/detail/category-details-response.dto';
+import { createMock } from '@golevelup/ts-jest';
 
 describe('AdminCategoryController', () => {
   let app: INestApplication;
-  //   let controller: AdminCategoryController;
   let categoriesService: CategoriesService;
 
   const mockCategory: Category = createCategory({
@@ -28,6 +31,21 @@ describe('AdminCategoryController', () => {
     slugs: [createCategorySlug({ slug: 'test' })],
     boards: [createBoard({ id: 100 })],
   });
+
+  const mockCategories = [
+    createCategory({
+      name: '공지사항',
+      slugs: ['announcements', 'notices'].map((slug) =>
+        createCategorySlug({ slug }),
+      ),
+    }),
+    createCategory({
+      name: '커뮤니티',
+      slugs: ['free', 'humor', 'qna'].map((slug) =>
+        createCategorySlug({ slug }),
+      ),
+    }),
+  ];
 
   const mockCategoryDto: CategoryDetailsResponseDto = {
     id: 1,
@@ -42,13 +60,16 @@ describe('AdminCategoryController', () => {
       providers: [
         {
           provide: CategoriesService,
-          useValue: {
-            getAllCategoriesWithSlugs: jest.fn(),
-            create: jest.fn(),
-            findOne: jest.fn(),
-            update: jest.fn(),
-            remove: jest.fn(),
-          },
+          useValue: createMock<CategoriesService>({
+            listAllCategoriesWithSlugs: jest
+              .fn()
+              .mockResolvedValue(mockCategories),
+            isSlugUsedInOtherCategory: jest.fn(),
+            create: jest.fn().mockResolvedValue(mockCategoryDto),
+            update: jest.fn().mockResolvedValue(mockCategoryDto),
+            remove: jest.fn().mockResolvedValue(undefined),
+            findOne: jest.fn().mockResolvedValue(mockCategory),
+          }),
         },
       ],
     })
@@ -63,24 +84,61 @@ describe('AdminCategoryController', () => {
       .compile();
 
     app = module.createNestApplication();
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
 
-    // controller = module.get<AdminCategoryController>(AdminCategoryController);
     categoriesService = module.get<CategoriesService>(CategoriesService);
   });
 
   describe('GET /admin/categories', () => {
     it('should return list of categories', async () => {
-      const mockResponse = [
-        { name: 'Test', allowedSlugs: ['test'] },
-      ] satisfies CategoryResponseDto[];
-      jest
-        .spyOn(categoriesService, 'getAllCategoriesWithSlugs')
-        .mockResolvedValue(mockResponse as any);
-
       const res = await request(app.getHttpServer()).get('/admin/categories');
       expect(res.status).toBe(200);
-      expect(res.body).toEqual(mockResponse);
+      expect(res.body).toEqual(mockCategories);
+      expect(categoriesService.listAllCategoriesWithSlugs).toHaveBeenCalled();
+    });
+  });
+
+  describe('GET /admin/categories/:id/validate-slug', () => {
+    const categoryId = 1;
+    const mockSlug = 'test-slug';
+
+    it('should return { isUsedInOtherCategory: false } if slug is not used', async () => {
+      (
+        categoriesService.isSlugUsedInOtherCategory as jest.Mock
+      ).mockResolvedValue(false);
+      const res = await request(app.getHttpServer()).get(
+        `/admin/categories/${categoryId}/validate-slug?slug=${mockSlug}`,
+      );
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ isUsedInOtherCategory: false });
+    });
+
+    it('should return { isUsedInOtherCategory: true } if slug is used in other category', async () => {
+      (
+        categoriesService.isSlugUsedInOtherCategory as jest.Mock
+      ).mockResolvedValue(true);
+      const res = await request(app.getHttpServer()).get(
+        `/admin/categories/${categoryId}/validate-slug?slug=${mockSlug}`,
+      );
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ isUsedInOtherCategory: true });
+    });
+
+    it('should return 400 if slug is empty', async () => {
+      const res = await request(app.getHttpServer()).get(
+        `/admin/categories/${categoryId}/validate-slug?slug=`,
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 400 if slug is missing', async () => {
+      const res = await request(app.getHttpServer()).get(
+        `/admin/categories/${categoryId}/validate-slug`,
+      );
+      expect(res.status).toBe(400);
     });
   });
 
@@ -90,9 +148,6 @@ describe('AdminCategoryController', () => {
         name: 'New',
         allowedSlugs: ['new'],
       } satisfies CreateCategoryDto;
-      jest
-        .spyOn(categoriesService, 'create')
-        .mockResolvedValue(mockCategoryDto);
 
       const res = await request(app.getHttpServer())
         .post('/admin/categories')
@@ -100,16 +155,16 @@ describe('AdminCategoryController', () => {
         .expect(201);
 
       expect(res.body).toEqual(mockCategoryDto);
+      expect(categoriesService.create).toHaveBeenCalledWith(dto);
     });
   });
 
   describe('GET /admin/categories/:id', () => {
     it('should return category details', async () => {
-      jest.spyOn(categoriesService, 'findOne').mockResolvedValue(mockCategory);
-
       const res = await request(app.getHttpServer()).get('/admin/categories/1');
       expect(res.status).toBe(200);
       expect(res.body).toEqual(mockCategoryDto);
+      expect(categoriesService.findOne).toHaveBeenCalledWith(1);
     });
   });
 
@@ -118,9 +173,6 @@ describe('AdminCategoryController', () => {
       const dto: UpdateCategoryDto = {
         name: 'Updated',
       } satisfies UpdateCategoryDto;
-      jest
-        .spyOn(categoriesService, 'update')
-        .mockResolvedValue(mockCategoryDto);
 
       const res = await request(app.getHttpServer())
         .patch('/admin/categories/1')
@@ -128,17 +180,17 @@ describe('AdminCategoryController', () => {
         .expect(200);
 
       expect(res.body).toEqual(mockCategoryDto);
+      expect(categoriesService.update).toHaveBeenCalledWith(1, dto);
     });
   });
 
   describe('DELETE /admin/categories/:id', () => {
     it('should delete category', async () => {
-      jest.spyOn(categoriesService, 'remove').mockResolvedValue(undefined);
-
       const res = await request(app.getHttpServer()).delete(
         '/admin/categories/1',
       );
       expect(res.status).toBe(200);
+      expect(categoriesService.remove).toHaveBeenCalledWith(1);
     });
   });
 });

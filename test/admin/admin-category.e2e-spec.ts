@@ -25,7 +25,10 @@ describe('User - /users (e2e)', () => {
   let adminToken: string;
   let nonAdminToken: string;
   let categoryId: number;
+
   const TEST_CATEGORY_NAME = 'TEST_CATEGORY_FOR_E2E';
+  const VALID_SLUG = 'valid-slug';
+  const DUPLICATE_SLUG = 'duplicate-slug';
 
   beforeAll(async () => {
     const testApp = await setupTestApp();
@@ -54,18 +57,18 @@ describe('User - /users (e2e)', () => {
   });
 
   describe('Authenticaton/Authorization Test', () => {
-    it('should return 401 if non-login user access this entry.', async () => {
+    it('should return 401 if non-login user accesses endpoint.', async () => {
       return request(app.getHttpServer()).get('/admin/categories').expect(401);
     });
 
-    it('should return 403 if non-admin user access this entry.', async () => {
+    it('should return 403 if non-admin user accesses endpoint.', async () => {
       return request(app.getHttpServer())
         .get('/admin/categories')
         .set('Authorization', `Bearer ${nonAdminToken}`)
         .expect(403);
     });
 
-    it('should return 200 if admin access this entry.', async () => {
+    it('should return 200 if admin accesses endpoint.', async () => {
       return request(app.getHttpServer())
         .get('/admin/categories')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -75,36 +78,100 @@ describe('User - /users (e2e)', () => {
 
   describe('POST /admin/categories', () => {
     it('should create category', async () => {
+      const dto: CreateCategoryDto = {
+        name: TEST_CATEGORY_NAME,
+        allowedSlugs: [VALID_SLUG],
+      };
+
       return request(app.getHttpServer())
         .post('/admin/categories')
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({
-          name: TEST_CATEGORY_NAME,
-          allowedSlugs: ['tech'],
-        } satisfies CreateCategoryDto)
+        .send(dto)
         .expect(201)
         .then((res) => {
           categoryId = res.body.id;
           expect(res.body.name).toBe(TEST_CATEGORY_NAME);
-          expect(res.body.allowedSlugs).toEqual(['tech']);
+          expect(res.body.allowedSlugs).toEqual([VALID_SLUG]);
         });
+    });
+
+    it('should return 400 if duplicate slug exists', async () => {
+      const dto: CreateCategoryDto = {
+        name: 'Duplicate Category',
+        allowedSlugs: [VALID_SLUG],
+      };
+
+      await request(app.getHttpServer())
+        .post('/admin/categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(400);
+    });
+
+    it('should return 400 if allowedSlugs is empty', async () => {
+      const dto: CreateCategoryDto = {
+        name: 'Empty Slug Category',
+        allowedSlugs: [],
+      };
+
+      await request(app.getHttpServer())
+        .post('/admin/categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(400);
+    });
+  });
+
+  describe('GET /admin/categories/:id/validate-slug', () => {
+    it('should return { isUsedInOtherCategory: false } if slug does not exist', async () => {
+      await request(app.getHttpServer())
+        .get(`/admin/categories/${categoryId}/validate-slug?slug=new-slug`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200)
+        .expect({ isUsedInOtherCategory: false });
+    });
+
+    it('should return { isUsedInOtherCategory: false } if slug is used in same category', async () => {
+      await request(app.getHttpServer())
+        .get(`/admin/categories/${categoryId}/validate-slug?slug=${VALID_SLUG}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200)
+        .expect({ isUsedInOtherCategory: false });
+    });
+
+    it('should return { isUsedInOtherCategory: true } if slug is used in other category', async () => {
+      if (categoryId === 1) return;
+
+      const otherCategoryId = categoryId - 1;
+      await request(app.getHttpServer())
+        .get(
+          `/admin/categories/${otherCategoryId}/validate-slug?slug=${VALID_SLUG}`,
+        )
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200)
+        .expect({ isUsedInOtherCategory: true });
+    });
+
+    it('should return 400 if slug is missing', async () => {
+      await request(app.getHttpServer())
+        .get(`/admin/categories/${categoryId}/validate-slug`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(400);
     });
   });
 
   describe('GET /admin/categories', () => {
     it('should return all categories', async () => {
-      return request(app.getHttpServer())
+      const res = await request(app.getHttpServer())
         .get('/admin/categories')
         .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200)
-        .then((res) => {
-          expect(Array.isArray(res.body)).toBe(true);
-          const found = res.body.find(
-            (cat: any) => cat.name === TEST_CATEGORY_NAME,
-          );
-          expect(found).toBeDefined();
-          expect(found.allowedSlugs).toEqual(['tech']);
-        });
+        .expect(200);
+
+      const found = res.body.find(
+        (cat: any) => cat.name === TEST_CATEGORY_NAME,
+      );
+      expect(found).toBeDefined();
+      expect(found.allowedSlugs).toEqual([VALID_SLUG]);
     });
   });
 
@@ -122,15 +189,56 @@ describe('User - /users (e2e)', () => {
   });
 
   describe('PATCH /admin/categories/:id', () => {
-    it('should update category name', async () => {
-      return request(app.getHttpServer())
+    it('should update category successfully', async () => {
+      const dto: UpdateCategoryDto = {
+        name: 'Updated Category',
+        allowedSlugs: [VALID_SLUG, 'new-slug'],
+      };
+
+      await request(app.getHttpServer())
         .patch(`/admin/categories/${categoryId}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ name: 'Updated Tech' } satisfies UpdateCategoryDto)
+        .send(dto)
         .expect(200)
         .then((res) => {
-          expect(res.body.name).toBe('Updated Tech');
+          expect(res.body.name).toBe('Updated Category');
+          expect(res.body.allowedSlugs).toContain(VALID_SLUG);
+          expect(res.body.allowedSlugs).toContain('new-slug');
         });
+    });
+
+    it('should return 400 if duplicate slug exists in other category', async () => {
+      const createDto: CreateCategoryDto = {
+        name: 'Another Category',
+        allowedSlugs: [DUPLICATE_SLUG],
+      };
+      await request(app.getHttpServer())
+        .post('/admin/categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(createDto)
+        .expect(201);
+
+      const updateDto: UpdateCategoryDto = {
+        allowedSlugs: [DUPLICATE_SLUG],
+      };
+
+      await request(app.getHttpServer())
+        .patch(`/admin/categories/${categoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(updateDto)
+        .expect(400);
+    });
+
+    it('should return 400 if allowedSlugs is empty', async () => {
+      const dto: UpdateCategoryDto = {
+        allowedSlugs: [],
+      };
+
+      await request(app.getHttpServer())
+        .patch(`/admin/categories/${categoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(400);
     });
   });
 

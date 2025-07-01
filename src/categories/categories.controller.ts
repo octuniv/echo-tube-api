@@ -17,8 +17,8 @@ export class CategoriesController {
     description: 'Successful response',
     type: [CategoryResponseDto],
   })
-  async getAllCategories(): Promise<CategoryResponseDto[]> {
-    return this.categoriesService.getAllCategoriesWithSlugs();
+  async listAllCategoriesWithSlugs(): Promise<CategoryResponseDto[]> {
+    return this.categoriesService.listAllCategoriesWithSlugs();
   }
 
   @Get('with-boards')

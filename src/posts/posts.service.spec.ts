@@ -106,17 +106,18 @@ describe('PostsService', () => {
       });
 
       jest.spyOn(boardsService, 'findOneBySlug').mockResolvedValue(board);
-      jest.spyOn(categoriesService, 'validateSlug').mockResolvedValue();
+      jest
+        .spyOn(categoriesService, 'verifySlugBelongsToCategory')
+        .mockResolvedValue();
       postRepository.create = jest.fn().mockReturnValue(savedPost);
       postRepository.save = jest.fn().mockResolvedValueOnce(savedPost);
 
       const result = await service.create(createPostDto, user);
 
       expect(boardsService.findOneBySlug).toHaveBeenCalledWith(boardSlug);
-      expect(categoriesService.validateSlug).toHaveBeenCalledWith(
-        board.category.name,
-        board.slug,
-      );
+      expect(
+        categoriesService.verifySlugBelongsToCategory,
+      ).toHaveBeenCalledWith(board.category.name, board.slug);
       expect(postRepository.create).toHaveBeenCalledWith({
         title: createPostDto.title,
         content: createPostDto.content,

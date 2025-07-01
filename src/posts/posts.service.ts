@@ -56,7 +56,10 @@ export class PostsService {
   ): Promise<PostResponseDto> {
     const { title, content, boardSlug, videoUrl } = createPostDto;
     const board = await this.boardsService.findOneBySlug(boardSlug);
-    await this.categoriesService.validateSlug(board.category.name, board.slug);
+    await this.categoriesService.verifySlugBelongsToCategory(
+      board.category.name,
+      board.slug,
+    );
 
     if (!this.checkRole(user.role, board.requiredRole)) {
       throw new UnauthorizedException('해당 게시판에 글쓰기 권한이 없습니다');

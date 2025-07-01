@@ -7,6 +7,7 @@ import {
   Param,
   Body,
   UseGuards,
+  ParseIntPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -96,9 +97,9 @@ export class AdminCategoryController {
     description: '카테고리를 찾을 수 없음',
   })
   async getCategoryDetails(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
   ): Promise<CategoryDetailsResponseDto> {
-    const category = await this.categoriesService.findOne(+id);
+    const category = await this.categoriesService.findOne(id);
     return CategoryDetailsResponseDto.fromEntity(category);
   }
 
@@ -130,10 +131,10 @@ export class AdminCategoryController {
     description: '성공적으로 업데이트됨',
   })
   async updateCategory(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateCategoryDto,
   ): Promise<CategoryDetailsResponseDto> {
-    return this.categoriesService.update(+id, dto);
+    return this.categoriesService.update(id, dto);
   }
 
   @Delete(':id')
@@ -156,7 +157,7 @@ export class AdminCategoryController {
     status: 404,
     description: '카테고리를 찾을 수 없음',
   })
-  async deleteCategory(@Param('id') id: string): Promise<void> {
-    return this.categoriesService.remove(+id);
+  async deleteCategory(@Param('id', ParseIntPipe) id: number): Promise<void> {
+    return this.categoriesService.remove(id);
   }
 }

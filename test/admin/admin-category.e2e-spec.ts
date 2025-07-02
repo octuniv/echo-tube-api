@@ -200,6 +200,7 @@ describe('User - /users (e2e)', () => {
         (cat: any) => cat.name === TEST_CATEGORY_NAME,
       );
       expect(found).toBeDefined();
+      expect(found.id).toEqual(categoryId);
       expect(found.allowedSlugs).toEqual([VALID_SLUG]);
     });
   });

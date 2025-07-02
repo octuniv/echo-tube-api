@@ -36,21 +36,6 @@ describe('AdminCategoryController', () => {
     boards: [createBoard({ id: 100 })],
   });
 
-  const mockCategories = [
-    createCategory({
-      name: '공지사항',
-      slugs: ['announcements', 'notices'].map((slug) =>
-        createCategorySlug({ slug }),
-      ),
-    }),
-    createCategory({
-      name: '커뮤니티',
-      slugs: ['free', 'humor', 'qna'].map((slug) =>
-        createCategorySlug({ slug }),
-      ),
-    }),
-  ];
-
   const mockCategoryDto: CategoryDetailsResponseDto = {
     id: 1,
     name: 'Test Category',
@@ -65,9 +50,7 @@ describe('AdminCategoryController', () => {
         {
           provide: CategoriesService,
           useValue: createMock<CategoriesService>({
-            listAllCategoriesWithSlugs: jest
-              .fn()
-              .mockResolvedValue(mockCategories),
+            getAllCategoriesForAdmin: jest.fn(),
             isSlugUsedInOtherCategory: jest.fn(),
             create: jest.fn().mockResolvedValue(mockCategoryDto),
             update: jest.fn().mockResolvedValue(mockCategoryDto),
@@ -97,11 +80,80 @@ describe('AdminCategoryController', () => {
   });
 
   describe('GET /admin/categories', () => {
-    it('should return list of categories', async () => {
-      const res = await request(app.getHttpServer()).get('/admin/categories');
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual(mockCategories);
-      expect(categoriesService.listAllCategoriesWithSlugs).toHaveBeenCalled();
+    const mockCategory = createCategory({
+      id: 1,
+      name: 'Technology',
+      slugs: ['tech', 'innovation'].map((slug) => createCategorySlug({ slug })),
+      boards: [
+        createBoard({ id: 101, slug: 'ai', name: 'AI' }),
+        createBoard({ id: 102, slug: 'data', name: 'Data Science' }),
+      ],
+    });
+
+    const mockEmptyCategory = createCategory({
+      id: 2,
+      name: 'Sports',
+      slugs: ['sports'].map((slug) => createCategorySlug({ slug })),
+      boards: [],
+    });
+
+    const mockDtoResponse = [
+      CategoryDetailsResponseDto.fromEntity(mockCategory),
+      CategoryDetailsResponseDto.fromEntity(mockEmptyCategory),
+    ];
+
+    beforeEach(() => {
+      (categoriesService.getAllCategoriesForAdmin as jest.Mock)
+        .mockReset()
+        .mockResolvedValue(mockDtoResponse);
+    });
+
+    it('200 OK - 모든 카테고리를 정상적으로 조회하고 DTO로 반환해야 함', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/categories')
+        .expect(200);
+
+      expect(res.body).toEqual([
+        {
+          id: 1,
+          name: 'Technology',
+          allowedSlugs: ['tech', 'innovation'],
+          boardIds: [101, 102],
+        },
+        {
+          id: 2,
+          name: 'Sports',
+          allowedSlugs: ['sports'],
+          boardIds: [],
+        },
+      ]);
+      expect(categoriesService.getAllCategoriesForAdmin).toHaveBeenCalled();
+    });
+
+    it('200 OK - 카테고리가 없는 경우 빈 배열을 반환해야 함', async () => {
+      (
+        categoriesService.getAllCategoriesForAdmin as jest.Mock
+      ).mockResolvedValueOnce([]);
+
+      const res = await request(app.getHttpServer())
+        .get('/admin/categories')
+        .expect(200);
+
+      expect(res.body).toEqual([]);
+      expect(categoriesService.getAllCategoriesForAdmin).toHaveBeenCalled();
+    });
+
+    it('500 Error - 서비스 계층에서 예외 발생 시 500 응답을 반환해야 함', async () => {
+      (
+        categoriesService.getAllCategoriesForAdmin as jest.Mock
+      ).mockRejectedValueOnce(new Error('Database error'));
+
+      const res = await request(app.getHttpServer())
+        .get('/admin/categories')
+        .expect(500);
+
+      expect(res.body).toHaveProperty('statusCode', 500);
+      expect(res.body).toHaveProperty('message', 'Internal server error');
     });
   });
 

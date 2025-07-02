@@ -24,7 +24,6 @@ import { Roles } from '@/auth/roles.decorator';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { RolesGuard } from '@/auth/roles.guard';
 import { CategoriesService } from '@/categories/categories.service';
-import { CategoryResponseDto } from '@/categories/dto/list/category-response.dto';
 import { CreateCategoryDto } from '@/categories/dto/CRUD/create-category.dto';
 import { UpdateCategoryDto } from '@/categories/dto/CRUD/update-category.dto';
 import { CategoryDetailsResponseDto } from '@/categories/dto/detail/category-details-response.dto';
@@ -47,11 +46,11 @@ export class AdminCategoryController {
   })
   @ApiResponse({
     status: 200,
-    type: [CategoryResponseDto],
+    type: [CategoryDetailsResponseDto],
     description: '성공적으로 조회됨',
   })
-  async listAllCategoriesWithSlugs(): Promise<CategoryResponseDto[]> {
-    return this.categoriesService.listAllCategoriesWithSlugs();
+  async getAllCategoriesForAdmin(): Promise<CategoryDetailsResponseDto[]> {
+    return this.categoriesService.getAllCategoriesForAdmin();
   }
 
   @Post()

@@ -111,6 +111,60 @@ describe('CategoriesService', () => {
     });
   });
 
+  describe('getAllCategoriesForAdmin', () => {
+    const mockCategory = createCategory({
+      id: 1,
+      name: 'Technology',
+      slugs: ['tech', 'innovation'].map((slug) => createCategorySlug({ slug })),
+      boards: [
+        createBoard({ id: 101, slug: 'ai', name: 'AI' }),
+        createBoard({ id: 102, slug: 'data', name: 'Data Science' }),
+      ],
+    });
+
+    const mockEmptyCategory = createCategory({
+      id: 2,
+      name: 'Sports',
+      slugs: ['sports'].map((slug) => createCategorySlug({ slug })),
+      boards: [], // 빈 보드 테스트
+    });
+
+    it('모든 카테고리의 상세 정보를 관리자용 DTO로 반환해야 함', async () => {
+      categoryRepository.find = jest
+        .fn()
+        .mockResolvedValue([mockCategory, mockEmptyCategory]);
+
+      const result = await service.getAllCategoriesForAdmin();
+
+      expect(result).toEqual([
+        {
+          id: 1,
+          name: 'Technology',
+          allowedSlugs: ['tech', 'innovation'],
+          boardIds: [101, 102],
+        },
+        {
+          id: 2,
+          name: 'Sports',
+          allowedSlugs: ['sports'],
+          boardIds: [],
+        },
+      ]);
+      expect(categoryRepository.find).toHaveBeenCalledWith({
+        relations: ['slugs', 'boards'],
+      });
+    });
+
+    it('카테고리가 없는 경우 빈 배열을 반환해야 함', async () => {
+      categoryRepository.find = jest.fn().mockResolvedValue([]);
+
+      const result = await service.getAllCategoriesForAdmin();
+
+      expect(result).toEqual([]);
+      expect(categoryRepository.find).toHaveBeenCalled();
+    });
+  });
+
   describe('verifySlugBelongsToCategory', () => {
     it('유효한 슬러그인 경우 정상 처리', async () => {
       categoryRepository.findOne = jest.fn().mockResolvedValue(mockCategory);

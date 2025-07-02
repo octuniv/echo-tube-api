@@ -86,6 +86,16 @@ export class CategoriesService {
     }));
   }
 
+  async getAllCategoriesForAdmin(): Promise<CategoryDetailsResponseDto[]> {
+    const categories = await this.categoryRepository.find({
+      relations: ['slugs', 'boards'],
+    });
+
+    return categories.map((category) =>
+      CategoryDetailsResponseDto.fromEntity(category),
+    );
+  }
+
   @Transactional()
   async create(dto: CreateCategoryDto): Promise<CategoryDetailsResponseDto> {
     if (dto.allowedSlugs.length === 0) {

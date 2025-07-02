@@ -29,6 +29,7 @@ import { CreateCategoryDto } from '@/categories/dto/CRUD/create-category.dto';
 import { UpdateCategoryDto } from '@/categories/dto/CRUD/update-category.dto';
 import { CategoryDetailsResponseDto } from '@/categories/dto/detail/category-details-response.dto';
 import { ValidateSlugQueryDto } from './dto/query/validate-slug.query.dto';
+import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 
 @ApiTags('admin-categories')
 @Controller('admin/categories')
@@ -62,10 +63,7 @@ export class AdminCategoryController {
     type: CreateCategoryDto,
     examples: {
       default: {
-        value: {
-          name: 'Technology',
-          allowedSlugs: ['tech', 'innovation'],
-        },
+        value: { name: 'Technology', allowedSlugs: ['tech', 'innovation'] },
       },
     },
   })
@@ -76,12 +74,33 @@ export class AdminCategoryController {
   })
   @ApiResponse({
     status: 400,
-    description: '유효성 검증 실패',
-    schema: {
-      example: {
-        error: 'DUPLICATE_SLUG',
-        message: "'tech'는 이미 사용 중입니다",
+    description: '유효성 검증 실패 (슬러그 중복 또는 슬러그 누락)',
+    examples: {
+      duplicateSlug: {
+        summary: '슬러그 중복',
+        value: {
+          statusCode: 400,
+          message: [CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS(['tech'])],
+          error: 'Bad Request',
+        },
       },
+      emptySlugs: {
+        summary: '슬러그 누락',
+        value: {
+          statusCode: 400,
+          message: [CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED],
+          error: 'Bad Request',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    description: '카테고리 이름 중복',
+    example: {
+      statusCode: 409,
+      message: '이미 사용 중인 카테고리 이름입니다.',
+      error: 'Conflict',
     },
   })
   async createCategory(
@@ -109,6 +128,13 @@ export class AdminCategoryController {
   @ApiResponse({
     status: 404,
     description: '카테고리를 찾을 수 없음',
+    schema: {
+      example: {
+        statusCode: 404,
+        message: '카테고리를 찾을 수 없습니다.',
+        error: 'Not Found',
+      },
+    },
   })
   async getCategoryDetails(
     @Param('id', ParseIntPipe) id: number,
@@ -140,6 +166,17 @@ export class AdminCategoryController {
       example: { isUsedInOtherCategory: false },
     },
     description: '성공',
+  })
+  @ApiResponse({
+    status: 400,
+    description: '유효성 검증 실패 (슬러그 누락)',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: ['slug should not be empty'],
+        error: 'Bad Request',
+      },
+    },
   })
   async validateSlugInOtherCategory(
     @Param('id', ParseIntPipe) categoryId: number,
@@ -181,11 +218,33 @@ export class AdminCategoryController {
   })
   @ApiResponse({
     status: 400,
-    description: '유효성 검증 실패',
-    schema: {
-      example: {
-        message: '이미 사용 중인 슬러그가 있습니다: tech',
+    description: '유효성 검증 실패 (슬러그 중복 또는 슬러그 누락)',
+    examples: {
+      duplicateSlug: {
+        summary: '슬러그 중복',
+        value: {
+          statusCode: 400,
+          message: [CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS(['tech'])],
+          error: 'Bad Request',
+        },
       },
+      emptySlugs: {
+        summary: '슬러그 누락',
+        value: {
+          statusCode: 400,
+          message: [CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED],
+          error: 'Bad Request',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    description: '카테고리 이름 중복',
+    example: {
+      statusCode: 409,
+      message: '이미 사용 중인 카테고리 이름입니다.',
+      error: 'Conflict',
     },
   })
   @ApiResponse({
@@ -218,6 +277,13 @@ export class AdminCategoryController {
   @ApiResponse({
     status: 404,
     description: '카테고리를 찾을 수 없음',
+    schema: {
+      example: {
+        statusCode: 404,
+        message: '카테고리를 찾을 수 없습니다.',
+        error: 'Not Found',
+      },
+    },
   })
   async deleteCategory(@Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.categoriesService.remove(id);

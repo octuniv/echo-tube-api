@@ -4,6 +4,9 @@ import {
   ExecutionContext,
   INestApplication,
   ValidationPipe,
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
 } from '@nestjs/common';
 import * as request from 'supertest';
 import { AdminCategoryController } from '@/admin/category/admin-category.controller';
@@ -20,6 +23,7 @@ import {
 import { createBoard } from '@/boards/factories/board.factory';
 import { CategoryDetailsResponseDto } from '@/categories/dto/detail/category-details-response.dto';
 import { createMock } from '@golevelup/ts-jest';
+import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 
 describe('AdminCategoryController', () => {
   let app: INestApplication;
@@ -157,6 +161,48 @@ describe('AdminCategoryController', () => {
       expect(res.body).toEqual(mockCategoryDto);
       expect(categoriesService.create).toHaveBeenCalledWith(dto);
     });
+
+    it('should return 400 if allowedSlugs is empty', async () => {
+      const dto: CreateCategoryDto = {
+        name: 'Empty Slug Category',
+        allowedSlugs: [],
+      };
+
+      jest.spyOn(categoriesService, 'create').mockImplementationOnce(() => {
+        throw new BadRequestException(CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED);
+      });
+
+      const res = await request(app.getHttpServer())
+        .post('/admin/categories')
+        .send(dto)
+        .expect(400);
+
+      expect(res.body.message).toEqual([
+        CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED,
+      ]);
+    });
+
+    it('should return 409 if category name already exists', async () => {
+      const dto: CreateCategoryDto = {
+        name: 'Existing Category',
+        allowedSlugs: ['existing'],
+      };
+
+      jest.spyOn(categoriesService, 'create').mockImplementationOnce(() => {
+        throw new ConflictException(
+          CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
+        );
+      });
+
+      const res = await request(app.getHttpServer())
+        .post('/admin/categories')
+        .send(dto)
+        .expect(409);
+
+      expect(res.body.message).toEqual(
+        CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
+      );
+    });
   });
 
   describe('GET /admin/categories/:id', () => {
@@ -165,6 +211,20 @@ describe('AdminCategoryController', () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual(mockCategoryDto);
       expect(categoriesService.findOne).toHaveBeenCalledWith(1);
+    });
+
+    it('should return 404 if category not found', async () => {
+      jest.spyOn(categoriesService, 'findOne').mockImplementationOnce(() => {
+        throw new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND);
+      });
+
+      const res = await request(app.getHttpServer()).get(
+        '/admin/categories/999',
+      );
+      expect(res.status).toBe(404);
+      expect(res.body.message).toEqual(
+        CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND,
+      );
     });
   });
 
@@ -182,6 +242,60 @@ describe('AdminCategoryController', () => {
       expect(res.body).toEqual(mockCategoryDto);
       expect(categoriesService.update).toHaveBeenCalledWith(1, dto);
     });
+
+    it('should return 400 if allowedSlugs is empty', async () => {
+      const dto: UpdateCategoryDto = {
+        allowedSlugs: [],
+      };
+
+      jest.spyOn(categoriesService, 'update').mockImplementationOnce(() => {
+        throw new BadRequestException(CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED);
+      });
+
+      const res = await request(app.getHttpServer())
+        .patch('/admin/categories/1')
+        .send(dto)
+        .expect(400);
+
+      expect(res.body.message).toEqual([
+        CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED,
+      ]);
+    });
+
+    it('should return 409 if category name already exists', async () => {
+      const dto: UpdateCategoryDto = {
+        name: 'Existing Category',
+      };
+
+      jest.spyOn(categoriesService, 'update').mockImplementationOnce(() => {
+        throw new ConflictException(
+          CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
+        );
+      });
+
+      const res = await request(app.getHttpServer())
+        .patch('/admin/categories/1')
+        .send(dto)
+        .expect(409);
+
+      expect(res.body.message).toEqual(
+        CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
+      );
+    });
+
+    it('should return 404 if category not found', async () => {
+      jest.spyOn(categoriesService, 'update').mockImplementationOnce(() => {
+        throw new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND);
+      });
+
+      const res = await request(app.getHttpServer()).patch(
+        '/admin/categories/999',
+      );
+      expect(res.status).toBe(404);
+      expect(res.body.message).toEqual(
+        CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND,
+      );
+    });
   });
 
   describe('DELETE /admin/categories/:id', () => {
@@ -191,6 +305,20 @@ describe('AdminCategoryController', () => {
       );
       expect(res.status).toBe(200);
       expect(categoriesService.remove).toHaveBeenCalledWith(1);
+    });
+
+    it('should return 404 if category not found', async () => {
+      jest.spyOn(categoriesService, 'remove').mockImplementationOnce(() => {
+        throw new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND);
+      });
+
+      const res = await request(app.getHttpServer()).delete(
+        '/admin/categories/999',
+      );
+      expect(res.status).toBe(404);
+      expect(res.body.message).toEqual(
+        CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND,
+      );
     });
   });
 });

@@ -9,7 +9,12 @@ import {
   createCategorySlug,
 } from './factories/category.factory';
 import { In, Not, Repository } from 'typeorm';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
+import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 import { CreateCategoryDto } from './dto/CRUD/create-category.dto';
 import { UpdateCategoryDto } from './dto/CRUD/update-category.dto';
 import { createBoard } from '@/boards/factories/board.factory';
@@ -116,6 +121,7 @@ describe('CategoriesService', () => {
     });
 
     it('유효하지 않은 슬러그인 경우 에러 발생', async () => {
+      const INVALID_SLUG = 'invalid-slug';
       const mockCategory = createCategory({
         name: mockCategoryName,
         slugs: mockSlugs.map((slug) => createCategorySlug({ slug })),
@@ -124,8 +130,13 @@ describe('CategoriesService', () => {
       categoryRepository.findOne = jest.fn().mockResolvedValue(mockCategory);
 
       await expect(
-        service.verifySlugBelongsToCategory(mockCategoryName, 'invalid-slug'),
-      ).rejects.toThrow(BadRequestException);
+        service.verifySlugBelongsToCategory(mockCategoryName, INVALID_SLUG),
+      ).rejects.toThrow(
+        new BadRequestException({
+          error: 'DUPLICATE_SLUG',
+          message: CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUG(INVALID_SLUG),
+        }),
+      );
     });
 
     it('존재하지 않는 카테고리인 경우 에러 발생', async () => {
@@ -196,13 +207,13 @@ describe('CategoriesService', () => {
       allowedSlugs: ['slug1', 'slug2'],
     };
 
-    it('동일한 이름의 카테고리가 존재하는 경우 BadRequestException을 던져야 함', async () => {
+    it('동일한 이름의 카테고리가 존재하는 경우 ConflictException을 던져야 함', async () => {
       const existingCategory = createCategory({ name: dto.name });
       categoryRepository.findOne = jest
         .fn()
         .mockResolvedValue(existingCategory);
 
-      await expect(service.create(dto)).rejects.toThrow(BadRequestException);
+      await expect(service.create(dto)).rejects.toThrow(ConflictException);
       expect(categoryRepository.findOne).toHaveBeenCalledWith({
         where: { name: dto.name },
       });
@@ -269,7 +280,7 @@ describe('CategoriesService', () => {
       };
 
       await expect(service.create(dtoWithEmptySlugs)).rejects.toThrow(
-        BadRequestException,
+        new BadRequestException(CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED),
       );
     });
   });
@@ -304,6 +315,7 @@ describe('CategoriesService', () => {
       categoryRepository.findOne = jest
         .fn()
         .mockResolvedValueOnce(currentCategory)
+        .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(updatedCategory);
 
       categorySlugRepository.find = jest.fn().mockResolvedValue([]);
@@ -360,6 +372,7 @@ describe('CategoriesService', () => {
       categoryRepository.findOne = jest
         .fn()
         .mockResolvedValueOnce(currentCategory)
+        .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(updatedCategory);
 
       categorySlugRepository.find = jest.fn().mockResolvedValue([]);
@@ -409,12 +422,17 @@ describe('CategoriesService', () => {
 
       categoryRepository.findOne = jest
         .fn()
-        .mockResolvedValueOnce(currentCategory);
+        .mockResolvedValueOnce(currentCategory)
+        .mockResolvedValueOnce(null);
       categorySlugRepository.find = jest
         .fn()
         .mockResolvedValue([duplicateSlug]);
 
-      await expect(service.update(1, dto)).rejects.toThrow(BadRequestException);
+      await expect(service.update(1, dto)).rejects.toThrow(
+        new BadRequestException(
+          CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS(['duplicate-slug']),
+        ),
+      );
       expect(categorySlugRepository.find).toHaveBeenCalledWith({
         where: {
           slug: In(dto.allowedSlugs),
@@ -439,7 +457,33 @@ describe('CategoriesService', () => {
         .fn()
         .mockResolvedValueOnce(currentCategory);
 
-      await expect(service.update(1, dto)).rejects.toThrow(BadRequestException);
+      await expect(service.update(1, dto)).rejects.toThrow(
+        new BadRequestException(CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED),
+      );
+    });
+
+    it('카테고리 이름이 이미 존재하는 경우 ConflictException 발생', async () => {
+      const dto: UpdateCategoryDto = {
+        name: 'Existing Category Name',
+      };
+
+      const currentCategory = createCategory({
+        id: 1,
+        name: 'Current Category',
+        slugs: [],
+      });
+
+      const existingCategory = createCategory({
+        id: 2,
+        name: 'Existing Category Name',
+      });
+
+      categoryRepository.findOne = jest
+        .fn()
+        .mockResolvedValueOnce(currentCategory)
+        .mockResolvedValueOnce(existingCategory);
+
+      await expect(service.update(1, dto)).rejects.toThrow(ConflictException);
     });
   });
 
@@ -456,6 +500,14 @@ describe('CategoriesService', () => {
 
       await service.remove(1);
       expect(categoryRepository.remove).toHaveBeenCalledWith(category);
+    });
+
+    it('카테고리가 존재하지 않는 경우 NotFoundException을 던져야 함', async () => {
+      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(null);
+
+      await expect(service.remove(999)).rejects.toThrow(
+        new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND),
+      );
     });
   });
 
@@ -478,6 +530,14 @@ describe('CategoriesService', () => {
 
       const result = await service.findOne(1);
       expect(result).toEqual(category);
+    });
+
+    it('카테고리가 존재하지 않는 경우 NotFoundException을 던져야 함', async () => {
+      jest.spyOn(categoryRepository, 'findOne').mockResolvedValue(null);
+
+      await expect(service.findOne(999)).rejects.toThrow(
+        new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND),
+      );
     });
   });
 

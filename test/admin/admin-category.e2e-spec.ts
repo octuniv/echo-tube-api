@@ -1,4 +1,5 @@
 import { LoginUserDto } from '@/auth/dto/login-user.dto';
+import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 import { INestApplication } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import * as request from 'supertest';
@@ -105,7 +106,12 @@ describe('User - /users (e2e)', () => {
         .post('/admin/categories')
         .set('Authorization', `Bearer ${adminToken}`)
         .send(dto)
-        .expect(400);
+        .expect(400)
+        .expect((res) => {
+          expect(res.body.message).toEqual(
+            CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUG(VALID_SLUG),
+          );
+        });
     });
 
     it('should return 400 if allowedSlugs is empty', async () => {
@@ -118,7 +124,30 @@ describe('User - /users (e2e)', () => {
         .post('/admin/categories')
         .set('Authorization', `Bearer ${adminToken}`)
         .send(dto)
-        .expect(400);
+        .expect(400)
+        .expect((res) => {
+          expect(res.body.message).toEqual([
+            CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED,
+          ]);
+        });
+    });
+
+    it('should throw 409 error if category name already exists', async () => {
+      const dto: CreateCategoryDto = {
+        name: TEST_CATEGORY_NAME,
+        allowedSlugs: ['some-other-slug'],
+      };
+
+      return request(app.getHttpServer())
+        .post('/admin/categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(409)
+        .expect((res) => {
+          expect(res.body.message).toEqual(
+            CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
+          );
+        });
     });
   });
 
@@ -186,6 +215,19 @@ describe('User - /users (e2e)', () => {
           expect(res.body.boardIds).toEqual([]);
         });
     });
+
+    it('should return 404 if category not found', async () => {
+      const nonExistId = 999;
+      return request(app.getHttpServer())
+        .get(`/admin/categories/${nonExistId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(404)
+        .expect((res) => {
+          expect(res.body.message).toEqual(
+            CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND,
+          );
+        });
+    });
   });
 
   describe('PATCH /admin/categories/:id', () => {
@@ -226,7 +268,12 @@ describe('User - /users (e2e)', () => {
         .patch(`/admin/categories/${categoryId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send(updateDto)
-        .expect(400);
+        .expect(400)
+        .expect((res) => {
+          expect(res.body.message).toEqual(
+            CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS([DUPLICATE_SLUG]),
+          );
+        });
     });
 
     it('should return 400 if allowedSlugs is empty', async () => {
@@ -238,7 +285,58 @@ describe('User - /users (e2e)', () => {
         .patch(`/admin/categories/${categoryId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send(dto)
-        .expect(400);
+        .expect(400)
+        .expect((res) => {
+          expect(res.body.message).toEqual([
+            CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED,
+          ]);
+        });
+    });
+
+    it('should return 404 if category not found', async () => {
+      const nonExistId = 999;
+      const dto: UpdateCategoryDto = {
+        name: 'Updated Category',
+      };
+
+      return request(app.getHttpServer())
+        .patch(`/admin/categories/${nonExistId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(404)
+        .expect((res) => {
+          expect(res.body.message).toEqual(
+            CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND,
+          );
+        });
+    });
+
+    it('should return 409 if category name already exists', async () => {
+      const anotherCategoryDto: CreateCategoryDto = {
+        name: 'Another Category For Patch Test',
+        allowedSlugs: ['another-slug-for-patch'],
+      };
+
+      await request(app.getHttpServer())
+        .post('/admin/categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(anotherCategoryDto)
+        .expect(201);
+
+      const dto: UpdateCategoryDto = {
+        name: anotherCategoryDto.name,
+      };
+
+      return request(app.getHttpServer())
+        .patch(`/admin/categories/${categoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(409)
+        .expect((res) => {
+          expect(res.body.message).toEqual(
+            CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
+          );
+        });
     });
   });
 
@@ -248,6 +346,19 @@ describe('User - /users (e2e)', () => {
         .delete(`/admin/categories/${categoryId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
+    });
+
+    it('should return 404 if category not found', async () => {
+      const nonExistId = 999;
+      return request(app.getHttpServer())
+        .delete(`/admin/categories/${nonExistId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(404)
+        .expect((res) => {
+          expect(res.body.message).toEqual(
+            CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND,
+          );
+        });
     });
   });
 });

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -17,6 +18,7 @@ import { plainToClass } from 'class-transformer';
 import { CategoryBoardGroup } from './dto/category-specific/category-board-group.dto';
 import { CategoryBoardSummary } from './dto/category-specific/category-board-summary.dto';
 import { Transactional } from 'typeorm-transactional';
+import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 
 @Injectable()
 export class CategoriesService {
@@ -52,14 +54,14 @@ export class CategoriesService {
     });
 
     if (!category) {
-      throw new NotFoundException('카테고리를 찾을 수 없습니다');
+      throw new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND);
     }
 
     const isValid = category.slugs.some((s) => s.slug === slug);
     if (!isValid) {
       throw new BadRequestException({
         error: 'DUPLICATE_SLUG',
-        message: `'${slug}'는 이미 다른 카테고리에서 사용 중입니다.`,
+        message: CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUG(slug),
       });
     }
   }
@@ -87,7 +89,7 @@ export class CategoriesService {
   @Transactional()
   async create(dto: CreateCategoryDto): Promise<CategoryDetailsResponseDto> {
     if (dto.allowedSlugs.length === 0) {
-      throw new BadRequestException('최소 1개 이상의 슬러그가 필요합니다');
+      throw new BadRequestException(CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED);
     }
 
     const existingCategory = await this.categoryRepository.findOne({
@@ -95,7 +97,9 @@ export class CategoriesService {
     });
 
     if (existingCategory) {
-      throw new BadRequestException('이미 존재하는 카테고리 이름입니다.');
+      throw new ConflictException(
+        CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
+      );
     }
 
     const category = this.categoryRepository.create({ name: dto.name });
@@ -107,7 +111,7 @@ export class CategoriesService {
       });
       if (existingSlug) {
         throw new BadRequestException(
-          `Slug '${slug}'은(는) 이미 사용 중입니다.`,
+          CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUG(slug),
         );
       }
     }
@@ -138,15 +142,23 @@ export class CategoriesService {
       relations: ['slugs'],
     });
     if (!category)
-      throw new NotFoundException('찾는 카테고리가 존재하지 않습니다');
+      throw new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND);
 
     if (dto.name) {
+      const existingCategory = await this.categoryRepository.findOne({
+        where: { name: dto.name, id: Not(id) },
+      });
+      if (existingCategory) {
+        throw new ConflictException(
+          CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
+        );
+      }
       category.name = dto.name;
     }
 
     if (dto.allowedSlugs) {
       if (dto.allowedSlugs.length === 0) {
-        throw new BadRequestException('최소 1개 이상의 슬러그가 필요합니다');
+        throw new BadRequestException(CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED);
       }
 
       const existingSlugs = await this.categorySlugRepository.find({
@@ -159,7 +171,7 @@ export class CategoriesService {
       if (existingSlugs.length > 0) {
         const duplicateSlugs = existingSlugs.map((s) => s.slug);
         throw new BadRequestException(
-          `이미 사용 중인 슬러그가 있습니다: ${duplicateSlugs.join(', ')}`,
+          CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS(duplicateSlugs),
         );
       }
 
@@ -200,7 +212,7 @@ export class CategoriesService {
       relations: ['boards'],
     });
     if (!category)
-      throw new NotFoundException('찾는 카테고리가 존재하지 않습니다');
+      throw new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND);
 
     await this.categoryRepository.remove(category);
   }
@@ -211,7 +223,7 @@ export class CategoriesService {
       relations: ['slugs', 'boards'],
     });
     if (!category)
-      throw new NotFoundException('찾는 카테고리가 존재하지 않습니다');
+      throw new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND);
 
     return category;
   }

@@ -17,6 +17,7 @@ import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { AdminBoardResponseDto } from '@/boards/dto/admin/admin-board-response.dto';
+import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 
 const envFile = `.env.${process.env.NODE_ENV || 'production'}`;
 dotenv.config({ path: envFile });
@@ -287,7 +288,9 @@ describe('User - /users (e2e)', () => {
         .send(dtoWithWrongCategoryId)
         .expect(404)
         .then((res) => {
-          expect(res.body.message).toEqual('찾는 카테고리가 존재하지 않습니다');
+          expect(res.body.message).toEqual(
+            CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND,
+          );
         });
     });
 

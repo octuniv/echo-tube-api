@@ -9,7 +9,7 @@ import { In, Not, Repository } from 'typeorm';
 import { Category } from './entities/category.entity';
 import { CategorySlug } from './entities/category-slug.entity';
 import { CategoryResponseDto } from './dto/list/category-response.dto';
-import { CategoryDetailsResponseDto } from './dto/detail/category-details-response.dto';
+import { CategorySummaryResponseDto } from '../admin/category/dto/response/category-summary-response.dto';
 import { UpdateCategoryDto } from './dto/CRUD/update-category.dto';
 import { CreateCategoryDto } from './dto/CRUD/create-category.dto';
 import { CategoryWithBoardsResponse } from './dto/category-specific/category-with-boards.dto';
@@ -19,6 +19,7 @@ import { CategoryBoardGroup } from './dto/category-specific/category-board-group
 import { CategoryBoardSummary } from './dto/category-specific/category-board-summary.dto';
 import { Transactional } from 'typeorm-transactional';
 import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
+import { CategoryDetailsResponseDto } from '@/admin/category/dto/response/category-details-response.dto';
 
 @Injectable()
 export class CategoriesService {
@@ -86,18 +87,31 @@ export class CategoriesService {
     }));
   }
 
-  async getAllCategoriesForAdmin(): Promise<CategoryDetailsResponseDto[]> {
+  async getAllCategoriesForAdmin(): Promise<CategorySummaryResponseDto[]> {
     const categories = await this.categoryRepository.find({
       relations: ['slugs', 'boards'],
     });
 
     return categories.map((category) =>
-      CategoryDetailsResponseDto.fromEntity(category),
+      CategorySummaryResponseDto.fromEntity(category),
     );
   }
 
+  async getCategoryDetails(id: number): Promise<CategoryDetailsResponseDto> {
+    const category = await this.categoryRepository.findOne({
+      where: { id },
+      relations: ['slugs', 'boards'],
+    });
+
+    if (!category) {
+      throw new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND);
+    }
+
+    return CategoryDetailsResponseDto.fromEntity(category);
+  }
+
   @Transactional()
-  async create(dto: CreateCategoryDto): Promise<CategoryDetailsResponseDto> {
+  async create(dto: CreateCategoryDto): Promise<CategorySummaryResponseDto> {
     if (dto.allowedSlugs.length === 0) {
       throw new BadRequestException(CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED);
     }
@@ -139,14 +153,14 @@ export class CategoriesService {
       relations: ['slugs', 'boards'],
     });
 
-    return CategoryDetailsResponseDto.fromEntity(fullCategory);
+    return CategorySummaryResponseDto.fromEntity(fullCategory);
   }
 
   @Transactional()
   async update(
     id: number,
     dto: UpdateCategoryDto,
-  ): Promise<CategoryDetailsResponseDto> {
+  ): Promise<CategorySummaryResponseDto> {
     const category = await this.categoryRepository.findOne({
       where: { id },
       relations: ['slugs'],
@@ -213,7 +227,7 @@ export class CategoriesService {
       where: { id },
       relations: ['slugs', 'boards'],
     });
-    return CategoryDetailsResponseDto.fromEntity(updatedCategory);
+    return CategorySummaryResponseDto.fromEntity(updatedCategory);
   }
 
   async remove(id: number): Promise<void> {

@@ -65,7 +65,8 @@ describe('CategoriesController', () => {
 
       expect(categoriesService.listAllCategoriesWithSlugs).toHaveBeenCalled();
       expect(response.status).toBe(200);
-      expect(response.body).toEqual(mockCategories);
+      const expectedResponse = JSON.parse(JSON.stringify(mockCategories));
+      expect(response.body).toEqual(expectedResponse);
     });
 
     it('카테고리가 없을 경우 빈 배열을 반환해야 함', async () => {

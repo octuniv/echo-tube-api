@@ -13,6 +13,9 @@ export const createBoard = (overrides: Partial<Board> = {}): Board => {
     category: createCategory(),
     requiredRole: UserRole.USER,
     type: BoardPurpose.GENERAL,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
     posts: [],
     ...overrides,
   };

@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+  DeleteDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Category } from './category.entity';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -20,4 +28,16 @@ export class CategorySlug {
     orphanedRowAction: 'delete',
   })
   category: Category;
+
+  @ApiProperty({ description: 'Creation timestamp' })
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @ApiProperty({ description: 'Last update timestamp' })
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @ApiProperty({ description: 'Deletion timestamp', required: false })
+  @DeleteDateColumn()
+  deletedAt: Date | null;
 }

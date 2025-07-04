@@ -19,6 +19,7 @@ import { CreateCategoryDto } from './dto/CRUD/create-category.dto';
 import { UpdateCategoryDto } from './dto/CRUD/update-category.dto';
 import { createBoard } from '@/boards/factories/board.factory';
 import { BoardPurpose } from '@/boards/entities/board.entity';
+import { CategoryDetailsResponseDto } from '@/admin/category/dto/response/category-details-response.dto';
 
 jest.mock('typeorm-transactional', () => ({
   Transactional: () => () => ({}),
@@ -570,7 +571,7 @@ describe('CategoriesService', () => {
       const category = createCategory({
         id: 1,
         name: 'Test',
-        slugs: [{ id: 1, slug: 'slug', category: null }],
+        slugs: [createCategorySlug({ id: 1, slug: 'slug', category: null })],
         boards: [
           createBoard({
             id: 100,
@@ -592,6 +593,50 @@ describe('CategoriesService', () => {
       await expect(service.findOne(999)).rejects.toThrow(
         new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND),
       );
+    });
+  });
+
+  describe('getCategoryDetails', () => {
+    const categoryId = 1;
+    const mockCategory = createCategory({
+      id: categoryId,
+      name: 'Technology',
+      slugs: ['tech', 'innovation'].map((slug) => createCategorySlug({ slug })),
+      boards: [
+        createBoard({ id: 101, slug: 'ai', name: 'AI' }),
+        createBoard({ id: 102, slug: 'data', name: 'Data Science' }),
+      ],
+    });
+
+    it('존재하는 카테고리 ID로 요청 시 CategoryDetailsResponseDto 반환', async () => {
+      // Given
+      categoryRepository.findOne = jest.fn().mockResolvedValue(mockCategory);
+
+      // When
+      const result = await service.getCategoryDetails(categoryId);
+
+      // Then
+      expect(result).toEqual(
+        CategoryDetailsResponseDto.fromEntity(mockCategory),
+      );
+      expect(categoryRepository.findOne).toHaveBeenCalledWith({
+        where: { id: categoryId },
+        relations: ['slugs', 'boards'],
+      });
+    });
+
+    it('존재하지 않는 카테고리 ID로 요청 시 NotFoundException 발생', async () => {
+      // Given
+      categoryRepository.findOne = jest.fn().mockResolvedValue(null);
+
+      // When & Then
+      await expect(service.getCategoryDetails(999)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(categoryRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 999 },
+        relations: ['slugs', 'boards'],
+      });
     });
   });
 

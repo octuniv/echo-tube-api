@@ -6,6 +6,9 @@ import {
   OneToMany,
   ManyToOne,
   Index,
+  CreateDateColumn,
+  DeleteDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Post } from '@/posts/entities/post.entity';
 import { Category } from '@/categories/entities/category.entity';
@@ -70,4 +73,16 @@ export class Board {
     orphanedRowAction: 'delete',
   })
   category: Category;
+
+  @ApiProperty({ description: 'Creation timestamp' })
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @ApiProperty({ description: 'Last update timestamp' })
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  @ApiProperty({ description: 'Deletion timestamp', required: false })
+  @DeleteDateColumn()
+  deletedAt: Date | null;
 }

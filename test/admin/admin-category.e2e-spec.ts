@@ -206,15 +206,20 @@ describe('User - /users (e2e)', () => {
   });
 
   describe('GET /admin/categories/:id', () => {
-    it('should return category details', async () => {
-      return request(app.getHttpServer())
+    it('should return category details with full DTO structure', async () => {
+      const res = await request(app.getHttpServer())
         .get(`/admin/categories/${categoryId}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200)
-        .then((res) => {
-          expect(res.body.id).toBe(categoryId);
-          expect(res.body.boardIds).toEqual([]);
-        });
+        .expect(200);
+
+      expect(res.body).toEqual({
+        id: categoryId,
+        name: 'TEST_CATEGORY_FOR_E2E',
+        allowedSlugs: ['valid-slug'],
+        boards: [],
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
+      });
     });
 
     it('should return 404 if category not found', async () => {

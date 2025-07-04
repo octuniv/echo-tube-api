@@ -26,9 +26,10 @@ import { RolesGuard } from '@/auth/roles.guard';
 import { CategoriesService } from '@/categories/categories.service';
 import { CreateCategoryDto } from '@/categories/dto/CRUD/create-category.dto';
 import { UpdateCategoryDto } from '@/categories/dto/CRUD/update-category.dto';
-import { CategoryDetailsResponseDto } from '@/categories/dto/detail/category-details-response.dto';
+import { CategorySummaryResponseDto } from '@/admin/category/dto/response/category-summary-response.dto';
 import { ValidateSlugQueryDto } from './dto/query/validate-slug.query.dto';
 import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
+import { CategoryDetailsResponseDto } from './dto/response/category-details-response.dto';
 
 @ApiTags('admin-categories')
 @Controller('admin/categories')
@@ -46,10 +47,10 @@ export class AdminCategoryController {
   })
   @ApiResponse({
     status: 200,
-    type: [CategoryDetailsResponseDto],
+    type: [CategorySummaryResponseDto],
     description: '성공적으로 조회됨',
   })
-  async getAllCategoriesForAdmin(): Promise<CategoryDetailsResponseDto[]> {
+  async getAllCategoriesForAdmin(): Promise<CategorySummaryResponseDto[]> {
     return this.categoriesService.getAllCategoriesForAdmin();
   }
 
@@ -68,7 +69,7 @@ export class AdminCategoryController {
   })
   @ApiResponse({
     status: 201,
-    type: CategoryDetailsResponseDto,
+    type: CategorySummaryResponseDto,
     description: '성공적으로 생성됨',
   })
   @ApiResponse({
@@ -104,7 +105,7 @@ export class AdminCategoryController {
   })
   async createCategory(
     @Body() dto: CreateCategoryDto,
-  ): Promise<CategoryDetailsResponseDto> {
+  ): Promise<CategorySummaryResponseDto> {
     return this.categoriesService.create(dto);
   }
 
@@ -121,7 +122,7 @@ export class AdminCategoryController {
   })
   @ApiResponse({
     status: 200,
-    type: CategoryDetailsResponseDto,
+    type: CategorySummaryResponseDto,
     description: '성공적으로 조회됨',
   })
   @ApiResponse({
@@ -138,8 +139,7 @@ export class AdminCategoryController {
   async getCategoryDetails(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<CategoryDetailsResponseDto> {
-    const category = await this.categoriesService.findOne(id);
-    return CategoryDetailsResponseDto.fromEntity(category);
+    return this.categoriesService.getCategoryDetails(id);
   }
 
   @Get(':id/validate-slug')
@@ -212,7 +212,7 @@ export class AdminCategoryController {
   })
   @ApiResponse({
     status: 200,
-    type: CategoryDetailsResponseDto,
+    type: CategorySummaryResponseDto,
     description: '성공적으로 업데이트됨',
   })
   @ApiResponse({
@@ -253,7 +253,7 @@ export class AdminCategoryController {
   async updateCategory(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateCategoryDto,
-  ): Promise<CategoryDetailsResponseDto> {
+  ): Promise<CategorySummaryResponseDto> {
     return this.categoriesService.update(id, dto);
   }
 

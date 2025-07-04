@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsArray, IsNumber, IsString } from 'class-validator';
-import { Category } from '../../entities/category.entity';
+import { Category } from '../../../../categories/entities/category.entity';
 
-export class CategoryDetailsResponseDto {
+export class CategorySummaryResponseDto {
   @ApiProperty({
     example: 1,
     description: '카테고리 ID',
@@ -33,8 +33,8 @@ export class CategoryDetailsResponseDto {
   @IsNumber({}, { each: true })
   boardIds: number[];
 
-  static fromEntity(category: Category): CategoryDetailsResponseDto {
-    const dto = new CategoryDetailsResponseDto();
+  static fromEntity(category: Category): CategorySummaryResponseDto {
+    const dto = new CategorySummaryResponseDto();
     dto.id = category.id;
     dto.name = category.name;
     dto.allowedSlugs = category.slugs.map((s) => s.slug);

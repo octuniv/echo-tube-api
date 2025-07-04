@@ -21,9 +21,10 @@ import {
   createCategorySlug,
 } from '@/categories/factories/category.factory';
 import { createBoard } from '@/boards/factories/board.factory';
-import { CategoryDetailsResponseDto } from '@/categories/dto/detail/category-details-response.dto';
+import { CategorySummaryResponseDto } from '@/admin/category/dto/response/category-summary-response.dto';
 import { createMock } from '@golevelup/ts-jest';
 import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
+import { CategoryDetailsResponseDto } from './dto/response/category-details-response.dto';
 
 describe('AdminCategoryController', () => {
   let app: INestApplication;
@@ -36,7 +37,7 @@ describe('AdminCategoryController', () => {
     boards: [createBoard({ id: 100 })],
   });
 
-  const mockCategoryDto: CategoryDetailsResponseDto = {
+  const mockCategoryDto: CategorySummaryResponseDto = {
     id: 1,
     name: 'Test Category',
     allowedSlugs: ['test'],
@@ -98,8 +99,8 @@ describe('AdminCategoryController', () => {
     });
 
     const mockDtoResponse = [
-      CategoryDetailsResponseDto.fromEntity(mockCategory),
-      CategoryDetailsResponseDto.fromEntity(mockEmptyCategory),
+      CategorySummaryResponseDto.fromEntity(mockCategory),
+      CategorySummaryResponseDto.fromEntity(mockEmptyCategory),
     ];
 
     beforeEach(() => {
@@ -144,12 +145,12 @@ describe('AdminCategoryController', () => {
     });
 
     it('500 Error - 서비스 계층에서 예외 발생 시 500 응답을 반환해야 함', async () => {
-      (
-        categoriesService.getAllCategoriesForAdmin as jest.Mock
-      ).mockRejectedValueOnce(new Error('Database error'));
+      (categoriesService.getCategoryDetails as jest.Mock).mockRejectedValue(
+        new Error('Database error'),
+      );
 
       const res = await request(app.getHttpServer())
-        .get('/admin/categories')
+        .get(`/admin/categories/1`)
         .expect(500);
 
       expect(res.body).toHaveProperty('statusCode', 500);
@@ -258,25 +259,76 @@ describe('AdminCategoryController', () => {
   });
 
   describe('GET /admin/categories/:id', () => {
-    it('should return category details', async () => {
-      const res = await request(app.getHttpServer()).get('/admin/categories/1');
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual(mockCategoryDto);
-      expect(categoriesService.findOne).toHaveBeenCalledWith(1);
+    const categoryId = 1;
+    const mockCategory = createCategory({
+      id: categoryId,
+      name: 'Technology',
+      slugs: ['tech', 'innovation'].map((slug) => createCategorySlug({ slug })),
+      boards: [
+        createBoard({ id: 101, slug: 'ai', name: 'AI' }),
+        createBoard({ id: 102, slug: 'data', name: 'Data Science' }),
+      ],
+    });
+    const mockDtoResponse = CategoryDetailsResponseDto.fromEntity(mockCategory);
+
+    beforeEach(() => {
+      (categoriesService.getCategoryDetails as jest.Mock).mockReset();
     });
 
-    it('should return 404 if category not found', async () => {
-      jest.spyOn(categoriesService, 'findOne').mockImplementationOnce(() => {
-        throw new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND);
-      });
-
-      const res = await request(app.getHttpServer()).get(
-        '/admin/categories/999',
+    it('200 OK - 카테고리 상세 정보를 정상적으로 조회하고 DTO로 반환해야 함', async () => {
+      (categoriesService.getCategoryDetails as jest.Mock).mockResolvedValue(
+        mockDtoResponse,
       );
-      expect(res.status).toBe(404);
+
+      const res = await request(app.getHttpServer())
+        .get(`/admin/categories/${categoryId}`)
+        .expect(200);
+
+      expect(res.body).toEqual({
+        id: mockCategory.id,
+        name: mockCategory.name,
+        allowedSlugs: mockCategory.slugs.map((s) => s.slug),
+        boards: mockCategory.boards.map((b) => ({
+          id: b.id,
+          slug: b.slug,
+          name: b.name,
+          type: b.type,
+          requiredRole: b.requiredRole,
+        })),
+        createdAt: mockCategory.createdAt.toISOString(),
+        updatedAt: mockCategory.updatedAt.toISOString(),
+      });
+      expect(categoriesService.getCategoryDetails).toHaveBeenCalledWith(
+        categoryId,
+      );
+    });
+
+    it('404 Not Found - 존재하지 않는 카테고리 ID로 요청 시 에러 반환', async () => {
+      (categoriesService.getCategoryDetails as jest.Mock).mockRejectedValue(
+        new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND),
+      );
+
+      const res = await request(app.getHttpServer())
+        .get(`/admin/categories/999`)
+        .expect(404);
+
       expect(res.body.message).toEqual(
         CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND,
       );
+      expect(categoriesService.getCategoryDetails).toHaveBeenCalledWith(999);
+    });
+
+    it('500 Error - 서비스 계층에서 예외 발생 시 500 응답을 반환해야 함', async () => {
+      (categoriesService.getCategoryDetails as jest.Mock).mockRejectedValue(
+        new Error('Database error'),
+      );
+
+      const res = await request(app.getHttpServer())
+        .get(`/admin/categories/${categoryId}`)
+        .expect(500);
+
+      expect(res.body).toHaveProperty('statusCode', 500);
+      expect(res.body).toHaveProperty('message', 'Internal server error');
     });
   });
 

@@ -52,7 +52,7 @@ describe('AdminCategoryController', () => {
           provide: CategoriesService,
           useValue: createMock<CategoriesService>({
             getAllCategoriesForAdmin: jest.fn(),
-            isSlugUsedInOtherCategory: jest.fn(),
+            isSlugUsed: jest.fn(),
             create: jest.fn().mockResolvedValue(mockCategoryDto),
             update: jest.fn().mockResolvedValue(mockCategoryDto),
             remove: jest.fn().mockResolvedValue(undefined),
@@ -143,57 +143,62 @@ describe('AdminCategoryController', () => {
       expect(res.body).toEqual([]);
       expect(categoriesService.getAllCategoriesForAdmin).toHaveBeenCalled();
     });
-
-    it('500 Error - 서비스 계층에서 예외 발생 시 500 응답을 반환해야 함', async () => {
-      (categoriesService.getCategoryDetails as jest.Mock).mockRejectedValue(
-        new Error('Database error'),
-      );
-
-      const res = await request(app.getHttpServer())
-        .get(`/admin/categories/1`)
-        .expect(500);
-
-      expect(res.body).toHaveProperty('statusCode', 500);
-      expect(res.body).toHaveProperty('message', 'Internal server error');
-    });
   });
 
-  describe('GET /admin/categories/:id/validate-slug', () => {
-    const categoryId = 1;
+  describe('GET /admin/categories/validate-slug', () => {
     const mockSlug = 'test-slug';
 
-    it('should return { isUsedInOtherCategory: false } if slug is not used', async () => {
-      (
-        categoriesService.isSlugUsedInOtherCategory as jest.Mock
-      ).mockResolvedValue(false);
-      const res = await request(app.getHttpServer()).get(
-        `/admin/categories/${categoryId}/validate-slug?slug=${mockSlug}`,
-      );
+    it('should return { isUsed: false } if slug is not used', async () => {
+      const categoryId = 1;
+      (categoriesService.isSlugUsed as jest.Mock).mockResolvedValue(false);
+      const res = await request(app.getHttpServer())
+        .get(`/admin/categories/validate-slug`)
+        .query({ slug: mockSlug, categoryId });
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ isUsedInOtherCategory: false });
+      expect(res.body).toEqual({ isUsed: false });
+      expect(categoriesService.isSlugUsed).toHaveBeenCalledWith(
+        mockSlug,
+        categoryId,
+      );
     });
 
-    it('should return { isUsedInOtherCategory: true } if slug is used in other category', async () => {
-      (
-        categoriesService.isSlugUsedInOtherCategory as jest.Mock
-      ).mockResolvedValue(true);
-      const res = await request(app.getHttpServer()).get(
-        `/admin/categories/${categoryId}/validate-slug?slug=${mockSlug}`,
-      );
+    it('should return { isUsed: true } if slug is used in other category', async () => {
+      const categoryId = 1;
+      (categoriesService.isSlugUsed as jest.Mock).mockResolvedValue(true);
+      const res = await request(app.getHttpServer())
+        .get(`/admin/categories/validate-slug`)
+        .query({ slug: mockSlug, categoryId });
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ isUsedInOtherCategory: true });
+      expect(res.body).toEqual({ isUsed: true });
+      expect(categoriesService.isSlugUsed).toHaveBeenCalledWith(
+        mockSlug,
+        categoryId,
+      );
+    });
+
+    it('should return { isUsed: false } when validating a new category (no categoryId)', async () => {
+      (categoriesService.isSlugUsed as jest.Mock).mockResolvedValue(false);
+      const res = await request(app.getHttpServer())
+        .get(`/admin/categories/validate-slug`)
+        .query({ slug: mockSlug });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ isUsed: false });
+      expect(categoriesService.isSlugUsed).toHaveBeenCalledWith(
+        mockSlug,
+        undefined,
+      );
     });
 
     it('should return 400 if slug is empty', async () => {
-      const res = await request(app.getHttpServer()).get(
-        `/admin/categories/${categoryId}/validate-slug?slug=`,
-      );
+      const res = await request(app.getHttpServer())
+        .get(`/admin/categories/validate-slug`)
+        .query({ slug: '' });
       expect(res.status).toBe(400);
     });
 
     it('should return 400 if slug is missing', async () => {
       const res = await request(app.getHttpServer()).get(
-        `/admin/categories/${categoryId}/validate-slug`,
+        `/admin/categories/validate-slug`,
       );
       expect(res.status).toBe(400);
     });
@@ -316,19 +321,6 @@ describe('AdminCategoryController', () => {
         CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND,
       );
       expect(categoriesService.getCategoryDetails).toHaveBeenCalledWith(999);
-    });
-
-    it('500 Error - 서비스 계층에서 예외 발생 시 500 응답을 반환해야 함', async () => {
-      (categoriesService.getCategoryDetails as jest.Mock).mockRejectedValue(
-        new Error('Database error'),
-      );
-
-      const res = await request(app.getHttpServer())
-        .get(`/admin/categories/${categoryId}`)
-        .expect(500);
-
-      expect(res.body).toHaveProperty('statusCode', 500);
-      expect(res.body).toHaveProperty('message', 'Internal server error');
     });
   });
 

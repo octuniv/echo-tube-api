@@ -30,19 +30,15 @@ export class CategoriesService {
     private categorySlugRepository: Repository<CategorySlug>,
   ) {}
 
-  async isSlugUsedInOtherCategory(
-    slug: string,
-    categoryId: number,
-  ): Promise<boolean> {
-    const existingSlug = await this.categorySlugRepository.findOne({
-      where: {
-        slug,
-        category: {
-          id: Not(categoryId),
-        },
-      },
-    });
-    return !!existingSlug;
+  async isSlugUsed(slug: string, excludeCategoryId?: number): Promise<boolean> {
+    const whereCondition = { slug };
+    if (excludeCategoryId !== undefined) {
+      whereCondition['category'] = {};
+      whereCondition['category']['id'] = Not(excludeCategoryId);
+    }
+    return !!(await this.categorySlugRepository.findOne({
+      where: whereCondition,
+    }));
   }
 
   async verifySlugBelongsToCategory(

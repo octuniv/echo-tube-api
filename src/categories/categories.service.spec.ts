@@ -203,17 +203,57 @@ describe('CategoriesService', () => {
     });
   });
 
-  describe('isSlugUsedInOtherCategory', () => {
-    it('다른 카테고리에 슬러그가 존재하는 경우 true 반환', async () => {
-      const mockSlug = 'existing-slug';
+  describe('isSlugUsed', () => {
+    const slug = 'test-slug';
+
+    it('excludeCategoryId가 있을 때 해당 카테고리는 제외하고 검사', async () => {
+      const excludeCategoryId = 1;
       const mockOtherCategory = createCategory({ id: 2 });
-      categorySlugRepository.findOne = jest
-        .fn()
-        .mockResolvedValue(
-          createCategorySlug({ slug: mockSlug, category: mockOtherCategory }),
-        );
-      const result = await service.isSlugUsedInOtherCategory(mockSlug, 1);
+      const mockSlug = createCategorySlug({
+        slug,
+        category: mockOtherCategory,
+      });
+
+      categorySlugRepository.findOne = jest.fn().mockResolvedValue(mockSlug);
+
+      const result = await service.isSlugUsed(slug, excludeCategoryId);
+
       expect(result).toBe(true);
+      expect(categorySlugRepository.findOne).toHaveBeenCalledWith({
+        where: {
+          slug,
+          category: { id: Not(excludeCategoryId) },
+        },
+      });
+    });
+
+    it('excludeCategoryId가 없을 때 모든 카테고리에서 검사', async () => {
+      const mockSlug = createCategorySlug({ slug });
+      categorySlugRepository.findOne = jest.fn().mockResolvedValue(mockSlug);
+
+      const result = await service.isSlugUsed(slug);
+
+      expect(result).toBe(true);
+      expect(categorySlugRepository.findOne).toHaveBeenCalledWith({
+        where: { slug },
+      });
+    });
+
+    it('슬러그가 존재하지 않는 경우 false 반환', async () => {
+      categorySlugRepository.findOne = jest.fn().mockResolvedValue(null);
+
+      const result = await service.isSlugUsed(slug);
+
+      expect(result).toBe(false);
+    });
+
+    it('excludeCategoryId가 있지만 해당 카테고리 외에는 슬러그가 없는 경우 false 반환', async () => {
+      const excludeCategoryId = 1;
+      categorySlugRepository.findOne = jest.fn().mockResolvedValue(null);
+
+      const result = await service.isSlugUsed(slug, excludeCategoryId);
+
+      expect(result).toBe(false);
     });
   });
 

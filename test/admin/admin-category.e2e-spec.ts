@@ -151,39 +151,49 @@ describe('User - /users (e2e)', () => {
     });
   });
 
-  describe('GET /admin/categories/:id/validate-slug', () => {
-    it('should return { isUsedInOtherCategory: false } if slug does not exist', async () => {
+  describe('GET /admin/categories/validate-slug', () => {
+    it('should return { isUsed: false } if slug does not exist', async () => {
       await request(app.getHttpServer())
-        .get(`/admin/categories/${categoryId}/validate-slug?slug=new-slug`)
+        .get('/admin/categories/validate-slug')
+        .query({ slug: 'new-slug', categoryId })
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200)
-        .expect({ isUsedInOtherCategory: false });
+        .expect({ isUsed: false });
     });
 
-    it('should return { isUsedInOtherCategory: false } if slug is used in same category', async () => {
+    it('should check all categories if categoryId is omitted', async () => {
       await request(app.getHttpServer())
-        .get(`/admin/categories/${categoryId}/validate-slug?slug=${VALID_SLUG}`)
+        .get('/admin/categories/validate-slug')
+        .query({ slug: 'new_slug' })
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200)
-        .expect({ isUsedInOtherCategory: false });
+        .expect({ isUsed: false });
     });
 
-    it('should return { isUsedInOtherCategory: true } if slug is used in other category', async () => {
+    it('should return { isUsed: false } if slug is used in same category', async () => {
+      await request(app.getHttpServer())
+        .get('/admin/categories/validate-slug')
+        .query({ slug: VALID_SLUG, categoryId })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200)
+        .expect({ isUsed: false });
+    });
+
+    it('should return { isUsed: true } if slug is used in other category', async () => {
       if (categoryId === 1) return;
 
       const otherCategoryId = categoryId - 1;
       await request(app.getHttpServer())
-        .get(
-          `/admin/categories/${otherCategoryId}/validate-slug?slug=${VALID_SLUG}`,
-        )
+        .get('/admin/categories/validate-slug')
+        .query({ slug: VALID_SLUG, categoryId: otherCategoryId })
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200)
-        .expect({ isUsedInOtherCategory: true });
+        .expect({ isUsed: true });
     });
 
     it('should return 400 if slug is missing', async () => {
       await request(app.getHttpServer())
-        .get(`/admin/categories/${categoryId}/validate-slug`)
+        .get('/admin/categories/validate-slug')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(400);
     });

@@ -54,6 +54,53 @@ export class AdminCategoryController {
     return this.categoriesService.getAllCategoriesForAdmin();
   }
 
+  @Get('validate-slug')
+  @ApiOperation({
+    summary: '슬러그 중복 검증',
+    description:
+      '슬러그가 다른 카테고리(또는 전체)에서 사용 중인지 확인합니다.',
+  })
+  @ApiQuery({
+    name: 'slug',
+    type: 'string',
+    example: 'tech',
+    description: '검증할 슬러그 값',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    type: 'number',
+    required: false,
+    example: 1,
+    description: '검증 대상 카테고리 ID (생략 시 모든 카테고리 검사)',
+  })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      example: { isUsed: false },
+    },
+    description: '성공',
+  })
+  @ApiResponse({
+    status: 400,
+    description: '유효성 검증 실패 (슬러그 누락)',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: ['slug should not be empty'],
+        error: 'Bad Request',
+      },
+    },
+  })
+  async validateSlug(
+    @Query() dto: ValidateSlugQueryDto,
+  ): Promise<{ isUsed: boolean }> {
+    const isUsed = await this.categoriesService.isSlugUsed(
+      dto.slug,
+      dto?.categoryId,
+    );
+    return { isUsed };
+  }
+
   @Post()
   @ApiOperation({
     summary: '새 카테고리 생성',
@@ -140,52 +187,6 @@ export class AdminCategoryController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<CategoryDetailsResponseDto> {
     return this.categoriesService.getCategoryDetails(id);
-  }
-
-  @Get(':id/validate-slug')
-  @ApiOperation({
-    summary: '슬러그 중복 검증',
-    description: '해당 슬러그가 다른 카테고리에서 사용 중인지 확인합니다.',
-  })
-  @ApiParam({
-    name: 'id',
-    type: 'number',
-    example: 1,
-    description: '검증 대상 카테고리 ID',
-  })
-  @ApiQuery({
-    name: 'slug',
-    type: 'string',
-    example: 'tech',
-    description: '검증할 슬러그 값',
-  })
-  @ApiResponse({
-    status: 200,
-    schema: {
-      example: { isUsedInOtherCategory: false },
-    },
-    description: '성공',
-  })
-  @ApiResponse({
-    status: 400,
-    description: '유효성 검증 실패 (슬러그 누락)',
-    schema: {
-      example: {
-        statusCode: 400,
-        message: ['slug should not be empty'],
-        error: 'Bad Request',
-      },
-    },
-  })
-  async validateSlugInOtherCategory(
-    @Param('id', ParseIntPipe) categoryId: number,
-    @Query() dto: ValidateSlugQueryDto,
-  ): Promise<{ isUsedInOtherCategory: boolean }> {
-    const isUsed = await this.categoriesService.isSlugUsedInOtherCategory(
-      dto.slug,
-      categoryId,
-    );
-    return { isUsedInOtherCategory: isUsed };
   }
 
   @Patch(':id')

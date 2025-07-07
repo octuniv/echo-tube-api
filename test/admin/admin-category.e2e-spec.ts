@@ -361,7 +361,7 @@ describe('User - /users (e2e)', () => {
       return request(app.getHttpServer())
         .delete(`/admin/categories/${categoryId}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .expect(200);
+        .expect(204);
     });
 
     it('should return 404 if category not found', async () => {

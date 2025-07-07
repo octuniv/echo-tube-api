@@ -9,6 +9,7 @@ import {
   UseGuards,
   ParseIntPipe,
   Query,
+  HttpCode,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -259,6 +260,7 @@ export class AdminCategoryController {
   }
 
   @Delete(':id')
+  @HttpCode(204)
   @ApiOperation({
     summary: '카테고리 삭제',
     description:
@@ -271,8 +273,8 @@ export class AdminCategoryController {
     description: '삭제할 카테고리의 ID',
   })
   @ApiResponse({
-    status: 200,
-    description: '성공적으로 삭제됨',
+    status: 204,
+    description: '삭제 성공 (응답 없음)',
   })
   @ApiResponse({
     status: 404,

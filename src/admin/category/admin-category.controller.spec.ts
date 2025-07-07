@@ -399,7 +399,7 @@ describe('AdminCategoryController', () => {
       const res = await request(app.getHttpServer()).delete(
         '/admin/categories/1',
       );
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(204);
       expect(categoriesService.remove).toHaveBeenCalledWith(1);
     });
 

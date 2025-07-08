@@ -25,7 +25,7 @@ const SYSTEM_USER = {
   password: process.env.SYSTEM_USER_PASSWORD || 'system1234',
 };
 
-describe('User - /users (e2e)', () => {
+describe('Admin User - /admin/users (e2e)', () => {
   let app: INestApplication;
   let module: TestingModule;
   let dataSource: DataSource;

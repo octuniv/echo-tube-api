@@ -1,14 +1,23 @@
-import { IsString, IsOptional, IsEnum, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsNumber,
+  Matches,
+  IsNotEmpty,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '@/users/entities/user-role.enum';
-import { BoardPurpose } from '../../entities/board.entity';
+import { BoardPurpose } from '../../../../boards/entities/board.entity';
 
 export class CreateBoardDto {
   @ApiProperty({
     example: 'general',
     description: '게시판의 URL 친화적인 식별자',
   })
-  @IsString()
+  @Matches(/^[a-z0-9-]+$/, {
+    message: 'Slug must be URL-friendly (lowercase letters, numbers, hyphens)',
+  })
   slug: string;
 
   @ApiProperty({
@@ -16,6 +25,7 @@ export class CreateBoardDto {
     description: '게시판의 표시 이름',
   })
   @IsString()
+  @IsNotEmpty()
   name: string;
 
   @ApiProperty({

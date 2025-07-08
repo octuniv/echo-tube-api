@@ -5,7 +5,7 @@ import { UserRole } from '@/users/entities/user-role.enum';
 import { setupTestApp } from './utils/test.util';
 import { ScrapingTargetBoardDto } from '@/boards/dto/scraping/scraping-target-board.dto';
 
-describe('CategoriesController (e2e)', () => {
+describe('Board - /boards (e2e)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {

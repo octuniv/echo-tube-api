@@ -5,7 +5,6 @@ import {
   Column,
   OneToMany,
   ManyToOne,
-  Index,
   CreateDateColumn,
   DeleteDateColumn,
   UpdateDateColumn,
@@ -20,7 +19,6 @@ export enum BoardPurpose {
   AI_DIGEST = 'ai_digest',
 }
 
-@Index(['type', 'slug'], { unique: true })
 @Entity()
 export class Board {
   @ApiProperty({ description: 'Board ID' })

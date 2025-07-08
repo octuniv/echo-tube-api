@@ -3,18 +3,20 @@ import {
   BadRequestException,
   INestApplication,
   NotFoundException,
+  ValidationPipe,
 } from '@nestjs/common';
 import * as request from 'supertest';
 import { AdminBoardController } from './admin-board.controller';
 import { BoardsService } from '@/boards/boards.service';
-import { CreateBoardDto } from '@/boards/dto/CRUD/create-board.dto';
-import { UpdateBoardDto } from '@/boards/dto/CRUD/update-board.dto';
+import { CreateBoardDto } from '@/admin/board/dto/CRUD/create-board.dto';
+import { UpdateBoardDto } from '@/admin/board/dto/CRUD/update-board.dto';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { BoardPurpose } from '@/boards/entities/board.entity';
 import { createBoard } from '@/boards/factories/board.factory';
 import { createCategory } from '@/categories/factories/category.factory';
-import { AdminBoardResponseDto } from '@/boards/dto/admin/admin-board-response.dto';
+import { AdminBoardResponseDto } from '@/admin/board/dto/admin-board-response.dto';
+import { createMock } from '@golevelup/ts-jest';
 
 describe('AdminBoardController', () => {
   let app: INestApplication;
@@ -40,6 +42,24 @@ describe('AdminBoardController', () => {
     type: BoardPurpose.GENERAL,
     categoryId: 1,
     categoryName: 'Technology',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
+  };
+
+  const returnedAdminBoardResponseDto = {
+    ...mockAdminBoardResponseDto,
+    createdAt: mockAdminBoardResponseDto.createdAt.toISOString(),
+    updatedAt: mockAdminBoardResponseDto.updatedAt.toISOString(),
+  };
+
+  const createBoardDto: CreateBoardDto = {
+    slug: 'new-board',
+    name: 'New Board',
+    description: 'New Description',
+    requiredRole: UserRole.ADMIN,
+    type: BoardPurpose.GENERAL,
+    categoryId: 1,
   };
 
   beforeEach(async () => {
@@ -48,13 +68,7 @@ describe('AdminBoardController', () => {
       providers: [
         {
           provide: BoardsService,
-          useValue: {
-            findAll: jest.fn(),
-            findOne: jest.fn(),
-            create: jest.fn(),
-            update: jest.fn(),
-            remove: jest.fn(),
-          },
+          useValue: createMock<BoardsService>(),
         },
       ],
     })
@@ -69,6 +83,8 @@ describe('AdminBoardController', () => {
       .compile();
 
     app = module.createNestApplication();
+    app.useGlobalPipes(new ValidationPipe({ transform: true }));
+
     await app.init();
 
     boardsService = module.get<BoardsService>(BoardsService);
@@ -79,7 +95,7 @@ describe('AdminBoardController', () => {
       jest.spyOn(boardsService, 'findAll').mockResolvedValue([mockBoard]);
       const res = await request(app.getHttpServer()).get('/admin/boards');
       expect(res.status).toBe(200);
-      expect(res.body).toEqual([mockAdminBoardResponseDto]);
+      expect(res.body).toEqual([returnedAdminBoardResponseDto]);
       expect(boardsService.findAll).toHaveBeenCalled();
     });
   });
@@ -89,7 +105,7 @@ describe('AdminBoardController', () => {
       jest.spyOn(boardsService, 'findOne').mockResolvedValue(mockBoard);
       const res = await request(app.getHttpServer()).get('/admin/boards/1');
       expect(res.status).toBe(200);
-      expect(res.body).toEqual(mockAdminBoardResponseDto);
+      expect(res.body).toEqual(returnedAdminBoardResponseDto);
       expect(boardsService.findOne).toHaveBeenCalledWith(1);
     });
 
@@ -104,44 +120,48 @@ describe('AdminBoardController', () => {
   });
 
   describe('POST /admin/boards', () => {
-    const dto: CreateBoardDto = {
-      slug: 'new-board',
-      name: 'New Board',
-      description: 'New Description',
-      requiredRole: UserRole.ADMIN,
-      type: BoardPurpose.GENERAL,
-      categoryId: 1,
-    };
-
     it('should create a new board and return DTO', async () => {
       jest.spyOn(boardsService, 'create').mockResolvedValue(mockBoard);
 
       const res = await request(app.getHttpServer())
         .post('/admin/boards')
-        .send(dto)
+        .send(createBoardDto)
         .expect(201);
 
-      expect(res.body).toEqual(mockAdminBoardResponseDto);
-      expect(boardsService.create).toHaveBeenCalledWith(dto);
+      expect(res.body).toEqual(returnedAdminBoardResponseDto);
+      expect(boardsService.create).toHaveBeenCalledWith(createBoardDto);
     });
 
-    it('should throw BadRequestException if invalid data', async () => {
-      const invalidDto = { ...dto, slug: '' };
-      jest.spyOn(boardsService, 'create').mockImplementation(() => {
-        throw new BadRequestException('Validation failed');
-      });
-
+    it('should throw BadRequestException if slug is invalid', async () => {
+      const invalidDto = {
+        ...createBoardDto,
+        slug: 'Invalid_Slug!', // Violates the regex pattern
+      };
       const res = await request(app.getHttpServer())
         .post('/admin/boards')
         .send(invalidDto)
         .expect(400);
+      expect(res.body.message).toContain(
+        'Slug must be URL-friendly (lowercase letters, numbers, hyphens)',
+      );
+    });
 
-      expect(res.body.message).toBe('Validation failed');
+    it('should throw BadRequestException if name is empty', async () => {
+      const invalidDto = {
+        ...createBoardDto,
+        name: '', // Empty name
+      };
+      const res = await request(app.getHttpServer())
+        .post('/admin/boards')
+        .send(invalidDto)
+        .expect(400);
+      expect(res.body.message).toContain('name should not be empty');
     });
   });
 
-  describe('PATCH /admin/boards/:id', () => {
-    const dto: UpdateBoardDto = {
+  describe('PUT /admin/boards/:id', () => {
+    const updateBoardDto: UpdateBoardDto = {
+      ...createBoardDto,
       name: 'Updated Name',
       categoryId: 2,
     };
@@ -162,13 +182,45 @@ describe('AdminBoardController', () => {
     it('should update board and return updated DTO', async () => {
       jest.spyOn(boardsService, 'update').mockResolvedValue(updatedBoard);
 
+      const returnedDto = {
+        ...updatedDto,
+        createdAt: updatedDto.createdAt.toISOString(),
+        updatedAt: updatedDto.updatedAt.toISOString(),
+      };
+
       const res = await request(app.getHttpServer())
-        .patch('/admin/boards/1')
-        .send(dto)
+        .put('/admin/boards/1')
+        .send(updateBoardDto)
         .expect(200);
 
-      expect(res.body).toEqual(updatedDto);
-      expect(boardsService.update).toHaveBeenCalledWith(1, dto);
+      expect(res.body).toEqual(returnedDto);
+      expect(boardsService.update).toHaveBeenCalledWith(1, updateBoardDto);
+    });
+
+    it('should throw BadRequestException if slug is invalid', async () => {
+      const invalidDto = {
+        ...updateBoardDto,
+        slug: 'Invalid_Slug!', // Violates the regex pattern
+      };
+      const res = await request(app.getHttpServer())
+        .put('/admin/boards/1')
+        .send(invalidDto)
+        .expect(400);
+      expect(res.body.message).toContain(
+        'Slug must be URL-friendly (lowercase letters, numbers, hyphens)',
+      );
+    });
+
+    it('should throw BadRequestException if name is empty', async () => {
+      const invalidDto = {
+        ...updateBoardDto,
+        name: '', // Empty name
+      };
+      const res = await request(app.getHttpServer())
+        .put('/admin/boards/1')
+        .send(invalidDto)
+        .expect(400);
+      expect(res.body.message).toContain('name should not be empty');
     });
 
     it('should throw NotFoundException if board not found', async () => {
@@ -177,11 +229,31 @@ describe('AdminBoardController', () => {
         .mockRejectedValue(new NotFoundException('Board not found'));
 
       const res = await request(app.getHttpServer())
-        .patch('/admin/boards/999')
-        .send(dto)
+        .put('/admin/boards/999')
+        .send(updateBoardDto)
         .expect(404);
 
       expect(res.body.message).toBe('Board not found');
+    });
+
+    it('should throw BadRequestException if slug is not allowed in category', async () => {
+      const invalidDto = {
+        ...createBoardDto,
+        slug: 'invalid-slug',
+        categoryId: 999,
+      };
+      jest.spyOn(boardsService, 'update').mockImplementation(() => {
+        throw new BadRequestException(
+          'Slug "invalid-slug" is not allowed in this category',
+        );
+      });
+      const res = await request(app.getHttpServer())
+        .put('/admin/boards/1')
+        .send(invalidDto)
+        .expect(400);
+      expect(res.body.message).toBe(
+        'Slug "invalid-slug" is not allowed in this category',
+      );
     });
   });
 
@@ -189,7 +261,7 @@ describe('AdminBoardController', () => {
     it('should delete board successfully', async () => {
       jest.spyOn(boardsService, 'remove').mockResolvedValue(undefined);
       const res = await request(app.getHttpServer()).delete('/admin/boards/1');
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(204);
       expect(boardsService.remove).toHaveBeenCalledWith(1);
     });
 

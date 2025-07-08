@@ -2,12 +2,13 @@ import {
   Controller,
   Get,
   Post,
-  Patch,
   Delete,
   Param,
   Body,
   UseGuards,
   ParseIntPipe,
+  HttpCode,
+  Put,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,10 +23,10 @@ import { Roles } from '@/auth/roles.decorator';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { RolesGuard } from '@/auth/roles.guard';
 import { BoardsService } from '@/boards/boards.service';
-import { UpdateBoardDto } from '@/boards/dto/CRUD/update-board.dto';
-import { CreateBoardDto } from '@/boards/dto/CRUD/create-board.dto';
+import { UpdateBoardDto } from '@/admin/board/dto/CRUD/update-board.dto';
+import { CreateBoardDto } from '@/admin/board/dto/CRUD/create-board.dto';
 import { BoardPurpose } from '@/boards/entities/board.entity';
-import { AdminBoardResponseDto } from '@/boards/dto/admin/admin-board-response.dto';
+import { AdminBoardResponseDto } from '@/admin/board/dto/admin-board-response.dto';
 
 @ApiTags('admin-boards')
 @Controller('admin/boards')
@@ -109,7 +110,7 @@ export class AdminBoardController {
     return AdminBoardResponseDto.fromEntity(board);
   }
 
-  @Patch(':id')
+  @Put(':id')
   @ApiOperation({
     summary: '게시판 정보 업데이트',
     description: '특정 ID의 게시판 정보를 업데이트합니다.',
@@ -145,6 +146,7 @@ export class AdminBoardController {
   }
 
   @Delete(':id')
+  @HttpCode(204)
   @ApiOperation({
     summary: '게시판 삭제',
     description:
@@ -157,8 +159,8 @@ export class AdminBoardController {
     description: '삭제할 게시판의 ID',
   })
   @ApiResponse({
-    status: 200,
-    description: '성공적으로 삭제됨',
+    status: 204,
+    description: '삭제 성공 (응답 없음)',
   })
   @ApiResponse({
     status: 404,

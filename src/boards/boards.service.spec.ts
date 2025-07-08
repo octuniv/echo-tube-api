@@ -10,10 +10,10 @@ import {
   createCategorySlug,
 } from '@/categories/factories/category.factory';
 import { UserRole } from '@/users/entities/user-role.enum';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { BoardListItemDto } from './dto/list/board-list-item.dto';
 import { CategoriesService } from '@/categories/categories.service';
-import { UpdateBoardDto } from './dto/CRUD/update-board.dto';
+import { UpdateBoardDto } from '../admin/board/dto/CRUD/update-board.dto';
 import { ScrapingTargetBoardDto } from './dto/scraping/scraping-target-board.dto';
 
 describe('BoardsService', () => {
@@ -253,7 +253,10 @@ describe('BoardsService', () => {
         type: BoardPurpose.GENERAL,
         categoryId: 1,
       };
-      const category = createCategory({ id: 1 });
+      const category = createCategory({
+        id: 1,
+        slugs: [createCategorySlug({ slug: 'new-board' })],
+      });
       const createdBoard = createBoard({ ...dto, category });
 
       jest.spyOn(categoriesService, 'findOne').mockResolvedValue(category);
@@ -287,6 +290,24 @@ describe('BoardsService', () => {
 
       await expect(service.create(dto)).rejects.toThrow(NotFoundException);
     });
+
+    it('should throw BadRequestException if slug is not allowed in category', async () => {
+      const dto = {
+        slug: 'invalid-slug',
+        name: 'Test Board',
+        categoryId: 1,
+      };
+      const category = createCategory({ id: 1, slugs: [] }); // No allowed slugs
+
+      jest.spyOn(categoriesService, 'findOne').mockResolvedValue(category);
+
+      await expect(service.create(dto)).rejects.toThrow(
+        new BadRequestException(
+          `Slug "${dto.slug}" is not allowed in this category`,
+        ),
+      );
+      expect(categoriesService.findOne).toHaveBeenCalledWith(1);
+    });
   });
 
   describe('update', () => {
@@ -300,7 +321,13 @@ describe('BoardsService', () => {
         type: BoardPurpose.AI_DIGEST,
         categoryId: 2,
       } satisfies UpdateBoardDto;
-      const updatedCategory = createCategory({ id: 2 });
+      const updatedCategory = createCategory({
+        id: 2,
+        slugs: [
+          createCategorySlug({ slug: 'old-slug' }),
+          createCategorySlug({ slug: 'updated-slug' }),
+        ],
+      });
 
       jest.spyOn(boardRepository, 'findOne').mockResolvedValue(existingBoard);
       jest
@@ -314,6 +341,7 @@ describe('BoardsService', () => {
         requiredRole: dto.requiredRole,
         type: dto.type,
         category: updatedCategory,
+        categoryId: dto.categoryId,
       } as any);
 
       const result = await service.update(1, dto);
@@ -345,34 +373,80 @@ describe('BoardsService', () => {
     it('should throw NotFoundException if board not found', async () => {
       jest.spyOn(boardRepository, 'findOne').mockResolvedValue(null);
 
-      await expect(service.update(999, {})).rejects.toThrow(NotFoundException);
+      await expect(
+        service.update(999, {
+          slug: '',
+          name: '',
+          categoryId: 0,
+        }),
+      ).rejects.toThrow(NotFoundException);
     });
 
-    it('should update board without changing category if categoryId not provided', async () => {
-      const category = createCategory({ id: 1 });
+    it('should update board without changing category if categoryId is unchanged', async () => {
+      const existingCategory = createCategory({
+        id: 1,
+        slugs: [createCategorySlug({ slug: 'old-slug' })],
+      });
       const existingBoard = createBoard({
         id: 1,
         slug: 'old-slug',
-        category,
+        category: existingCategory,
       });
-      const dto = { name: 'Updated Name' };
+
+      const dto = {
+        name: 'Updated Name',
+        slug: existingBoard.slug,
+        categoryId: existingCategory.id,
+      } satisfies UpdateBoardDto;
 
       jest.spyOn(boardRepository, 'findOne').mockResolvedValue(existingBoard);
-      jest.spyOn(categoriesService, 'findOne').mockResolvedValue(category);
+      jest
+        .spyOn(categoriesService, 'findOne')
+        .mockResolvedValue(existingCategory);
       jest.spyOn(boardRepository, 'save').mockResolvedValue({
         ...existingBoard,
         ...dto,
+        category: existingCategory,
       } as any);
 
       const result = await service.update(1, dto);
+
       expect(result).toEqual({
         ...existingBoard,
-        name: 'Updated Name',
+        name: dto.name,
+        slug: dto.slug,
+        category: existingCategory,
       });
+
+      expect(categoriesService.findOne).toHaveBeenCalledWith(
+        existingCategory.id,
+      );
       expect(boardRepository.save).toHaveBeenCalledWith({
         ...existingBoard,
-        name: 'Updated Name',
+        name: dto.name,
+        slug: dto.slug,
+        category: existingCategory,
       });
+    });
+
+    it('should throw BadRequestException if slug is not allowed in new category', async () => {
+      const existingBoard = createBoard({ id: 1, slug: 'old-slug' });
+      const dto = {
+        slug: 'invalid-slug',
+        name: 'Updated Board',
+        categoryId: 2,
+      };
+      const category = createCategory({ id: 2, slugs: [] }); // No allowed slugs
+
+      jest.spyOn(boardRepository, 'findOne').mockResolvedValue(existingBoard);
+      jest.spyOn(categoriesService, 'findOne').mockResolvedValue(category);
+
+      await expect(service.update(1, dto)).rejects.toThrow(
+        new BadRequestException(
+          `Slug "${dto.slug}" is not allowed in this category`,
+        ),
+      );
+      expect(categoriesService.findOne).toHaveBeenCalledWith(2);
     });
   });
 

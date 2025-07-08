@@ -8,8 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BoardListItemDto } from './dto/list/board-list-item.dto';
 import { ScrapingTargetBoardDto } from './dto/scraping/scraping-target-board.dto';
-import { CreateBoardDto } from './dto/CRUD/create-board.dto';
-import { UpdateBoardDto } from './dto/CRUD/update-board.dto';
+import { CreateBoardDto } from '../admin/board/dto/CRUD/create-board.dto';
+import { UpdateBoardDto } from '../admin/board/dto/CRUD/update-board.dto';
 import { CategoriesService } from '@/categories/categories.service';
 import { UserRole } from '@/users/entities/user-role.enum';
 
@@ -77,40 +77,19 @@ export class BoardsService {
     return board;
   }
 
-  async create(dto: CreateBoardDto): Promise<Board> {
-    const { categoryId, ...rest } = dto;
-    if (
-      dto.type === BoardPurpose.AI_DIGEST &&
-      dto.requiredRole === UserRole.USER
-    ) {
+  private async validateSlugWithinCategory(
+    slug: string,
+    categoryId: number,
+  ): Promise<void> {
+    const category = await this.categoriesService.findOne(categoryId);
+    if (!category.slugs.some((s) => s.slug === slug)) {
       throw new BadRequestException(
-        'AI_DIGEST 보드는 USER 이상의 권한이 필요합니다.',
+        `Slug "${slug}" is not allowed in this category`,
       );
     }
-    const category = await this.categoriesService.findOne(categoryId);
-    const board = this.boardRepository.create({
-      ...rest,
-      category,
-    });
-    return this.boardRepository.save(board);
   }
 
-  async update(id: number, dto: UpdateBoardDto): Promise<Board> {
-    const board = await this.findOne(id);
-
-    if (dto.categoryId) {
-      const category = await this.categoriesService.findOne(dto.categoryId);
-      board.category = category;
-    }
-
-    // 명시적 프로퍼티 업데이트
-    if (dto.slug !== undefined) board.slug = dto.slug;
-    if (dto.name !== undefined) board.name = dto.name;
-    if (dto.description !== undefined) board.description = dto.description;
-    if (dto.requiredRole !== undefined) board.requiredRole = dto.requiredRole;
-    if (dto.type !== undefined) board.type = dto.type;
-
-    // 검증 로직 강화
+  private async validateRole(board: Board): Promise<void> {
     if (
       board.type === BoardPurpose.AI_DIGEST &&
       board.requiredRole === UserRole.USER
@@ -119,6 +98,35 @@ export class BoardsService {
         'AI_DIGEST 보드는 USER 이상의 권한이 필요합니다.',
       );
     }
+  }
+
+  async create(dto: CreateBoardDto): Promise<Board> {
+    const { categoryId, ...rest } = dto;
+    await this.validateSlugWithinCategory(dto.slug, dto.categoryId);
+    const category = await this.categoriesService.findOne(categoryId);
+    const board = this.boardRepository.create({
+      ...rest,
+      category,
+    });
+    await this.validateRole(board);
+    return this.boardRepository.save(board);
+  }
+
+  async update(id: number, dto: UpdateBoardDto): Promise<Board> {
+    const board = await this.findOne(id);
+
+    // Handle category separately
+    if (dto.categoryId) {
+      if (dto.slug !== undefined) {
+        await this.validateSlugWithinCategory(dto.slug, dto.categoryId);
+      }
+      const category = await this.categoriesService.findOne(dto.categoryId);
+      board.category = category;
+    }
+
+    Object.assign(board, dto);
+
+    await this.validateRole(board);
 
     return this.boardRepository.save(board);
   }

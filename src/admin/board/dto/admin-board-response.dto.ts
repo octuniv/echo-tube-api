@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '@/users/entities/user-role.enum';
-import { BoardPurpose } from '../../entities/board.entity';
+import { Board, BoardPurpose } from '../../../boards/entities/board.entity';
 
 export class AdminBoardResponseDto {
   @ApiProperty({
@@ -11,7 +11,7 @@ export class AdminBoardResponseDto {
 
   @ApiProperty({
     example: 'general',
-    description: '게시판의 URL 친화적인 식별자 (영소문자, 하이픈 허용)',
+    description: '게시판의 URL 친화적인 식별자 (영소문자, 숫자, 하이픈 허용)',
     pattern: '^[a-z0-9-]+$',
   })
   slug: string;
@@ -57,7 +57,16 @@ export class AdminBoardResponseDto {
   })
   categoryName: string;
 
-  static fromEntity(board: any): AdminBoardResponseDto {
+  @ApiProperty({ description: 'Creation timestamp' })
+  createdAt: Date;
+
+  @ApiProperty({ description: 'Last update timestamp' })
+  updatedAt: Date;
+
+  @ApiProperty({ description: 'Deletion timestamp', required: false })
+  deletedAt?: Date | null;
+
+  static fromEntity(board: Board): AdminBoardResponseDto {
     return {
       id: board.id,
       slug: board.slug,
@@ -67,6 +76,9 @@ export class AdminBoardResponseDto {
       type: board.type,
       categoryId: board.category.id,
       categoryName: board.category.name,
+      createdAt: board.createdAt,
+      updatedAt: board.updatedAt,
+      deletedAt: board.deletedAt || null,
     };
   }
 }

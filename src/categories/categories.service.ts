@@ -41,6 +41,14 @@ export class CategoriesService {
     }));
   }
 
+  async isNameUsed(name: string, excludeCategoryId?: number): Promise<boolean> {
+    const whereCondition = { name };
+    if (excludeCategoryId !== undefined) {
+      whereCondition['id'] = Not(excludeCategoryId);
+    }
+    return !!(await this.categoryRepository.findOne({ where: whereCondition }));
+  }
+
   async verifySlugBelongsToCategory(
     categoryName: string,
     slug: string,

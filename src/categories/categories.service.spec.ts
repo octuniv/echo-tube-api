@@ -257,6 +257,51 @@ describe('CategoriesService', () => {
     });
   });
 
+  describe('isNameUsed', () => {
+    const name = 'Test Category';
+
+    it('excludeCategoryId가 있을 때 해당 카테고리는 제외하고 검사', async () => {
+      const excludeCategoryId = 1;
+      const mockOtherCategory = createCategory({ id: 2, name });
+      categoryRepository.findOne = jest
+        .fn()
+        .mockResolvedValue(mockOtherCategory);
+
+      const result = await service.isNameUsed(name, excludeCategoryId);
+      expect(result).toBe(true);
+      expect(categoryRepository.findOne).toHaveBeenCalledWith({
+        where: {
+          name,
+          id: Not(excludeCategoryId),
+        },
+      });
+    });
+
+    it('excludeCategoryId가 없을 때 모든 카테고리에서 검사', async () => {
+      const mockCategory = createCategory({ name });
+      categoryRepository.findOne = jest.fn().mockResolvedValue(mockCategory);
+
+      const result = await service.isNameUsed(name);
+      expect(result).toBe(true);
+      expect(categoryRepository.findOne).toHaveBeenCalledWith({
+        where: { name },
+      });
+    });
+
+    it('이름이 존재하지 않는 경우 false 반환', async () => {
+      categoryRepository.findOne = jest.fn().mockResolvedValue(null);
+      const result = await service.isNameUsed(name);
+      expect(result).toBe(false);
+    });
+
+    it('excludeCategoryId가 있지만 해당 카테고리 외에는 이름이 없는 경우 false 반환', async () => {
+      const excludeCategoryId = 1;
+      categoryRepository.findOne = jest.fn().mockResolvedValue(null);
+      const result = await service.isNameUsed(name, excludeCategoryId);
+      expect(result).toBe(false);
+    });
+  });
+
   describe('getAllCategoriesWithSlugs', () => {
     it('모든 카테고리와 slug 목록 반환', async () => {
       const mockCategory1 = createCategory({

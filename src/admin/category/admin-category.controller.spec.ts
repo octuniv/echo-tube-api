@@ -204,6 +204,65 @@ describe('AdminCategoryController', () => {
     });
   });
 
+  describe('GET /admin/categories/validate-name', () => {
+    const mockName = 'Test Category';
+
+    it('should return { isUsed: false } if name is not used', async () => {
+      const categoryId = 1;
+      (categoriesService.isNameUsed as jest.Mock).mockResolvedValue(false);
+      const res = await request(app.getHttpServer())
+        .get(`/admin/categories/validate-name`)
+        .query({ name: mockName, categoryId });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ isUsed: false });
+      expect(categoriesService.isNameUsed).toHaveBeenCalledWith(
+        mockName,
+        categoryId,
+      );
+    });
+
+    it('should return { isUsed: true } if name is used in other category', async () => {
+      const categoryId = 1;
+      (categoriesService.isNameUsed as jest.Mock).mockResolvedValue(true);
+      const res = await request(app.getHttpServer())
+        .get(`/admin/categories/validate-name`)
+        .query({ name: mockName, categoryId });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ isUsed: true });
+      expect(categoriesService.isNameUsed).toHaveBeenCalledWith(
+        mockName,
+        categoryId,
+      );
+    });
+
+    it('should return { isUsed: false } when validating a new category (no categoryId)', async () => {
+      (categoriesService.isNameUsed as jest.Mock).mockResolvedValue(false);
+      const res = await request(app.getHttpServer())
+        .get(`/admin/categories/validate-name`)
+        .query({ name: mockName });
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ isUsed: false });
+      expect(categoriesService.isNameUsed).toHaveBeenCalledWith(
+        mockName,
+        undefined,
+      );
+    });
+
+    it('should return 400 if name is empty', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/admin/categories/validate-name`)
+        .query({ name: '' });
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 400 if name is missing', async () => {
+      const res = await request(app.getHttpServer()).get(
+        `/admin/categories/validate-name`,
+      );
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe('POST /admin/categories', () => {
     it('should create category', async () => {
       const dto: CreateCategoryDto = {

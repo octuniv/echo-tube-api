@@ -31,6 +31,7 @@ import { CategorySummaryResponseDto } from '@/admin/category/dto/response/catego
 import { ValidateSlugQueryDto } from './dto/query/validate-slug.query.dto';
 import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 import { CategoryDetailsResponseDto } from './dto/response/category-details-response.dto';
+import { ValidateNameQueryDto } from './dto/query/validate-name.query.dto';
 
 @ApiTags('admin-categories')
 @Controller('admin/categories')
@@ -100,6 +101,55 @@ export class AdminCategoryController {
       dto?.categoryId,
     );
     return { isUsed };
+  }
+
+  @Get('validate-name')
+  @ApiOperation({
+    summary: '카테고리 이름 중복 검증',
+    description:
+      '카테고리 이름이 다른 카테고리(또는 전체)에서 사용 중인지 확인합니다.',
+  })
+  @ApiQuery({
+    name: 'name',
+    type: 'string',
+    example: 'Technology',
+    description: '검증할 카테고리 이름',
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    type: 'number',
+    required: false,
+    example: 1,
+    description: '검증 대상 카테고리 ID (생략 시 모든 카테고리 검사)',
+  })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      example: { isUsed: false },
+    },
+    description: '성공',
+  })
+  @ApiResponse({
+    status: 400,
+    description: '유효성 검증 실패 (이름 누락)',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: ['name should not be empty'],
+        error: 'Bad Request',
+      },
+    },
+  })
+  async validateName(
+    @Query() dto: ValidateNameQueryDto,
+  ): Promise<{ isUsed: boolean }> {
+    const isUsed = await this.categoriesService.isNameUsed(
+      dto.name,
+      dto?.categoryId,
+    );
+    return {
+      isUsed,
+    };
   }
 
   @Post()

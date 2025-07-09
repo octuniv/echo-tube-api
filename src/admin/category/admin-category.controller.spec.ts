@@ -6,6 +6,7 @@ import {
   ValidationPipe,
   ConflictException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import * as request from 'supertest';
 import { AdminCategoryController } from '@/admin/category/admin-category.controller';
@@ -314,6 +315,28 @@ describe('AdminCategoryController', () => {
 
       expect(res.body.message).toEqual(
         CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
+      );
+    });
+
+    it('should return 400 if category slugs already exists', async () => {
+      const dto: CreateCategoryDto = {
+        name: 'Existing Category',
+        allowedSlugs: ['duplicated', 'duplicated1'],
+      };
+
+      jest.spyOn(categoriesService, 'create').mockImplementationOnce(() => {
+        throw new BadRequestException(
+          CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS(dto.allowedSlugs),
+        );
+      });
+
+      const res = await request(app.getHttpServer())
+        .post('/admin/categories')
+        .send(dto)
+        .expect(400);
+
+      expect(res.body.message).toEqual(
+        CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS(dto.allowedSlugs),
       );
     });
   });

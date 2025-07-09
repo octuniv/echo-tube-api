@@ -140,7 +140,7 @@ describe('Admin Categories - /admin/categories (e2e)', () => {
         .expect(400)
         .expect((res) => {
           expect(res.body.message).toEqual(
-            CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUG(VALID_SLUG),
+            CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS(dto.allowedSlugs),
           );
         });
     });

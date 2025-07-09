@@ -66,7 +66,7 @@ export class CategoriesService {
     if (!isValid) {
       throw new BadRequestException({
         error: 'DUPLICATE_SLUG',
-        message: CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUG(slug),
+        message: CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS([slug]),
       });
     }
   }
@@ -133,15 +133,14 @@ export class CategoriesService {
     const category = this.categoryRepository.create({ name: dto.name });
     const savedCategory = await this.categoryRepository.save(category);
 
-    for (const slug of dto.allowedSlugs) {
-      const existingSlug = await this.categorySlugRepository.findOne({
-        where: { slug },
-      });
-      if (existingSlug) {
-        throw new BadRequestException(
-          CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUG(slug),
-        );
-      }
+    const existingSlugs = await this.categorySlugRepository.find({
+      where: { slug: In(dto.allowedSlugs) },
+    });
+    if (existingSlugs.length > 0) {
+      const duplicateSlugs = existingSlugs.map((s) => s.slug);
+      throw new BadRequestException(
+        CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS(duplicateSlugs),
+      );
     }
 
     const slugs = dto.allowedSlugs.map((slug) =>

@@ -182,6 +182,14 @@ export class AdminCategoryController {
           error: 'Bad Request',
         },
       },
+      invalidSlug: {
+        summary: '유효하지 않은 슬러그',
+        value: {
+          statusCode: 400,
+          message: [CATEGORY_ERROR_MESSAGES.INVALID_SLUGS],
+          error: 'Bad Request',
+        },
+      },
       emptySlugs: {
         summary: '슬러그 누락',
         value: {
@@ -284,6 +292,14 @@ export class AdminCategoryController {
         value: {
           statusCode: 400,
           message: [CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED],
+          error: 'Bad Request',
+        },
+      },
+      invalidSlug: {
+        summary: '유효하지 않은 슬러그',
+        value: {
+          statusCode: 400,
+          message: [CATEGORY_ERROR_MESSAGES.INVALID_SLUGS],
           error: 'Bad Request',
         },
       },

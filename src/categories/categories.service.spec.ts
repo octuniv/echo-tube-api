@@ -189,7 +189,7 @@ describe('CategoriesService', () => {
       ).rejects.toThrow(
         new BadRequestException({
           error: 'DUPLICATE_SLUG',
-          message: CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUG(INVALID_SLUG),
+          message: CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS([INVALID_SLUG]),
         }),
       );
     });
@@ -360,18 +360,29 @@ describe('CategoriesService', () => {
     });
 
     it('슬러그가 이미 다른 카테고리에 사용 중인 경우 BadRequestException을 던져야 함', async () => {
-      const existingSlug = 'slug1';
+      const EXISTING_SLUG = 'slug1';
+
+      // Mock category check: no existing category
       categoryRepository.findOne = jest
         .fn()
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(null);
-      categorySlugRepository.findOne = jest
-        .fn()
-        .mockResolvedValue(createCategorySlug({ slug: existingSlug }));
+        .mockResolvedValueOnce(null) // for category name check
+        .mockResolvedValueOnce(null); // for second unrelated check
 
-      await expect(service.create(dto)).rejects.toThrow(BadRequestException);
-      expect(categorySlugRepository.findOne).toHaveBeenCalledWith({
-        where: { slug: existingSlug },
+      // Mock slug check: return a duplicate slug
+      categorySlugRepository.find = jest
+        .fn()
+        .mockResolvedValue([createCategorySlug({ slug: EXISTING_SLUG })]);
+
+      // Expect the correct error with all duplicate slugs listed
+      await expect(service.create(dto)).rejects.toThrow(
+        new BadRequestException(
+          CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS([EXISTING_SLUG]),
+        ),
+      );
+
+      // Ensure the slug query uses In() with the full list of allowed slugs
+      expect(categorySlugRepository.find).toHaveBeenCalledWith({
+        where: { slug: In(dto.allowedSlugs) },
       });
     });
 

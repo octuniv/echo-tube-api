@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Post,
-  Patch,
   Delete,
   Param,
   Body,
@@ -10,6 +9,7 @@ import {
   ParseIntPipe,
   Query,
   HttpCode,
+  Put,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -25,8 +25,8 @@ import { Roles } from '@/auth/roles.decorator';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { RolesGuard } from '@/auth/roles.guard';
 import { CategoriesService } from '@/categories/categories.service';
-import { CreateCategoryDto } from '@/categories/dto/CRUD/create-category.dto';
-import { UpdateCategoryDto } from '@/categories/dto/CRUD/update-category.dto';
+import { CreateCategoryDto } from '@/admin/category/dto/CRUD/create-category.dto';
+import { UpdateCategoryDto } from '@/admin/category/dto/CRUD/update-category.dto';
 import { CategorySummaryResponseDto } from '@/admin/category/dto/response/category-summary-response.dto';
 import { ValidateSlugQueryDto } from './dto/query/validate-slug.query.dto';
 import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
@@ -240,7 +240,7 @@ export class AdminCategoryController {
     return this.categoriesService.getCategoryDetails(id);
   }
 
-  @Patch(':id')
+  @Put(':id')
   @ApiOperation({
     summary: '카테고리 정보 업데이트',
     description: '특정 ID의 카테고리 정보를 업데이트합니다.',

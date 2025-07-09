@@ -5,4 +5,7 @@ export const CATEGORY_ERROR_MESSAGES = {
     `이미 사용 중인 슬러그가 있습니다: ${slugs.join(', ')}`,
   CATEGORY_NOT_FOUND: `카테고리를 찾을 수 없습니다.`,
   DUPLICATE_CATEGORY_NAME: '이미 존재하는 카테고리 이름입니다.',
+  NAME_REQUIRED: '이름은 필수입니다',
+  INVALID_SLUGS:
+    'Each slug must be URL-friendly (lowercase letters, numbers, hyphens)',
 };

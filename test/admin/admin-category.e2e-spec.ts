@@ -9,8 +9,8 @@ import {
   truncateAllTables,
 } from '../utils/test.util';
 import { DataSource } from 'typeorm';
-import { CreateCategoryDto } from '@/categories/dto/CRUD/create-category.dto';
-import { UpdateCategoryDto } from '@/categories/dto/CRUD/update-category.dto';
+import { CreateCategoryDto } from '@/admin/category/dto/CRUD/create-category.dto';
+import { UpdateCategoryDto } from '@/admin/category/dto/CRUD/update-category.dto';
 
 const envFile = `.env.${process.env.NODE_ENV || 'production'}`;
 dotenv.config({ path: envFile });
@@ -113,6 +113,20 @@ describe('Admin Categories - /admin/categories (e2e)', () => {
         });
     });
 
+    it('should return consistent error messages', async () => {
+      const dto = { name: '', allowedSlugs: [] };
+      const res = await request(app.getHttpServer())
+        .post('/admin/categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(400);
+
+      expect(res.body.message).toContain(CATEGORY_ERROR_MESSAGES.NAME_REQUIRED);
+      expect(res.body.message).toContain(
+        CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED,
+      );
+    });
+
     it('should return 400 if duplicate slug exists', async () => {
       const dto: CreateCategoryDto = {
         name: 'Duplicate Category',
@@ -164,6 +178,55 @@ describe('Admin Categories - /admin/categories (e2e)', () => {
           expect(res.body.message).toEqual(
             CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
           );
+        });
+    });
+  });
+
+  describe('POST /admin/categories - invalid slugs', () => {
+    const validDto: CreateCategoryDto = {
+      name: 'Test Category',
+      allowedSlugs: ['valid-slug'],
+    };
+
+    it('should return 400 for uppercase slug', async () => {
+      const dto = { ...validDto, allowedSlugs: ['InvalidSlug'] };
+      await request(app.getHttpServer())
+        .post('/admin/categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(400)
+        .expect((res) => {
+          expect(res.body.message).toEqual([
+            CATEGORY_ERROR_MESSAGES.INVALID_SLUGS,
+          ]);
+        });
+    });
+
+    it('should return 400 for special characters', async () => {
+      const dto = { ...validDto, allowedSlugs: ['slug@special'] };
+      await request(app.getHttpServer())
+        .post('/admin/categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(400)
+        .expect((res) => {
+          expect(res.body.message).toEqual([
+            CATEGORY_ERROR_MESSAGES.INVALID_SLUGS,
+          ]);
+        });
+    });
+
+    it('should return 400 for underscores', async () => {
+      const dto = { ...validDto, allowedSlugs: ['slug_with_underscore'] };
+      await request(app.getHttpServer())
+        .post('/admin/categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(400)
+        .expect((res) => {
+          expect(res.body.message).toEqual([
+            CATEGORY_ERROR_MESSAGES.INVALID_SLUGS,
+          ]);
         });
     });
   });
@@ -364,17 +427,17 @@ describe('Admin Categories - /admin/categories (e2e)', () => {
     });
   });
 
-  describe('PATCH /admin/categories/:id', () => {
+  describe('PUT /admin/categories/:id', () => {
     it('should update category successfully', async () => {
-      const dto: UpdateCategoryDto = {
+      const updateDto: UpdateCategoryDto = {
         name: 'Updated Category',
         allowedSlugs: [VALID_SLUG, 'new-slug'],
       };
 
       await request(app.getHttpServer())
-        .patch(`/admin/categories/${categoryId}`)
+        .put(`/admin/categories/${categoryId}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send(dto)
+        .send(updateDto)
         .expect(200)
         .then((res) => {
           expect(res.body.name).toBe('Updated Category');
@@ -383,15 +446,29 @@ describe('Admin Categories - /admin/categories (e2e)', () => {
         });
     });
 
+    it('should require name and allowedSlugs in update', async () => {
+      const dto = {} as UpdateCategoryDto;
+      await request(app.getHttpServer())
+        .put(`/admin/categories/${categoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(400)
+        .expect((res) => {
+          expect(res.body.message).toContain('name must be a string');
+          expect(res.body.message).toContain('allowedSlugs must be an array');
+        });
+    });
+
     it('should return 400 if duplicate slug exists in other category', async () => {
-      const updateDto: UpdateCategoryDto = {
+      const duplicateSlugDto: UpdateCategoryDto = {
+        name: `duplicatedSlug${new Date().toISOString()}`,
         allowedSlugs: [DUPLICATE_SLUG],
       };
 
       await request(app.getHttpServer())
-        .patch(`/admin/categories/${categoryId}`)
+        .put(`/admin/categories/${categoryId}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send(updateDto)
+        .send(duplicateSlugDto)
         .expect(400)
         .expect((res) => {
           expect(res.body.message).toEqual(
@@ -401,14 +478,15 @@ describe('Admin Categories - /admin/categories (e2e)', () => {
     });
 
     it('should return 400 if allowedSlugs is empty', async () => {
-      const dto: UpdateCategoryDto = {
+      const emptySlugDto: UpdateCategoryDto = {
+        name: `emptySlug${new Date().toISOString()}`,
         allowedSlugs: [],
       };
 
       await request(app.getHttpServer())
-        .patch(`/admin/categories/${categoryId}`)
+        .put(`/admin/categories/${categoryId}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send(dto)
+        .send(emptySlugDto)
         .expect(400)
         .expect((res) => {
           expect(res.body.message).toEqual([
@@ -419,14 +497,16 @@ describe('Admin Categories - /admin/categories (e2e)', () => {
 
     it('should return 404 if category not found', async () => {
       const nonExistId = 999;
-      const dto: UpdateCategoryDto = {
-        name: 'Updated Category',
+
+      const anotherDto: UpdateCategoryDto = {
+        name: `another${new Date().toISOString()}`,
+        allowedSlugs: [`another1122345`],
       };
 
       return request(app.getHttpServer())
-        .patch(`/admin/categories/${nonExistId}`)
+        .put(`/admin/categories/${nonExistId}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send(dto)
+        .send(anotherDto)
         .expect(404)
         .expect((res) => {
           expect(res.body.message).toEqual(
@@ -447,19 +527,94 @@ describe('Admin Categories - /admin/categories (e2e)', () => {
         .send(anotherCategoryDto)
         .expect(201);
 
-      const dto: UpdateCategoryDto = {
+      const dulicateNameDto: UpdateCategoryDto = {
+        allowedSlugs: ['notuplicatedslug11'],
         name: anotherCategoryDto.name,
       };
 
       return request(app.getHttpServer())
-        .patch(`/admin/categories/${categoryId}`)
+        .put(`/admin/categories/${categoryId}`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send(dto)
+        .send(dulicateNameDto)
         .expect(409)
         .expect((res) => {
           expect(res.body.message).toEqual(
             CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
           );
+        });
+    });
+
+    it('should handle concurrent slug updates correctly', async () => {
+      const dto1: UpdateCategoryDto = {
+        name: 'Cat1',
+        allowedSlugs: ['shared-slug'],
+      };
+      const dto2: UpdateCategoryDto = {
+        name: 'Cat2',
+        allowedSlugs: ['shared-slug'],
+      };
+
+      // 첫 번째 업데이트는 성공
+      await request(app.getHttpServer())
+        .put(`/admin/categories/${categoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto1)
+        .expect(200);
+
+      // 두 번째 업데이트는 충돌
+      await request(app.getHttpServer())
+        .put(`/admin/categories/${anotherCategoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto2)
+        .expect(400);
+    });
+  });
+
+  describe('PUT /admin/categories/:id - invalid slugs', () => {
+    const validDto: UpdateCategoryDto = {
+      name: 'Updated Category',
+      allowedSlugs: ['valid-slug'],
+    };
+
+    it('should return 400 for uppercase slug', async () => {
+      const dto = { ...validDto, allowedSlugs: ['InvalidSlug'] };
+      await request(app.getHttpServer())
+        .put(`/admin/categories/${categoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(400)
+        .expect((res) => {
+          expect(res.body.message).toEqual([
+            CATEGORY_ERROR_MESSAGES.INVALID_SLUGS,
+          ]);
+        });
+    });
+
+    it('should return 400 for special characters', async () => {
+      const dto = { ...validDto, allowedSlugs: ['slug@special'] };
+      await request(app.getHttpServer())
+        .put(`/admin/categories/${categoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(400)
+        .expect((res) => {
+          expect(res.body.message).toEqual([
+            CATEGORY_ERROR_MESSAGES.INVALID_SLUGS,
+          ]);
+        });
+    });
+
+    it('should return 400 for underscores', async () => {
+      const dto = { ...validDto, allowedSlugs: ['slug_with_underscore'] };
+      await request(app.getHttpServer())
+        .put(`/admin/categories/${categoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(400)
+        .expect((res) => {
+          expect(res.body.message).toEqual([
+            CATEGORY_ERROR_MESSAGES.INVALID_SLUGS,
+          ]);
         });
     });
   });

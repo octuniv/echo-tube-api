@@ -4,15 +4,14 @@ import {
   ExecutionContext,
   INestApplication,
   ValidationPipe,
-  BadRequestException,
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import * as request from 'supertest';
 import { AdminCategoryController } from '@/admin/category/admin-category.controller';
 import { CategoriesService } from '@/categories/categories.service';
-import { CreateCategoryDto } from '@/categories/dto/CRUD/create-category.dto';
-import { UpdateCategoryDto } from '@/categories/dto/CRUD/update-category.dto';
+import { CreateCategoryDto } from '@/admin/category/dto/CRUD/create-category.dto';
+import { UpdateCategoryDto } from '@/admin/category/dto/CRUD/update-category.dto';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { Category } from '@/categories/entities/category.entity';
@@ -279,24 +278,21 @@ describe('AdminCategoryController', () => {
       expect(categoriesService.create).toHaveBeenCalledWith(dto);
     });
 
-    it('should return 400 if allowedSlugs is empty', async () => {
+    it('should return consistent error messages', async () => {
       const dto: CreateCategoryDto = {
-        name: 'Empty Slug Category',
+        name: '',
         allowedSlugs: [],
       };
-
-      jest.spyOn(categoriesService, 'create').mockImplementationOnce(() => {
-        throw new BadRequestException(CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED);
-      });
 
       const res = await request(app.getHttpServer())
         .post('/admin/categories')
         .send(dto)
         .expect(400);
 
-      expect(res.body.message).toEqual([
+      expect(res.body.message).toContain(CATEGORY_ERROR_MESSAGES.NAME_REQUIRED);
+      expect(res.body.message).toContain(
         CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED,
-      ]);
+      );
     });
 
     it('should return 409 if category name already exists', async () => {
@@ -319,6 +315,43 @@ describe('AdminCategoryController', () => {
       expect(res.body.message).toEqual(
         CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
       );
+    });
+  });
+
+  describe('POST /admin/categories - invalid slugs', () => {
+    const validDto: CreateCategoryDto = {
+      name: 'Valid Category',
+      allowedSlugs: ['valid-slug'],
+    };
+
+    it('should return 400 if slug contains uppercase', async () => {
+      const dto = { ...validDto, allowedSlugs: ['InvalidSlug'] };
+      const res = await request(app.getHttpServer())
+        .post('/admin/categories')
+        .send(dto)
+        .expect(400);
+
+      expect(res.body.message).toEqual([CATEGORY_ERROR_MESSAGES.INVALID_SLUGS]);
+    });
+
+    it('should return 400 if slug contains special characters', async () => {
+      const dto = { ...validDto, allowedSlugs: ['slug@special'] };
+      const res = await request(app.getHttpServer())
+        .post('/admin/categories')
+        .send(dto)
+        .expect(400);
+
+      expect(res.body.message).toEqual([CATEGORY_ERROR_MESSAGES.INVALID_SLUGS]);
+    });
+
+    it('should return 400 if slug contains underscores', async () => {
+      const dto = { ...validDto, allowedSlugs: ['slug_with_underscore'] };
+      const res = await request(app.getHttpServer())
+        .post('/admin/categories')
+        .send(dto)
+        .expect(400);
+
+      expect(res.body.message).toEqual([CATEGORY_ERROR_MESSAGES.INVALID_SLUGS]);
     });
   });
 
@@ -383,43 +416,47 @@ describe('AdminCategoryController', () => {
     });
   });
 
-  describe('PATCH /admin/categories/:id', () => {
+  describe('PUT /admin/categories/:id', () => {
     it('should update category', async () => {
       const dto: UpdateCategoryDto = {
         name: 'Updated',
-      } satisfies UpdateCategoryDto;
+        allowedSlugs: ['update-test'],
+      };
+
+      jest
+        .spyOn(categoriesService, 'update')
+        .mockResolvedValueOnce({ ...mockCategoryDto, ...dto });
 
       const res = await request(app.getHttpServer())
-        .patch('/admin/categories/1')
+        .put('/admin/categories/1')
         .send(dto)
         .expect(200);
 
-      expect(res.body).toEqual(mockCategoryDto);
+      expect(res.body).toEqual({ ...mockCategoryDto, ...dto });
       expect(categoriesService.update).toHaveBeenCalledWith(1, dto);
     });
 
-    it('should return 400 if allowedSlugs is empty', async () => {
+    it('should return consistent error messages', async () => {
       const dto: UpdateCategoryDto = {
+        name: '',
         allowedSlugs: [],
       };
 
-      jest.spyOn(categoriesService, 'update').mockImplementationOnce(() => {
-        throw new BadRequestException(CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED);
-      });
-
       const res = await request(app.getHttpServer())
-        .patch('/admin/categories/1')
+        .put('/admin/categories/1')
         .send(dto)
         .expect(400);
 
-      expect(res.body.message).toEqual([
+      expect(res.body.message).toContain(CATEGORY_ERROR_MESSAGES.NAME_REQUIRED);
+      expect(res.body.message).toContain(
         CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED,
-      ]);
+      );
     });
 
     it('should return 409 if category name already exists', async () => {
       const dto: UpdateCategoryDto = {
         name: 'Existing Category',
+        allowedSlugs: ['test'],
       };
 
       jest.spyOn(categoriesService, 'update').mockImplementationOnce(() => {
@@ -429,7 +466,7 @@ describe('AdminCategoryController', () => {
       });
 
       const res = await request(app.getHttpServer())
-        .patch('/admin/categories/1')
+        .put('/admin/categories/1')
         .send(dto)
         .expect(409);
 
@@ -439,17 +476,59 @@ describe('AdminCategoryController', () => {
     });
 
     it('should return 404 if category not found', async () => {
+      const dto: UpdateCategoryDto = {
+        name: 'Updated',
+        allowedSlugs: ['update-test'],
+      };
       jest.spyOn(categoriesService, 'update').mockImplementationOnce(() => {
         throw new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND);
       });
 
-      const res = await request(app.getHttpServer()).patch(
-        '/admin/categories/999',
-      );
+      const res = await request(app.getHttpServer())
+        .put('/admin/categories/999')
+        .send(dto)
+        .expect(404);
       expect(res.status).toBe(404);
       expect(res.body.message).toEqual(
         CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND,
       );
+    });
+  });
+
+  describe('PUT /admin/categories/:id - invalid slugs', () => {
+    const validDto: UpdateCategoryDto = {
+      name: 'Updated Category',
+      allowedSlugs: ['valid-slug'],
+    };
+
+    it('should return 400 if slug contains uppercase', async () => {
+      const dto = { ...validDto, allowedSlugs: ['InvalidSlug'] };
+      const res = await request(app.getHttpServer())
+        .put('/admin/categories/1')
+        .send(dto)
+        .expect(400);
+
+      expect(res.body.message).toEqual([CATEGORY_ERROR_MESSAGES.INVALID_SLUGS]);
+    });
+
+    it('should return 400 if slug contains special characters', async () => {
+      const dto = { ...validDto, allowedSlugs: ['slug@special'] };
+      const res = await request(app.getHttpServer())
+        .put('/admin/categories/1')
+        .send(dto)
+        .expect(400);
+
+      expect(res.body.message).toEqual([CATEGORY_ERROR_MESSAGES.INVALID_SLUGS]);
+    });
+
+    it('should return 400 if slug contains underscores', async () => {
+      const dto = { ...validDto, allowedSlugs: ['slug_with_underscore'] };
+      const res = await request(app.getHttpServer())
+        .put('/admin/categories/1')
+        .send(dto)
+        .expect(400);
+
+      expect(res.body.message).toEqual([CATEGORY_ERROR_MESSAGES.INVALID_SLUGS]);
     });
   });
 

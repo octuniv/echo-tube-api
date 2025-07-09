@@ -15,8 +15,8 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
-import { CreateCategoryDto } from './dto/CRUD/create-category.dto';
-import { UpdateCategoryDto } from './dto/CRUD/update-category.dto';
+import { CreateCategoryDto } from '../admin/category/dto/CRUD/create-category.dto';
+import { UpdateCategoryDto } from '../admin/category/dto/CRUD/update-category.dto';
 import { createBoard } from '@/boards/factories/board.factory';
 import { BoardPurpose } from '@/boards/entities/board.entity';
 import { CategoryDetailsResponseDto } from '@/admin/category/dto/response/category-details-response.dto';
@@ -605,6 +605,7 @@ describe('CategoriesService', () => {
     it('카테고리 이름이 이미 존재하는 경우 ConflictException 발생', async () => {
       const dto: UpdateCategoryDto = {
         name: 'Existing Category Name',
+        allowedSlugs: ['test'],
       };
 
       const currentCategory = createCategory({

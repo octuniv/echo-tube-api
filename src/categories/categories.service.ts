@@ -10,8 +10,8 @@ import { Category } from './entities/category.entity';
 import { CategorySlug } from './entities/category-slug.entity';
 import { CategoryResponseDto } from './dto/list/category-response.dto';
 import { CategorySummaryResponseDto } from '../admin/category/dto/response/category-summary-response.dto';
-import { UpdateCategoryDto } from './dto/CRUD/update-category.dto';
-import { CreateCategoryDto } from './dto/CRUD/create-category.dto';
+import { UpdateCategoryDto } from '../admin/category/dto/CRUD/update-category.dto';
+import { CreateCategoryDto } from '../admin/category/dto/CRUD/create-category.dto';
 import { CategoryWithBoardsResponse } from './dto/category-specific/category-with-boards.dto';
 import { BoardPurpose } from '@/boards/entities/board.entity';
 import { plainToClass } from 'class-transformer';
@@ -172,58 +172,53 @@ export class CategoriesService {
     if (!category)
       throw new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND);
 
-    if (dto.name) {
-      const existingCategory = await this.categoryRepository.findOne({
-        where: { name: dto.name, id: Not(id) },
-      });
-      if (existingCategory) {
-        throw new ConflictException(
-          CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
-        );
-      }
-      category.name = dto.name;
-    }
-
-    if (dto.allowedSlugs) {
-      if (dto.allowedSlugs.length === 0) {
-        throw new BadRequestException(CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED);
-      }
-
-      const existingSlugs = await this.categorySlugRepository.find({
-        where: {
-          slug: In(dto.allowedSlugs),
-          category: { id: Not(id) },
-        },
-      });
-
-      if (existingSlugs.length > 0) {
-        const duplicateSlugs = existingSlugs.map((s) => s.slug);
-        throw new BadRequestException(
-          CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS(duplicateSlugs),
-        );
-      }
-
-      const oldSlugs = category.slugs.map((s) => s.slug);
-      const newSlugs = dto.allowedSlugs;
-
-      const slugsToDelete = category.slugs.filter(
-        (slug) => !newSlugs.includes(slug.slug),
+    const existingCategory = await this.categoryRepository.findOne({
+      where: { name: dto.name, id: Not(id) },
+    });
+    if (existingCategory) {
+      throw new ConflictException(
+        CATEGORY_ERROR_MESSAGES.DUPLICATE_CATEGORY_NAME,
       );
-
-      await this.categorySlugRepository.remove(slugsToDelete);
-
-      const slugsToAdd = newSlugs
-        .filter((slug) => !oldSlugs.includes(slug))
-        .map((slug) => this.categorySlugRepository.create({ slug, category }));
-
-      const newSlugsEntities =
-        await this.categorySlugRepository.save(slugsToAdd);
-
-      category.slugs = [
-        ...category.slugs.filter((slug) => newSlugs.includes(slug.slug)),
-        ...(newSlugsEntities || []),
-      ];
     }
+    category.name = dto.name;
+
+    if (dto.allowedSlugs.length === 0) {
+      throw new BadRequestException(CATEGORY_ERROR_MESSAGES.SLUGS_REQUIRED);
+    }
+
+    const existingSlugs = await this.categorySlugRepository.find({
+      where: {
+        slug: In(dto.allowedSlugs),
+        category: { id: Not(id) },
+      },
+    });
+
+    if (existingSlugs.length > 0) {
+      const duplicateSlugs = existingSlugs.map((s) => s.slug);
+      throw new BadRequestException(
+        CATEGORY_ERROR_MESSAGES.DUPLICATE_SLUGS(duplicateSlugs),
+      );
+    }
+
+    const oldSlugs = category.slugs.map((s) => s.slug);
+    const newSlugs = dto.allowedSlugs;
+
+    const slugsToDelete = category.slugs.filter(
+      (slug) => !newSlugs.includes(slug.slug),
+    );
+
+    await this.categorySlugRepository.remove(slugsToDelete);
+
+    const slugsToAdd = newSlugs
+      .filter((slug) => !oldSlugs.includes(slug))
+      .map((slug) => this.categorySlugRepository.create({ slug, category }));
+
+    const newSlugsEntities = await this.categorySlugRepository.save(slugsToAdd);
+
+    category.slugs = [
+      ...category.slugs.filter((slug) => newSlugs.includes(slug.slug)),
+      ...(newSlugsEntities || []),
+    ];
 
     await this.categoryRepository.save(category);
 

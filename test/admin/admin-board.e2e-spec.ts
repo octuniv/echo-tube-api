@@ -8,7 +8,7 @@ import {
   truncateAllTables,
 } from '../utils/test.util';
 import { DataSource } from 'typeorm';
-import { CreateCategoryDto } from '@/categories/dto/CRUD/create-category.dto';
+import { CreateCategoryDto } from '@/admin/category/dto/CRUD/create-category.dto';
 import { CreateBoardDto } from '@/admin/board/dto/CRUD/create-board.dto';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { BoardPurpose } from '@/boards/entities/board.entity';

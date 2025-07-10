@@ -15,6 +15,7 @@ export const BOARD_ERROR_MESSAGES = {
   NOT_FOUND_BOARD: 'Board not found',
   SLUG_NOT_ALLOWED_IN_CATEGORY: (slug: string) =>
     `Slug "${slug}" is not allowed in this category`,
+  DUPLICATE_SLUG: (slug: string) => `Slug "${slug}" is already in use`,
   AI_DIGEST_REQUIRES_HIGHER_ROLE:
     'AI_DIGEST board requires a role higher than USER',
 };

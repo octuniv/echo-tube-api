@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Board, BoardPurpose } from './entities/board.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { BoardListItemDto } from './dto/list/board-list-item.dto';
 import { ScrapingTargetBoardDto } from './dto/scraping/scraping-target-board.dto';
 import { CreateBoardDto } from '../admin/board/dto/CRUD/create-board.dto';
@@ -14,6 +14,7 @@ import { CategoriesService } from '@/categories/categories.service';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { BOARD_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 import { Transactional } from 'typeorm-transactional';
+import { Category } from '@/categories/entities/category.entity';
 
 @Injectable()
 export class BoardsService {
@@ -82,12 +83,29 @@ export class BoardsService {
   private async validateSlugWithinCategory(
     slug: string,
     categoryId: number,
-  ): Promise<void> {
+  ): Promise<Category> {
     const category = await this.categoriesService.findOne(categoryId);
     if (!category.slugs.some((s) => s.slug === slug)) {
       throw new BadRequestException(
         BOARD_ERROR_MESSAGES.SLUG_NOT_ALLOWED_IN_CATEGORY(slug),
       );
+    }
+    return category;
+  }
+
+  private async checkSlugUniqueness(
+    slug: string,
+    excludeId?: number,
+  ): Promise<void> {
+    const existingBoard = await this.boardRepository.findOne({
+      where: {
+        slug,
+        ...(excludeId && { id: Not(excludeId) }),
+      },
+    });
+
+    if (existingBoard) {
+      throw new BadRequestException(BOARD_ERROR_MESSAGES.DUPLICATE_SLUG(slug));
     }
   }
 
@@ -105,8 +123,12 @@ export class BoardsService {
   @Transactional()
   async create(dto: CreateBoardDto): Promise<Board> {
     const { categoryId, ...rest } = dto;
-    await this.validateSlugWithinCategory(dto.slug, dto.categoryId);
-    const category = await this.categoriesService.findOne(categoryId);
+    const category = await this.validateSlugWithinCategory(
+      dto.slug,
+      categoryId,
+    );
+    await this.checkSlugUniqueness(dto.slug);
+
     const board = this.boardRepository.create({
       ...rest,
       category,
@@ -118,15 +140,13 @@ export class BoardsService {
   @Transactional()
   async update(id: number, dto: UpdateBoardDto): Promise<Board> {
     const board = await this.findOne(id);
+    const category = await this.validateSlugWithinCategory(
+      dto.slug,
+      dto.categoryId,
+    );
+    board.category = category;
 
-    // Handle category separately
-    if (dto.categoryId) {
-      if (dto.slug !== undefined) {
-        await this.validateSlugWithinCategory(dto.slug, dto.categoryId);
-      }
-      const category = await this.categoriesService.findOne(dto.categoryId);
-      board.category = category;
-    }
+    await this.checkSlugUniqueness(dto.slug, id);
 
     Object.assign(board, dto);
 

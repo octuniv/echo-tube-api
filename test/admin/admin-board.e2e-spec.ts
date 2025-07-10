@@ -46,12 +46,14 @@ describe('Admin Board - /admin/boards (e2e)', () => {
   let dataSource: DataSource;
   let adminToken: string;
   let nonAdminToken: string;
-  let testCategoryId: number;
+  let testBoardId: number;
   let createBoardDto: CreateBoardDto;
 
   const TEST_CATEGORY_NAME = 'TEST_CATEGORY_FOR_E2E';
   const TEST_SLUG = 'testslug';
   const ROLE_TEST_SLUG = 'roletestslug';
+  const DUPL_TEST_SLUG = 'dupltestslug';
+  const UNIQUE_SLUG = 'uniqueslug';
 
   beforeAll(async () => {
     const testApp = await setupTestApp();
@@ -85,11 +87,11 @@ describe('Admin Board - /admin/boards (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         name: TEST_CATEGORY_NAME,
-        allowedSlugs: [TEST_SLUG, ROLE_TEST_SLUG],
+        allowedSlugs: [TEST_SLUG, ROLE_TEST_SLUG, DUPL_TEST_SLUG, UNIQUE_SLUG],
       } satisfies CreateCategoryDto)
       .expect(201)
       .then((res) => {
-        testCategoryId = Number(res.body.id);
+        const testCategoryId = Number(res.body.id);
         createBoardDto = {
           slug: TEST_SLUG,
           name: 'Test Board',
@@ -99,7 +101,12 @@ describe('Admin Board - /admin/boards (e2e)', () => {
           categoryId: testCategoryId,
         };
         expect(res.body.name).toBe(TEST_CATEGORY_NAME);
-        expect(res.body.allowedSlugs).toEqual([TEST_SLUG, ROLE_TEST_SLUG]);
+        expect(res.body.allowedSlugs).toEqual([
+          TEST_SLUG,
+          ROLE_TEST_SLUG,
+          DUPL_TEST_SLUG,
+          UNIQUE_SLUG,
+        ]);
       });
   });
 
@@ -139,6 +146,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         .then((res) => {
           const dto = validateAdminBordResponse(res.body);
           expect(dto).toBeInstanceOf(AdminBoardResponseDto);
+          testBoardId = dto.id;
         });
     });
 
@@ -183,7 +191,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         description: 'Test Description',
         requiredRole: UserRole.USER,
         type: BoardPurpose.GENERAL,
-        categoryId: testCategoryId,
+        categoryId: dto.categoryId,
       };
       return request(app.getHttpServer())
         .post('/admin/boards')
@@ -222,6 +230,22 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         BOARD_ERROR_MESSAGES.AI_DIGEST_REQUIRES_HIGHER_ROLE,
       );
     });
+
+    it('should throw BadRequestException if slug is already in use', async () => {
+      const duplicateDto = {
+        ...createBoardDto,
+        slug: TEST_SLUG,
+        name: 'Duplicate Board',
+      };
+      const res = await request(app.getHttpServer())
+        .post('/admin/boards')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(duplicateDto)
+        .expect(400);
+      expect(res.body.message).toBe(
+        BOARD_ERROR_MESSAGES.DUPLICATE_SLUG(TEST_SLUG),
+      );
+    });
   });
 
   describe('GET /admin/boards', () => {
@@ -236,15 +260,15 @@ describe('Admin Board - /admin/boards (e2e)', () => {
   });
 
   describe('GET /admin/boards/:id', () => {
-    let getCategoryId: number;
+    let getBoardId: number;
 
     beforeAll(() => {
-      getCategoryId = testCategoryId;
+      getBoardId = testBoardId;
     });
 
     it('should return boardResponse data', async () => {
       const res = await request(app.getHttpServer())
-        .get(`/admin/boards/${getCategoryId}`)
+        .get(`/admin/boards/${getBoardId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
@@ -269,26 +293,40 @@ describe('Admin Board - /admin/boards (e2e)', () => {
 
   describe('PUT /admin/boards/:id', () => {
     let dto: UpdateBoardDto;
-    let updateCategoryId: number;
+    let updateBoardId: number;
 
-    beforeAll(() => {
+    beforeAll(async () => {
       dto = {
         ...createBoardDto,
         name: 'Updated Board',
       };
-      updateCategoryId = testCategoryId;
+      updateBoardId = testBoardId;
+
+      const duplicateDto = {
+        ...createBoardDto,
+        slug: DUPL_TEST_SLUG,
+        name: 'duplicated Board',
+      };
+      const res = await request(app.getHttpServer())
+        .post('/admin/boards')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(duplicateDto)
+        .expect(201);
+      const returnedDto = validateAdminBordResponse(res.body);
+      expect(returnedDto.slug).toBe(DUPL_TEST_SLUG);
     });
 
     it('should be successful in updating board', async () => {
       return request(app.getHttpServer())
-        .put(`/admin/boards/${updateCategoryId}`)
+        .put(`/admin/boards/${updateBoardId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send(dto)
         .expect(200)
         .then((res) => {
           validateAdminBordResponse(res.body);
           expect(res.body.name).toEqual(dto.name);
-          expect(res.body.categoryId).toEqual(updateCategoryId);
+          expect(res.body.id).toEqual(updateBoardId);
+          expect(res.body.categoryId).toEqual(dto.categoryId);
         });
     });
 
@@ -314,7 +352,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         categoryId: 9999,
       };
       return request(app.getHttpServer())
-        .put(`/admin/boards/${updateCategoryId}`)
+        .put(`/admin/boards/${updateBoardId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send(dtoWithWrongCategoryId)
         .expect(404)
@@ -331,7 +369,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         type: 'invalid',
       };
       return request(app.getHttpServer())
-        .put(`/admin/boards/${updateCategoryId}`)
+        .put(`/admin/boards/${updateBoardId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send(dtoWithWrongTypeData)
         .expect(400);
@@ -343,7 +381,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         slug: 'slug_with_underscores', // 밑줄 포함
       };
       const res = await request(app.getHttpServer())
-        .put(`/admin/boards/${updateCategoryId}`)
+        .put(`/admin/boards/${updateBoardId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send(invalidDto)
         .expect(400);
@@ -357,13 +395,44 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         requiredRole: UserRole.USER,
       };
       const res = await request(app.getHttpServer())
-        .put(`/admin/boards/${updateCategoryId}`)
+        .put(`/admin/boards/${updateBoardId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send(updateDto)
         .expect(400);
       expect(res.body.message).toBe(
         BOARD_ERROR_MESSAGES.AI_DIGEST_REQUIRES_HIGHER_ROLE,
       );
+    });
+
+    it('should throw BadRequestException when updating to a duplicate slug', async () => {
+      const dto = {
+        ...createBoardDto,
+        slug: DUPL_TEST_SLUG,
+        name: 'Updated Board',
+      };
+      const res = await request(app.getHttpServer())
+        .put(`/admin/boards/${updateBoardId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(400);
+      expect(res.body.message).toBe(
+        BOARD_ERROR_MESSAGES.DUPLICATE_SLUG(DUPL_TEST_SLUG),
+      );
+    });
+
+    it('should allow updating to a new unique slug', async () => {
+      const dto = {
+        ...createBoardDto,
+        slug: UNIQUE_SLUG,
+        name: 'New Unique Board',
+      };
+      const res = await request(app.getHttpServer())
+        .put(`/admin/boards/${updateBoardId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(200);
+      const updated = validateAdminBordResponse(res.body);
+      expect(updated.slug).toBe(UNIQUE_SLUG);
     });
   });
 
@@ -404,9 +473,9 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         slug: 'unallowed-slug',
         categoryId: categoryIdWithNoAllowedSlugs,
       };
-      const updateCategoryId = testCategoryId;
+      const updateBoardId = testBoardId;
       const res = await request(app.getHttpServer())
-        .put(`/admin/boards/${updateCategoryId}`)
+        .put(`/admin/boards/${updateBoardId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send(updateDto)
         .expect(400);
@@ -432,22 +501,22 @@ describe('Admin Board - /admin/boards (e2e)', () => {
   });
 
   describe('DELETE /admin/boards/:id', () => {
-    let deleteCategoryId: number;
+    let deleteBoardId: number;
 
     beforeAll(() => {
-      deleteCategoryId = testCategoryId;
+      deleteBoardId = testBoardId;
     });
 
     it('should success to delete board', async () => {
       return request(app.getHttpServer())
-        .delete(`/admin/boards/${deleteCategoryId}`)
+        .delete(`/admin/boards/${deleteBoardId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(204);
     });
 
     it('should throw a not found error If you delete a board that does not exist', async () => {
       return request(app.getHttpServer())
-        .delete(`/admin/boards/${deleteCategoryId}`)
+        .delete(`/admin/boards/${deleteBoardId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(404);
     });

@@ -17,7 +17,10 @@ import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { AdminBoardResponseDto } from '@/admin/board/dto/admin-board-response.dto';
-import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
+import {
+  BOARD_ERROR_MESSAGES,
+  CATEGORY_ERROR_MESSAGES,
+} from '@/common/constants/error-messages.constants';
 
 const envFile = `.env.${process.env.NODE_ENV || 'production'}`;
 dotenv.config({ path: envFile });
@@ -48,6 +51,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
 
   const TEST_CATEGORY_NAME = 'TEST_CATEGORY_FOR_E2E';
   const TEST_SLUG = 'testslug';
+  const ROLE_TEST_SLUG = 'roletestslug';
 
   beforeAll(async () => {
     const testApp = await setupTestApp();
@@ -81,7 +85,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send({
         name: TEST_CATEGORY_NAME,
-        allowedSlugs: [TEST_SLUG],
+        allowedSlugs: [TEST_SLUG, ROLE_TEST_SLUG],
       } satisfies CreateCategoryDto)
       .expect(201)
       .then((res) => {
@@ -95,7 +99,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
           categoryId: testCategoryId,
         };
         expect(res.body.name).toBe(TEST_CATEGORY_NAME);
-        expect(res.body.allowedSlugs).toEqual([TEST_SLUG]);
+        expect(res.body.allowedSlugs).toEqual([TEST_SLUG, ROLE_TEST_SLUG]);
       });
   });
 
@@ -198,8 +202,24 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send(invalidDto)
         .expect(400);
-      expect(res.body.message).toContain(
-        'Slug must be URL-friendly (lowercase letters, numbers, hyphens)',
+      expect(res.body.message).toContain(BOARD_ERROR_MESSAGES.INVALID_SLUGS);
+    });
+
+    it('should throw BadRequestException if AI_DIGEST type with USER role', async () => {
+      const dto = {
+        ...createBoardDto,
+        slug: ROLE_TEST_SLUG,
+        name: 'testaidigest',
+        type: BoardPurpose.AI_DIGEST,
+        requiredRole: UserRole.USER,
+      };
+      const res = await request(app.getHttpServer())
+        .post('/admin/boards')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(400);
+      expect(res.body.message).toBe(
+        BOARD_ERROR_MESSAGES.AI_DIGEST_REQUIRES_HIGHER_ROLE,
       );
     });
   });
@@ -327,8 +347,22 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send(invalidDto)
         .expect(400);
-      expect(res.body.message).toContain(
-        'Slug must be URL-friendly (lowercase letters, numbers, hyphens)',
+      expect(res.body.message).toContain(BOARD_ERROR_MESSAGES.INVALID_SLUGS);
+    });
+
+    it('should throw BadRequestException when updating to AI_DIGEST type with USER role', async () => {
+      const updateDto = {
+        ...dto,
+        type: BoardPurpose.AI_DIGEST,
+        requiredRole: UserRole.USER,
+      };
+      const res = await request(app.getHttpServer())
+        .put(`/admin/boards/${updateCategoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(updateDto)
+        .expect(400);
+      expect(res.body.message).toBe(
+        BOARD_ERROR_MESSAGES.AI_DIGEST_REQUIRES_HIGHER_ROLE,
       );
     });
   });
@@ -360,7 +394,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         .send(invalidDto)
         .expect(400);
       expect(res.body.message).toBe(
-        'Slug "unallowed-slug" is not allowed in this category',
+        BOARD_ERROR_MESSAGES.SLUG_NOT_ALLOWED_IN_CATEGORY(invalidDto.slug),
       );
     });
 
@@ -377,7 +411,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         .send(updateDto)
         .expect(400);
       expect(res.body.message).toBe(
-        'Slug "unallowed-slug" is not allowed in this category',
+        BOARD_ERROR_MESSAGES.SLUG_NOT_ALLOWED_IN_CATEGORY(updateDto.slug),
       );
     });
 
@@ -393,9 +427,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         .send(invalidDto)
         .expect(400);
       // 정규표현식 오류 먼저 발생
-      expect(res.body.message).toContain(
-        'Slug must be URL-friendly (lowercase letters, numbers, hyphens)',
-      );
+      expect(res.body.message).toContain(BOARD_ERROR_MESSAGES.INVALID_SLUGS);
     });
   });
 

@@ -8,3 +8,13 @@ export const CATEGORY_ERROR_MESSAGES = {
   INVALID_SLUGS:
     'Each slug must be URL-friendly (lowercase letters, numbers, hyphens)',
 };
+
+export const BOARD_ERROR_MESSAGES = {
+  INVALID_SLUGS:
+    'Slug must be URL-friendly (lowercase letters, numbers, hyphens)',
+  NOT_FOUND_BOARD: 'Board not found',
+  SLUG_NOT_ALLOWED_IN_CATEGORY: (slug: string) =>
+    `Slug "${slug}" is not allowed in this category`,
+  AI_DIGEST_REQUIRES_HIGHER_ROLE:
+    'AI_DIGEST board requires a role higher than USER',
+};

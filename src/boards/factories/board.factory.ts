@@ -5,7 +5,8 @@ import { faker } from '@faker-js/faker';
 import { UserRole } from '@/users/entities/user-role.enum';
 
 export const createBoard = (overrides: Partial<Board> = {}): Board => {
-  return {
+  const board = new Board();
+  Object.assign(board, {
     id: faker.number.int({ min: 1, max: 1000 }),
     slug: faker.helpers.slugify(faker.lorem.words()).toLowerCase(),
     name: faker.commerce.productName(),
@@ -18,5 +19,6 @@ export const createBoard = (overrides: Partial<Board> = {}): Board => {
     deletedAt: null,
     posts: [],
     ...overrides,
-  };
+  });
+  return board;
 };

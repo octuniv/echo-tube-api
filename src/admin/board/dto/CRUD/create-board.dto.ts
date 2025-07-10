@@ -9,6 +9,7 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { BoardPurpose } from '../../../../boards/entities/board.entity';
+import { BOARD_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 
 export class CreateBoardDto {
   @ApiProperty({
@@ -16,7 +17,7 @@ export class CreateBoardDto {
     description: '게시판의 URL 친화적인 식별자',
   })
   @Matches(/^[a-z0-9-]+$/, {
-    message: 'Slug must be URL-friendly (lowercase letters, numbers, hyphens)',
+    message: BOARD_ERROR_MESSAGES.INVALID_SLUGS,
   })
   slug: string;
 

@@ -15,6 +15,14 @@ import { BoardListItemDto } from './dto/list/board-list-item.dto';
 import { CategoriesService } from '@/categories/categories.service';
 import { UpdateBoardDto } from '../admin/board/dto/CRUD/update-board.dto';
 import { ScrapingTargetBoardDto } from './dto/scraping/scraping-target-board.dto';
+import {
+  BOARD_ERROR_MESSAGES,
+  CATEGORY_ERROR_MESSAGES,
+} from '@/common/constants/error-messages.constants';
+
+jest.mock('typeorm-transactional', () => ({
+  Transactional: () => () => ({}),
+}));
 
 describe('BoardsService', () => {
   let service: BoardsService;
@@ -179,7 +187,7 @@ describe('BoardsService', () => {
       (boardRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       await expect(service.findOneBySlug('non-exist-slug')).rejects.toThrow(
-        new NotFoundException('게시판을 찾을 수 없습니다'),
+        new NotFoundException(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD),
       );
       expect(boardRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'non-exist-slug' },
@@ -235,7 +243,9 @@ describe('BoardsService', () => {
     it('should throw NotFoundException when board not found', async () => {
       (boardRepository.findOne as jest.Mock).mockResolvedValue(null);
 
-      await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(999)).rejects.toThrow(
+        new NotFoundException(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD),
+      );
       expect(boardRepository.findOne).toHaveBeenCalledWith({
         where: { id: 999 },
         relations: ['category'],
@@ -286,9 +296,13 @@ describe('BoardsService', () => {
 
       jest
         .spyOn(categoriesService, 'findOne')
-        .mockRejectedValue(new NotFoundException('Category not found'));
+        .mockRejectedValue(
+          new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND),
+        );
 
-      await expect(service.create(dto)).rejects.toThrow(NotFoundException);
+      await expect(service.create(dto)).rejects.toThrow(
+        new NotFoundException(CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND),
+      );
     });
 
     it('should throw BadRequestException if slug is not allowed in category', async () => {
@@ -303,10 +317,57 @@ describe('BoardsService', () => {
 
       await expect(service.create(dto)).rejects.toThrow(
         new BadRequestException(
-          `Slug "${dto.slug}" is not allowed in this category`,
+          BOARD_ERROR_MESSAGES.SLUG_NOT_ALLOWED_IN_CATEGORY(dto.slug),
         ),
       );
       expect(categoriesService.findOne).toHaveBeenCalledWith(1);
+    });
+
+    it('should throw BadRequestException if AI_DIGEST board has USER role', async () => {
+      const dto = {
+        slug: 'ai-board',
+        name: 'AI Board',
+        requiredRole: UserRole.USER,
+        type: BoardPurpose.AI_DIGEST,
+        categoryId: 1,
+      };
+      const category = createCategory({
+        id: 1,
+        slugs: [createCategorySlug({ slug: dto.slug })],
+      });
+      jest.spyOn(categoriesService, 'findOne').mockResolvedValue(category);
+      jest.spyOn(boardRepository, 'create').mockReturnValue(
+        createBoard({
+          slug: dto.slug,
+          name: dto.name,
+          requiredRole: dto.requiredRole,
+          type: dto.type,
+          ...category,
+        }),
+      );
+      await expect(service.create(dto)).rejects.toThrow(
+        BOARD_ERROR_MESSAGES.AI_DIGEST_REQUIRES_HIGHER_ROLE,
+      );
+    });
+
+    it('should allow AI_DIGEST board with ADMIN role', async () => {
+      const dto = {
+        slug: 'ai-board',
+        name: 'AI Board',
+        requiredRole: UserRole.ADMIN,
+        type: BoardPurpose.AI_DIGEST,
+        categoryId: 1,
+      };
+      const category = createCategory({
+        id: 1,
+        slugs: [createCategorySlug({ slug: dto.slug })],
+      });
+      const createdBoard = createBoard({ ...dto, category });
+      jest.spyOn(categoriesService, 'findOne').mockResolvedValue(category);
+      jest.spyOn(boardRepository, 'create').mockReturnValue(createdBoard);
+      jest.spyOn(boardRepository, 'save').mockResolvedValue(createdBoard);
+      const result = await service.create(dto);
+      expect(result).toEqual(createdBoard);
     });
   });
 
@@ -379,7 +440,9 @@ describe('BoardsService', () => {
           name: '',
           categoryId: 0,
         }),
-      ).rejects.toThrow(NotFoundException);
+      ).rejects.toThrow(
+        new NotFoundException(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD),
+      );
     });
 
     it('should update board without changing category if categoryId is unchanged', async () => {
@@ -443,10 +506,46 @@ describe('BoardsService', () => {
 
       await expect(service.update(1, dto)).rejects.toThrow(
         new BadRequestException(
-          `Slug "${dto.slug}" is not allowed in this category`,
+          BOARD_ERROR_MESSAGES.SLUG_NOT_ALLOWED_IN_CATEGORY(dto.slug),
         ),
       );
       expect(categoriesService.findOne).toHaveBeenCalledWith(2);
+    });
+
+    it('should throw BadRequestException if updating to AI_DIGEST with USER role', async () => {
+      const existingBoard = createBoard({
+        id: 1,
+        type: BoardPurpose.GENERAL,
+        requiredRole: UserRole.ADMIN,
+      });
+      const dto = {
+        type: BoardPurpose.AI_DIGEST,
+        requiredRole: UserRole.USER,
+      } as UpdateBoardDto;
+      jest.spyOn(boardRepository, 'findOne').mockResolvedValue(existingBoard);
+      await expect(service.update(1, dto)).rejects.toThrow(
+        BOARD_ERROR_MESSAGES.AI_DIGEST_REQUIRES_HIGHER_ROLE,
+      );
+    });
+
+    it('should allow updating to AI_DIGEST with ADMIN role', async () => {
+      const existingBoard = createBoard({
+        id: 1,
+        type: BoardPurpose.GENERAL,
+        requiredRole: UserRole.ADMIN,
+      });
+      const dto = {
+        type: BoardPurpose.AI_DIGEST,
+        requiredRole: UserRole.ADMIN,
+      } as UpdateBoardDto;
+      const updatedBoard = { ...existingBoard, ...dto };
+      jest.spyOn(boardRepository, 'findOne').mockResolvedValue(existingBoard);
+      jest
+        .spyOn(boardRepository, 'save')
+        .mockResolvedValue(updatedBoard as any);
+      const result = await service.update(1, dto);
+      expect(result.type).toBe(BoardPurpose.AI_DIGEST);
+      expect(result.requiredRole).toBe(UserRole.ADMIN);
     });
   });
 
@@ -465,7 +564,9 @@ describe('BoardsService', () => {
         .spyOn(boardRepository, 'delete')
         .mockResolvedValue({ affected: 0 } as any);
 
-      await expect(service.remove(999)).rejects.toThrow(NotFoundException);
+      await expect(service.remove(999)).rejects.toThrow(
+        new NotFoundException(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD),
+      );
       expect(boardRepository.delete).toHaveBeenCalledWith(999);
     });
   });

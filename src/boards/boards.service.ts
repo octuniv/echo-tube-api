@@ -12,6 +12,8 @@ import { CreateBoardDto } from '../admin/board/dto/CRUD/create-board.dto';
 import { UpdateBoardDto } from '../admin/board/dto/CRUD/update-board.dto';
 import { CategoriesService } from '@/categories/categories.service';
 import { UserRole } from '@/users/entities/user-role.enum';
+import { BOARD_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
+import { Transactional } from 'typeorm-transactional';
 
 @Injectable()
 export class BoardsService {
@@ -44,7 +46,7 @@ export class BoardsService {
       relations: ['category'],
     });
     if (!board) {
-      throw new NotFoundException('게시판을 찾을 수 없습니다');
+      throw new NotFoundException(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD);
     }
     return board;
   }
@@ -72,7 +74,7 @@ export class BoardsService {
       relations: ['category'],
     });
     if (!board) {
-      throw new NotFoundException('Board not found');
+      throw new NotFoundException(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD);
     }
     return board;
   }
@@ -84,7 +86,7 @@ export class BoardsService {
     const category = await this.categoriesService.findOne(categoryId);
     if (!category.slugs.some((s) => s.slug === slug)) {
       throw new BadRequestException(
-        `Slug "${slug}" is not allowed in this category`,
+        BOARD_ERROR_MESSAGES.SLUG_NOT_ALLOWED_IN_CATEGORY(slug),
       );
     }
   }
@@ -95,11 +97,12 @@ export class BoardsService {
       board.requiredRole === UserRole.USER
     ) {
       throw new BadRequestException(
-        'AI_DIGEST 보드는 USER 이상의 권한이 필요합니다.',
+        BOARD_ERROR_MESSAGES.AI_DIGEST_REQUIRES_HIGHER_ROLE,
       );
     }
   }
 
+  @Transactional()
   async create(dto: CreateBoardDto): Promise<Board> {
     const { categoryId, ...rest } = dto;
     await this.validateSlugWithinCategory(dto.slug, dto.categoryId);
@@ -112,6 +115,7 @@ export class BoardsService {
     return this.boardRepository.save(board);
   }
 
+  @Transactional()
   async update(id: number, dto: UpdateBoardDto): Promise<Board> {
     const board = await this.findOne(id);
 
@@ -134,7 +138,7 @@ export class BoardsService {
   async remove(id: number): Promise<void> {
     const result = await this.boardRepository.delete(id);
     if (result.affected === 0) {
-      throw new NotFoundException('Board not found');
+      throw new NotFoundException(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD);
     }
   }
 }

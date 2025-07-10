@@ -17,6 +17,7 @@ import { createBoard } from '@/boards/factories/board.factory';
 import { createCategory } from '@/categories/factories/category.factory';
 import { AdminBoardResponseDto } from '@/admin/board/dto/admin-board-response.dto';
 import { createMock } from '@golevelup/ts-jest';
+import { BOARD_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 
 describe('AdminBoardController', () => {
   let app: INestApplication;
@@ -112,10 +113,12 @@ describe('AdminBoardController', () => {
     it('should throw NotFoundException when board not found', async () => {
       jest
         .spyOn(boardsService, 'findOne')
-        .mockRejectedValue(new NotFoundException('Board not found'));
+        .mockRejectedValue(
+          new NotFoundException(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD),
+        );
       const res = await request(app.getHttpServer()).get('/admin/boards/999');
       expect(res.status).toBe(404);
-      expect(res.body.message).toBe('Board not found');
+      expect(res.body.message).toBe(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD);
     });
   });
 
@@ -141,9 +144,7 @@ describe('AdminBoardController', () => {
         .post('/admin/boards')
         .send(invalidDto)
         .expect(400);
-      expect(res.body.message).toContain(
-        'Slug must be URL-friendly (lowercase letters, numbers, hyphens)',
-      );
+      expect(res.body.message).toContain(BOARD_ERROR_MESSAGES.INVALID_SLUGS);
     });
 
     it('should throw BadRequestException if name is empty', async () => {
@@ -206,9 +207,7 @@ describe('AdminBoardController', () => {
         .put('/admin/boards/1')
         .send(invalidDto)
         .expect(400);
-      expect(res.body.message).toContain(
-        'Slug must be URL-friendly (lowercase letters, numbers, hyphens)',
-      );
+      expect(res.body.message).toContain(BOARD_ERROR_MESSAGES.INVALID_SLUGS);
     });
 
     it('should throw BadRequestException if name is empty', async () => {
@@ -226,14 +225,16 @@ describe('AdminBoardController', () => {
     it('should throw NotFoundException if board not found', async () => {
       jest
         .spyOn(boardsService, 'update')
-        .mockRejectedValue(new NotFoundException('Board not found'));
+        .mockRejectedValue(
+          new NotFoundException(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD),
+        );
 
       const res = await request(app.getHttpServer())
         .put('/admin/boards/999')
         .send(updateBoardDto)
         .expect(404);
 
-      expect(res.body.message).toBe('Board not found');
+      expect(res.body.message).toBe(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD);
     });
 
     it('should throw BadRequestException if slug is not allowed in category', async () => {
@@ -244,7 +245,7 @@ describe('AdminBoardController', () => {
       };
       jest.spyOn(boardsService, 'update').mockImplementation(() => {
         throw new BadRequestException(
-          'Slug "invalid-slug" is not allowed in this category',
+          BOARD_ERROR_MESSAGES.SLUG_NOT_ALLOWED_IN_CATEGORY(invalidDto.slug),
         );
       });
       const res = await request(app.getHttpServer())
@@ -252,7 +253,7 @@ describe('AdminBoardController', () => {
         .send(invalidDto)
         .expect(400);
       expect(res.body.message).toBe(
-        'Slug "invalid-slug" is not allowed in this category',
+        BOARD_ERROR_MESSAGES.SLUG_NOT_ALLOWED_IN_CATEGORY(invalidDto.slug),
       );
     });
   });
@@ -268,12 +269,14 @@ describe('AdminBoardController', () => {
     it('should throw NotFoundException if board not found', async () => {
       jest
         .spyOn(boardsService, 'remove')
-        .mockRejectedValue(new NotFoundException('Board not found'));
+        .mockRejectedValue(
+          new NotFoundException(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD),
+        );
       const res = await request(app.getHttpServer()).delete(
         '/admin/boards/999',
       );
       expect(res.status).toBe(404);
-      expect(res.body.message).toBe('Board not found');
+      expect(res.body.message).toBe(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD);
     });
   });
 });

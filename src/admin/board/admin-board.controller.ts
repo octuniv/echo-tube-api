@@ -27,12 +27,46 @@ import { UpdateBoardDto } from '@/admin/board/dto/CRUD/update-board.dto';
 import { CreateBoardDto } from '@/admin/board/dto/CRUD/create-board.dto';
 import { BoardPurpose } from '@/boards/entities/board.entity';
 import { AdminBoardResponseDto } from '@/admin/board/dto/admin-board-response.dto';
+import { BOARD_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 
 @ApiTags('admin-boards')
 @Controller('admin/boards')
 @Roles(UserRole.ADMIN)
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
+@ApiResponse({
+  status: 401,
+  description: '인증 실패',
+  schema: {
+    example: {
+      statusCode: 401,
+      message: 'Unauthorized',
+      error: 'Unauthorized',
+    },
+  },
+})
+@ApiResponse({
+  status: 403,
+  description: '접근 권한 없음',
+  schema: {
+    example: {
+      statusCode: 403,
+      message: 'Forbidden resource',
+      error: 'Forbidden',
+    },
+  },
+})
+@ApiResponse({
+  status: 500,
+  description: '서버 내부 오류',
+  schema: {
+    example: {
+      statusCode: 500,
+      message: 'Internal server error',
+      error: 'Internal Server Error',
+    },
+  },
+})
 export class AdminBoardController {
   constructor(private readonly boardsService: BoardsService) {}
 
@@ -59,13 +93,30 @@ export class AdminBoardController {
   @ApiParam({
     name: 'id',
     type: 'number',
-    example: 1,
+    example: {
+      default: { value: 1 },
+      'invalid-id': { value: 'invalid' },
+    },
     description: '조회할 게시판의 ID',
   })
   @ApiResponse({
     status: 200,
     type: AdminBoardResponseDto,
     description: '성공적으로 조회됨',
+  })
+  @ApiResponse({
+    status: 400,
+    description: '잘못된 ID 형식',
+    examples: {
+      'invalid-id': {
+        summary: '잘못된 ID 형식',
+        value: {
+          statusCode: 400,
+          message: 'Validation failed (numeric string is expected)',
+          error: 'Bad Request',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 404,
@@ -96,12 +147,58 @@ export class AdminBoardController {
           categoryId: 1,
         },
       },
+      'invalid-slug': {
+        value: {
+          slug: 'invalid slug!',
+          name: 'Invalid Board',
+          categoryId: 1,
+        },
+        description: '잘못된 슬러그 형식',
+      },
+      'duplicate-slug': {
+        value: {
+          slug: 'existing-board',
+          name: 'Existing Board',
+          categoryId: 1,
+        },
+        description: '중복된 슬러그',
+      },
     },
   })
   @ApiResponse({
     status: 201,
     type: AdminBoardResponseDto,
     description: '성공적으로 생성됨',
+  })
+  @ApiResponse({
+    status: 400,
+    description: '잘못된 요청',
+    examples: {
+      'duplicate-slug': {
+        summary: '중복된 슬러그',
+        value: {
+          statusCode: 400,
+          message: BOARD_ERROR_MESSAGES.DUPLICATE_SLUG('general'),
+          error: 'Bad Request',
+        },
+      },
+      'invalid-slug': {
+        summary: '카테고리 슬러그 제한',
+        value: {
+          statusCode: 400,
+          message: BOARD_ERROR_MESSAGES.SLUG_NOT_ALLOWED_IN_CATEGORY('general'),
+          error: 'Bad Request',
+        },
+      },
+      'ai-digest-role': {
+        summary: 'AI_DIGEST 권한 요구',
+        value: {
+          statusCode: 400,
+          message: BOARD_ERROR_MESSAGES.AI_DIGEST_REQUIRES_HIGHER_ROLE,
+          error: 'Bad Request',
+        },
+      },
+    },
   })
   async createBoard(
     @Body() dto: CreateBoardDto,
@@ -130,12 +227,75 @@ export class AdminBoardController {
           requiredRole: UserRole.ADMIN,
         },
       },
+      'invalid-slug': {
+        value: {
+          slug: 'invalid slug!',
+          name: 'Invalid Board',
+          categoryId: 1,
+        },
+        description: '잘못된 슬러그 형식',
+      },
+      'duplicate-slug': {
+        value: {
+          slug: 'existing-board',
+          name: 'Existing Board',
+          categoryId: 1,
+        },
+        description: '중복된 슬러그',
+      },
     },
   })
   @ApiResponse({
     status: 200,
     type: AdminBoardResponseDto,
     description: '성공적으로 업데이트됨',
+  })
+  @ApiResponse({
+    status: 400,
+    description: '잘못된 요청',
+    examples: {
+      'duplicate-slug': {
+        summary: '중복된 슬러그',
+        value: {
+          statusCode: 400,
+          message: BOARD_ERROR_MESSAGES.DUPLICATE_SLUG('general'),
+          error: 'Bad Request',
+        },
+      },
+      'slug-not-allowed': {
+        summary: '카테고리 슬러그 제한',
+        value: {
+          statusCode: 400,
+          message: BOARD_ERROR_MESSAGES.SLUG_NOT_ALLOWED_IN_CATEGORY('general'),
+          error: 'Bad Request',
+        },
+      },
+      'ai-digest-role': {
+        summary: 'AI_DIGEST 권한 요구',
+        value: {
+          statusCode: 400,
+          message: BOARD_ERROR_MESSAGES.AI_DIGEST_REQUIRES_HIGHER_ROLE,
+          error: 'Bad Request',
+        },
+      },
+      'invalid-id-format': {
+        summary: '잘못된 ID 형식',
+        value: {
+          statusCode: 400,
+          message: 'Validation failed (numeric string is expected)',
+          error: 'Bad Request',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: '게시판을 찾을 수 없음',
+    example: {
+      statusCode: 404,
+      message: BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD,
+      error: 'Not Found',
+    },
   })
   async updateBoard(
     @Param('id', ParseIntPipe) id: string,

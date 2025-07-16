@@ -53,14 +53,22 @@ export default class NoticeBoardSeeder extends BaseSeeder implements Seeder {
       }
 
       // Create notice board
-      let noticeBoard = await boardRepo.findOneBy({
-        slug: this.NOTICE_CATEGORY.board.slug,
+      let noticeBoard = await boardRepo.findOne({
+        where: {
+          categorySlug: { slug: this.NOTICE_CATEGORY.board.slug },
+        },
+        relations: { categorySlug: true },
       });
       if (!noticeBoard) {
+        const categorySlug = await slugRepo.findOne({
+          where: { slug: this.NOTICE_CATEGORY.slug },
+        });
+
         noticeBoard = await boardRepo.save(
           boardRepo.create({
             ...this.NOTICE_CATEGORY.board,
             category: noticeCategory,
+            categorySlug,
           }),
         );
       }

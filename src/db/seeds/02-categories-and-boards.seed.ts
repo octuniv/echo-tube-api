@@ -43,11 +43,24 @@ export default class CategoriesAndBoardsSeeder
       }
 
       for (const boardConfig of this.COMMUNITY_CATEGORY.boards) {
-        if (!(await boardRepo.exists({ where: { slug: boardConfig.slug } }))) {
+        const existingBoard = await boardRepo.findOne({
+          where: { categorySlug: { slug: boardConfig.slug } },
+          relations: { categorySlug: true },
+        });
+
+        if (!existingBoard) {
+          const categorySlug = await slugRepo.findOne({
+            where: {
+              slug: boardConfig.slug,
+              category: { id: community.id },
+            },
+          });
+
           await boardRepo.save(
             boardRepo.create({
               ...boardConfig,
               category: community,
+              categorySlug: categorySlug!,
             }),
           );
         }

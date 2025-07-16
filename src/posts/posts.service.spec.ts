@@ -13,7 +13,10 @@ import { createMock } from '@golevelup/ts-jest';
 import { BoardsService } from '@/boards/boards.service';
 import { CategoriesService } from '@/categories/categories.service';
 import { createBoard } from '@/boards/factories/board.factory';
-import { createCategory } from '@/categories/factories/category.factory';
+import {
+  createCategory,
+  createCategorySlug,
+} from '@/categories/factories/category.factory';
 import { createPost } from './factories/post.factory';
 import { CreatePostDto } from './dto/create-post.dto';
 import { createUserEntity } from '@/users/factory/user.factory';
@@ -59,7 +62,10 @@ describe('PostsService', () => {
 
   describe('create', () => {
     it('should throw UnauthorizedException when user lacks required role', async () => {
-      const board = createBoard({ slug: 'test', requiredRole: UserRole.ADMIN });
+      const board = createBoard({
+        categorySlug: createCategorySlug({ slug: 'test' }),
+        requiredRole: UserRole.ADMIN,
+      });
       jest.spyOn(boardsService, 'findOneBySlug').mockResolvedValue(board);
       const user = createUserEntity({ id: 1, role: UserRole.USER });
 
@@ -90,7 +96,7 @@ describe('PostsService', () => {
 
       const board = createBoard({
         category: createCategory({ name: 'TestCategory' }),
-        slug: boardSlug,
+        categorySlug: createCategorySlug({ slug: boardSlug }),
         requiredRole: UserRole.USER,
       });
 
@@ -117,7 +123,7 @@ describe('PostsService', () => {
       expect(boardsService.findOneBySlug).toHaveBeenCalledWith(boardSlug);
       expect(
         categoriesService.verifySlugBelongsToCategory,
-      ).toHaveBeenCalledWith(board.category.name, board.slug);
+      ).toHaveBeenCalledWith(board.category.name, board.categorySlug.slug);
       expect(postRepository.create).toHaveBeenCalledWith({
         title: createPostDto.title,
         content: createPostDto.content,
@@ -146,7 +152,12 @@ describe('PostsService', () => {
       const result = await service.findAll();
       expect(result).toEqual(posts.map(PostResponseDto.fromEntity));
       expect(postRepository.find).toHaveBeenCalledWith({
-        relations: ['createdBy', 'board'],
+        relations: {
+          createdBy: true,
+          board: {
+            categorySlug: true,
+          },
+        },
       });
     });
   });
@@ -160,7 +171,12 @@ describe('PostsService', () => {
       expect(result).toEqual(posts.map(PostResponseDto.fromEntity));
       expect(postRepository.find).toHaveBeenCalledWith({
         where: { createdBy: { id: 1 } },
-        relations: ['createdBy', 'board'],
+        relations: {
+          createdBy: true,
+          board: {
+            categorySlug: true,
+          },
+        },
       });
     });
 
@@ -384,7 +400,7 @@ describe('PostsService', () => {
       // then
       expect(postRepository.createQueryBuilder).toHaveBeenCalledWith('post');
       expect(queryBuilderMock.where).toHaveBeenCalledWith(
-        'board.slug NOT IN (:...excludedSlugs)',
+        'categorySlug.slug NOT IN (:...excludedSlugs)',
         { excludedSlugs },
       );
       expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
@@ -413,7 +429,12 @@ describe('PostsService', () => {
       // Assert
       expect(postRepository.find).toHaveBeenCalledWith({
         where: { board: { id: board.id } },
-        relations: ['createdBy', 'board'],
+        relations: {
+          createdBy: true,
+          board: {
+            categorySlug: true,
+          },
+        },
       });
       expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
     });
@@ -428,7 +449,9 @@ describe('PostsService', () => {
   describe('findPostsByBoardSlug', () => {
     it('should return all posts in the specified board', async () => {
       // Arrange
-      const board = createBoard({ slug: 'notices' });
+      const board = createBoard({
+        categorySlug: createCategorySlug({ slug: 'notices' }),
+      });
       const mockPosts = [
         createPost({ id: 1, title: 'Post 1', board: board }),
         createPost({ id: 2, title: 'Post 2', board: board }),
@@ -437,12 +460,19 @@ describe('PostsService', () => {
       postRepository.find = jest.fn().mockResolvedValue(mockPosts);
 
       // Act
-      const result = await service.findPostsByBoardSlug(board.slug);
+      const result = await service.findPostsByBoardSlug(
+        board.categorySlug.slug,
+      );
 
       // Assert
       expect(postRepository.find).toHaveBeenCalledWith({
-        where: { board: { slug: board.slug } },
-        relations: ['createdBy', 'board'],
+        where: { board: { categorySlug: { slug: board.categorySlug.slug } } },
+        relations: {
+          createdBy: true,
+          board: {
+            categorySlug: true,
+          },
+        },
       });
       expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
     });
@@ -564,7 +594,7 @@ describe('PostsService', () => {
 
       // then
       expect(queryBuilderMock.where).toHaveBeenCalledWith(
-        'board.slug NOT IN (:...excludedSlugs)',
+        'categorySlug.slug NOT IN (:...excludedSlugs)',
         { excludedSlugs },
       );
       expect(queryBuilderMock.orderBy).toHaveBeenCalledWith(
@@ -580,7 +610,7 @@ describe('PostsService', () => {
       const mockData: CreateScrapedVideoDto = new VideoFactory().create();
 
       const board = createBoard({
-        slug: 'video-board',
+        categorySlug: createCategorySlug({ slug: 'video-board' }),
         type: BoardPurpose.AI_DIGEST,
       });
 

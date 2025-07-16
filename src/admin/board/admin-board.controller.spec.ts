@@ -14,7 +14,10 @@ import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { BoardPurpose } from '@/boards/entities/board.entity';
 import { createBoard } from '@/boards/factories/board.factory';
-import { createCategory } from '@/categories/factories/category.factory';
+import {
+  createCategory,
+  createCategorySlug,
+} from '@/categories/factories/category.factory';
 import { AdminBoardResponseDto } from '@/admin/board/dto/admin-board-response.dto';
 import { createMock } from '@golevelup/ts-jest';
 import { BOARD_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
@@ -26,7 +29,7 @@ describe('AdminBoardController', () => {
   const mockCategory = createCategory({ id: 1, name: 'Technology' });
   const mockBoard = createBoard({
     id: 1,
-    slug: 'general',
+    categorySlug: createCategorySlug({ slug: 'general' }),
     name: 'General Discussion',
     description: 'General discussion board',
     requiredRole: UserRole.USER,

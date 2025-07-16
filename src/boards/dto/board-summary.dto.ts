@@ -21,7 +21,7 @@ export class BoardSummaryDto {
   static fromEntity(board: Board): BoardSummaryDto {
     const dto = new BoardSummaryDto();
     dto.id = board.id;
-    dto.slug = board.slug;
+    dto.slug = board.categorySlug.slug;
     dto.name = board.name;
     dto.type = board.type;
     dto.requiredRole = board.requiredRole;

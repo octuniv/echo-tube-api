@@ -18,7 +18,10 @@ import { plainToClass } from 'class-transformer';
 import { CategoryBoardGroup } from './dto/category-specific/category-board-group.dto';
 import { CategoryBoardSummary } from './dto/category-specific/category-board-summary.dto';
 import { Transactional } from 'typeorm-transactional';
-import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
+import {
+  BOARD_ERROR_MESSAGES,
+  CATEGORY_ERROR_MESSAGES,
+} from '@/common/constants/error-messages.constants';
 import { CategoryDetailsResponseDto } from '@/admin/category/dto/response/category-details-response.dto';
 
 @Injectable()
@@ -93,7 +96,12 @@ export class CategoriesService {
 
   async getAllCategoriesForAdmin(): Promise<CategorySummaryResponseDto[]> {
     const categories = await this.categoryRepository.find({
-      relations: ['slugs', 'boards'],
+      relations: {
+        slugs: true,
+        boards: {
+          categorySlug: true,
+        },
+      },
     });
 
     return categories.map((category) =>
@@ -104,7 +112,12 @@ export class CategoriesService {
   async getCategoryDetails(id: number): Promise<CategoryDetailsResponseDto> {
     const category = await this.categoryRepository.findOne({
       where: { id },
-      relations: ['slugs', 'boards'],
+      relations: {
+        slugs: true,
+        boards: {
+          categorySlug: true,
+        },
+      },
     });
 
     if (!category) {
@@ -252,7 +265,11 @@ export class CategoriesService {
 
   async getCategoriesWithBoards(): Promise<CategoryWithBoardsResponse[]> {
     const categories = await this.categoryRepository.find({
-      relations: ['boards'],
+      relations: {
+        boards: {
+          categorySlug: true,
+        },
+      },
     });
 
     return categories.map((category) => {
@@ -262,7 +279,7 @@ export class CategoriesService {
           .map((board) =>
             plainToClass(CategoryBoardSummary, {
               id: board.id,
-              slug: board.slug,
+              slug: board.categorySlug.slug,
               name: board.name,
             }),
           );
@@ -282,5 +299,21 @@ export class CategoriesService {
 
       return dto;
     });
+  }
+
+  async validateSlugWithinCategory(
+    slug: string,
+    categoryId: number,
+  ): Promise<CategorySlug> {
+    const categorySlug = await this.categorySlugRepository.findOne({
+      where: { slug, category: { id: categoryId } },
+      relations: { category: true },
+    });
+    if (!categorySlug) {
+      throw new BadRequestException(
+        BOARD_ERROR_MESSAGES.SLUG_NOT_ALLOWED_IN_CATEGORY(slug),
+      );
+    }
+    return categorySlug;
   }
 }

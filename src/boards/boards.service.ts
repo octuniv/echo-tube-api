@@ -14,7 +14,6 @@ import { CategoriesService } from '@/categories/categories.service';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { BOARD_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 import { Transactional } from 'typeorm-transactional';
-import { Category } from '@/categories/entities/category.entity';
 
 @Injectable()
 export class BoardsService {
@@ -27,24 +26,29 @@ export class BoardsService {
   // 모든 게시판 조회 (내부용)
   async findAll(): Promise<Board[]> {
     return this.boardRepository.find({
-      relations: ['category'],
+      relations: ['category', 'categorySlug'],
       order: { category: { name: 'ASC' }, name: 'ASC' },
     });
   }
 
   // DTO 매핑 추가 메서드 (외부 응답용)
   async findAllForList(): Promise<BoardListItemDto[]> {
-    const boards = await this.boardRepository.find({
-      order: { category: { name: 'ASC' }, name: 'ASC' },
-    });
+    const boards = await this.boardRepository
+      .createQueryBuilder('board')
+      .leftJoinAndSelect('board.category', 'category')
+      .leftJoinAndSelect('board.categorySlug', 'categorySlug')
+      .orderBy('category.name', 'ASC')
+      .addOrderBy('board.name', 'ASC')
+      .getMany(); // 단일 쿼리 실행
+
     return boards.map(BoardListItemDto.fromEntity);
   }
 
   // 특정 게시판 조회
   async findOneBySlug(slug: string): Promise<Board> {
     const board = await this.boardRepository.findOne({
-      where: { slug },
-      relations: ['category'],
+      where: { categorySlug: { slug } },
+      relations: ['category', 'categorySlug'],
     });
     if (!board) {
       throw new NotFoundException(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD);
@@ -54,7 +58,8 @@ export class BoardsService {
 
   async validateBoardType(boardSlug: string, expectedType: BoardPurpose) {
     const board = await this.boardRepository.findOne({
-      where: { slug: boardSlug },
+      where: { categorySlug: { slug: boardSlug } },
+      relations: ['categorySlug'],
     });
     if (board.type !== expectedType) {
       throw new BadRequestException(`This board is for ${board.type}s only`);
@@ -64,7 +69,7 @@ export class BoardsService {
   async getScrapingTargetBoards(): Promise<ScrapingTargetBoardDto[]> {
     const entities = await this.boardRepository.find({
       where: { type: BoardPurpose.AI_DIGEST },
-      select: ['slug', 'name'],
+      relations: ['categorySlug'],
     });
     return entities.map(ScrapingTargetBoardDto.fromEntity);
   }
@@ -72,25 +77,12 @@ export class BoardsService {
   async findOne(id: number): Promise<Board> {
     const board = await this.boardRepository.findOne({
       where: { id },
-      relations: ['category'],
+      relations: ['category', 'categorySlug'],
     });
     if (!board) {
       throw new NotFoundException(BOARD_ERROR_MESSAGES.NOT_FOUND_BOARD);
     }
     return board;
-  }
-
-  private async validateSlugWithinCategory(
-    slug: string,
-    categoryId: number,
-  ): Promise<Category> {
-    const category = await this.categoriesService.findOne(categoryId);
-    if (!category.slugs.some((s) => s.slug === slug)) {
-      throw new BadRequestException(
-        BOARD_ERROR_MESSAGES.SLUG_NOT_ALLOWED_IN_CATEGORY(slug),
-      );
-    }
-    return category;
   }
 
   private async checkSlugUniqueness(
@@ -99,9 +91,10 @@ export class BoardsService {
   ): Promise<void> {
     const existingBoard = await this.boardRepository.findOne({
       where: {
-        slug,
+        categorySlug: { slug },
         ...(excludeId && { id: Not(excludeId) }),
       },
+      relations: ['categorySlug'],
     });
 
     if (existingBoard) {
@@ -122,16 +115,15 @@ export class BoardsService {
 
   @Transactional()
   async create(dto: CreateBoardDto): Promise<Board> {
-    const { categoryId, ...rest } = dto;
-    const category = await this.validateSlugWithinCategory(
-      dto.slug,
-      categoryId,
-    );
-    await this.checkSlugUniqueness(dto.slug);
+    const { categoryId, slug, ...rest } = dto;
+    const categorySlug =
+      await this.categoriesService.validateSlugWithinCategory(slug, categoryId);
+    await this.checkSlugUniqueness(slug);
 
     const board = this.boardRepository.create({
       ...rest,
-      category,
+      category: categorySlug.category,
+      categorySlug,
     });
     await this.validateRole(board);
     return this.boardRepository.save(board);
@@ -139,16 +131,16 @@ export class BoardsService {
 
   @Transactional()
   async update(id: number, dto: UpdateBoardDto): Promise<Board> {
+    const { categoryId, slug, ...rest } = dto;
     const board = await this.findOne(id);
-    const category = await this.validateSlugWithinCategory(
-      dto.slug,
-      dto.categoryId,
-    );
-    board.category = category;
+    const categorySlug =
+      await this.categoriesService.validateSlugWithinCategory(slug, categoryId);
 
     await this.checkSlugUniqueness(dto.slug, id);
+    board.category = categorySlug.category;
+    board.categorySlug = categorySlug;
 
-    Object.assign(board, dto);
+    Object.assign(board, rest);
 
     await this.validateRole(board);
 

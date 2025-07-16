@@ -86,14 +86,7 @@ export class PostResponseDto {
     dto.nickname = post.nickname || undefined; // 가상 필드 처리
     dto.createdAt = post.createdAt;
     dto.updatedAt = post.updatedAt;
-    dto.board = {
-      id: post.board.id,
-      slug: post.board.slug,
-      name: post.board.name,
-      description: post.board.description,
-      requiredRole: post.board.requiredRole,
-      boardType: post.board.type,
-    };
+    dto.board = BoardListItemDto.fromEntity(post.board);
     dto.hotScore = post.hotScore;
     // 봇에 의해 수집된 영상 게시물 정보
     dto.type = post.type;

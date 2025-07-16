@@ -43,14 +43,19 @@ export async function upsertCategory(
   }
 
   for (const boardConfig of categoryData.boards) {
-    const exists = await boardRepo.exists({
-      where: { slug: boardConfig.slug },
+    const exists = await boardRepo.findOne({
+      where: { categorySlug: { slug: boardConfig.slug } },
+      relations: { categorySlug: true },
     });
     if (!exists) {
+      const categorySlug = await slugRepo.findOne({
+        where: { slug: boardConfig.slug },
+      });
       await boardRepo.save(
         boardRepo.create({
           ...boardConfig,
           category,
+          categorySlug,
         }),
       );
     }

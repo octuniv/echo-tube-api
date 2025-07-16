@@ -10,6 +10,7 @@ import { RolesGuard } from '@/auth/roles.guard';
 import { createPost } from '@/posts/factories/post.factory';
 import { createBoard } from '@/boards/factories/board.factory';
 import { VideoFactory } from './factory/video.factory';
+import { createCategorySlug } from '@/categories/factories/category.factory';
 
 describe('VideoHarvesterController', () => {
   let controller: VideoHarvesterController;
@@ -24,7 +25,7 @@ describe('VideoHarvesterController', () => {
     type: PostOrigin.SCRAPED,
     board: createBoard({
       id: 1,
-      slug: 'video-board',
+      categorySlug: createCategorySlug({ slug: 'video-board' }),
       name: 'Video Board',
       requiredRole: UserRole.USER,
     }),

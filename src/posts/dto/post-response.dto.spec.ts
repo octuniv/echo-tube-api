@@ -7,6 +7,7 @@ import { createBoard } from '@/boards/factories/board.factory';
 import { BoardListItemDto } from '@/boards/dto/list/board-list-item.dto';
 import { User } from '@/users/entities/user.entity';
 import { createPost } from '../factories/post.factory';
+import { createCategorySlug } from '@/categories/factories/category.factory';
 
 describe('PostResponseDto', () => {
   describe('Validation', () => {
@@ -81,7 +82,7 @@ describe('PostResponseDto', () => {
         board: BoardListItemDto.fromEntity(
           createBoard({
             id: 1,
-            slug: 'general',
+            categorySlug: createCategorySlug({ slug: 'general' }),
             name: 'General',
           }),
         ),
@@ -98,7 +99,7 @@ describe('PostResponseDto', () => {
       const post = new Post();
       const board = createBoard({
         id: 1,
-        slug: 'general',
+        categorySlug: createCategorySlug({ slug: 'general' }),
         name: 'General',
         description: 'General Board',
         category: null,
@@ -142,7 +143,7 @@ describe('PostResponseDto', () => {
       const post = new Post();
       const board = createBoard({
         id: 1,
-        slug: 'general',
+        categorySlug: createCategorySlug({ slug: 'general' }),
         name: 'General',
       });
       post.id = 1;

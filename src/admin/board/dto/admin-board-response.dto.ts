@@ -69,7 +69,7 @@ export class AdminBoardResponseDto {
   static fromEntity(board: Board): AdminBoardResponseDto {
     return {
       id: board.id,
-      slug: board.slug,
+      slug: board.categorySlug.slug,
       name: board.name,
       description: board.description,
       requiredRole: board.requiredRole,

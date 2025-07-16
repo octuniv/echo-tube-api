@@ -113,13 +113,16 @@ describe('CategoriesService', () => {
   });
 
   describe('getAllCategoriesForAdmin', () => {
+    const slugs = ['tech', 'innovation'].map((slug) =>
+      createCategorySlug({ slug }),
+    );
     const mockCategory = createCategory({
       id: 1,
       name: 'Technology',
-      slugs: ['tech', 'innovation'].map((slug) => createCategorySlug({ slug })),
+      slugs,
       boards: [
-        createBoard({ id: 101, slug: 'ai', name: 'AI' }),
-        createBoard({ id: 102, slug: 'data', name: 'Data Science' }),
+        createBoard({ id: 101, categorySlug: slugs[0], name: 'AI' }),
+        createBoard({ id: 102, categorySlug: slugs[1], name: 'Data Science' }),
       ],
     });
 
@@ -152,7 +155,12 @@ describe('CategoriesService', () => {
         },
       ]);
       expect(categoryRepository.find).toHaveBeenCalledWith({
-        relations: ['slugs', 'boards'],
+        relations: {
+          slugs: true,
+          boards: {
+            categorySlug: true,
+          },
+        },
       });
     });
 
@@ -665,14 +673,15 @@ describe('CategoriesService', () => {
 
   describe('findOne', () => {
     it('should return category details', async () => {
+      const slug = createCategorySlug({ id: 1, slug: 'slug', category: null });
       const category = createCategory({
         id: 1,
         name: 'Test',
-        slugs: [createCategorySlug({ id: 1, slug: 'slug', category: null })],
+        slugs: [slug],
         boards: [
           createBoard({
             id: 100,
-            slug: 'board',
+            categorySlug: slug,
             name: 'Board',
             category: null,
           }),
@@ -694,14 +703,17 @@ describe('CategoriesService', () => {
   });
 
   describe('getCategoryDetails', () => {
+    const slugs = ['tech', 'innovation'].map((slug) =>
+      createCategorySlug({ slug }),
+    );
     const categoryId = 1;
     const mockCategory = createCategory({
       id: categoryId,
       name: 'Technology',
-      slugs: ['tech', 'innovation'].map((slug) => createCategorySlug({ slug })),
+      slugs,
       boards: [
-        createBoard({ id: 101, slug: 'ai', name: 'AI' }),
-        createBoard({ id: 102, slug: 'data', name: 'Data Science' }),
+        createBoard({ id: 101, categorySlug: slugs[0], name: 'AI' }),
+        createBoard({ id: 102, categorySlug: slugs[1], name: 'Data Science' }),
       ],
     });
 
@@ -718,7 +730,12 @@ describe('CategoriesService', () => {
       );
       expect(categoryRepository.findOne).toHaveBeenCalledWith({
         where: { id: categoryId },
-        relations: ['slugs', 'boards'],
+        relations: {
+          slugs: true,
+          boards: {
+            categorySlug: true,
+          },
+        },
       });
     });
 
@@ -732,7 +749,12 @@ describe('CategoriesService', () => {
       );
       expect(categoryRepository.findOne).toHaveBeenCalledWith({
         where: { id: 999 },
-        relations: ['slugs', 'boards'],
+        relations: {
+          slugs: true,
+          boards: {
+            categorySlug: true,
+          },
+        },
       });
     });
   });
@@ -740,24 +762,27 @@ describe('CategoriesService', () => {
   describe('getCategoriesWithBoards', () => {
     it('보드를 목적별로 그룹화하여 반환해야 함', async () => {
       // 테스트 데이터 구성
+      const slugs = ['notice-board', 'faq-board', 'LOG'].map((slug) =>
+        createCategorySlug({ slug }),
+      );
       const mockCategory = createCategory({
         name: '공지사항',
         boards: [
           createBoard({
             id: 1,
-            slug: 'notice-board',
+            categorySlug: slugs[0],
             name: '공지게시판',
             type: BoardPurpose.GENERAL,
           }),
           createBoard({
             id: 2,
-            slug: 'faq-board',
+            categorySlug: slugs[1],
             name: 'FAQ',
             type: BoardPurpose.GENERAL,
           }),
           createBoard({
             id: 3,
-            slug: 'LOG',
+            categorySlug: slugs[2],
             name: 'LOG',
             type: BoardPurpose.AI_DIGEST,
           }),

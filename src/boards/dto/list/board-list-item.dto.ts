@@ -46,7 +46,7 @@ export class BoardListItemDto {
   static fromEntity(board: Board): BoardListItemDto {
     return {
       id: board.id,
-      slug: board.slug,
+      slug: board.categorySlug.slug,
       name: board.name,
       description: board.description,
       requiredRole: board.requiredRole,

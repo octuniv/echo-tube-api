@@ -81,13 +81,16 @@ describe('AdminCategoryController', () => {
   });
 
   describe('GET /admin/categories', () => {
+    const slugs = ['tech', 'innovation'].map((slug) =>
+      createCategorySlug({ slug }),
+    );
     const mockCategory = createCategory({
       id: 1,
       name: 'Technology',
-      slugs: ['tech', 'innovation'].map((slug) => createCategorySlug({ slug })),
+      slugs,
       boards: [
-        createBoard({ id: 101, slug: 'ai', name: 'AI' }),
-        createBoard({ id: 102, slug: 'data', name: 'Data Science' }),
+        createBoard({ id: 101, categorySlug: slugs[0], name: 'AI' }),
+        createBoard({ id: 102, categorySlug: slugs[1], name: 'Data Science' }),
       ],
     });
 
@@ -379,14 +382,17 @@ describe('AdminCategoryController', () => {
   });
 
   describe('GET /admin/categories/:id', () => {
+    const slugs = ['tech', 'innovation'].map((slug) =>
+      createCategorySlug({ slug }),
+    );
     const categoryId = 1;
     const mockCategory = createCategory({
       id: categoryId,
       name: 'Technology',
-      slugs: ['tech', 'innovation'].map((slug) => createCategorySlug({ slug })),
+      slugs,
       boards: [
-        createBoard({ id: 101, slug: 'ai', name: 'AI' }),
-        createBoard({ id: 102, slug: 'data', name: 'Data Science' }),
+        createBoard({ id: 101, categorySlug: slugs[0], name: 'AI' }),
+        createBoard({ id: 102, categorySlug: slugs[1], name: 'Data Science' }),
       ],
     });
     const mockDtoResponse = CategoryDetailsResponseDto.fromEntity(mockCategory);
@@ -410,7 +416,7 @@ describe('AdminCategoryController', () => {
         allowedSlugs: mockCategory.slugs.map((s) => s.slug),
         boards: mockCategory.boards.map((b) => ({
           id: b.id,
-          slug: b.slug,
+          slug: b.categorySlug.slug,
           name: b.name,
           type: b.type,
           requiredRole: b.requiredRole,

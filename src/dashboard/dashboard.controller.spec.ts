@@ -5,6 +5,7 @@ import { PostResponseDto } from '@/posts/dto/post-response.dto';
 import { createBoard } from '@/boards/factories/board.factory';
 import { createPost } from '@/posts/factories/post.factory';
 import { DashboardSummaryDto } from './dto/dashboard.summary.dto';
+import { createCategorySlug } from '@/categories/factories/category.factory';
 
 describe('DashboardController', () => {
   let controller: DashboardController;
@@ -51,7 +52,11 @@ describe('DashboardController', () => {
         createPost({
           id: 3,
           title: 'notice 1',
-          board: createBoard({ id: 2, name: 'Board 2', slug: 'notices' }),
+          board: createBoard({
+            id: 2,
+            name: 'Board 2',
+            categorySlug: createCategorySlug({ slug: 'notices' }),
+          }),
           hotScore: 100,
         }),
       ].map(PostResponseDto.fromEntity),

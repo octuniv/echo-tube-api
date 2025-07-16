@@ -17,10 +17,7 @@ import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { AdminBoardResponseDto } from '@/admin/board/dto/admin-board-response.dto';
-import {
-  BOARD_ERROR_MESSAGES,
-  CATEGORY_ERROR_MESSAGES,
-} from '@/common/constants/error-messages.constants';
+import { BOARD_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 
 const envFile = `.env.${process.env.NODE_ENV || 'production'}`;
 dotenv.config({ path: envFile });
@@ -150,7 +147,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         });
     });
 
-    it('should throw a not found error if dto has non-existed category', async () => {
+    it('should throw a badreqeust error if dto has non-existed category', async () => {
       const invalidCategoryDto: CreateBoardDto = {
         ...dto,
         categoryId: 9999,
@@ -159,7 +156,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         .post('/admin/boards')
         .set('Authorization', `Bearer ${adminToken}`)
         .send(invalidCategoryDto)
-        .expect(404);
+        .expect(400);
     });
 
     it('should throw bad request if dto has invalid role', async () => {
@@ -346,7 +343,7 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         .expect(400);
     });
 
-    it('should throw a not found error if categoryId does not exist', async () => {
+    it('should throw badrequest error if categoryId does not exist', async () => {
       const dtoWithWrongCategoryId = {
         ...dto,
         categoryId: 9999,
@@ -355,10 +352,12 @@ describe('Admin Board - /admin/boards (e2e)', () => {
         .put(`/admin/boards/${updateBoardId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send(dtoWithWrongCategoryId)
-        .expect(404)
+        .expect(400)
         .then((res) => {
           expect(res.body.message).toEqual(
-            CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND,
+            BOARD_ERROR_MESSAGES.SLUG_NOT_ALLOWED_IN_CATEGORY(
+              dtoWithWrongCategoryId.slug,
+            ),
           );
         });
     });

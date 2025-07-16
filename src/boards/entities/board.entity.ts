@@ -8,11 +8,14 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   UpdateDateColumn,
+  OneToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Post } from '@/posts/entities/post.entity';
 import { Category } from '@/categories/entities/category.entity';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { ApiProperty } from '@nestjs/swagger';
+import { CategorySlug } from '@/categories/entities/category-slug.entity';
 
 export enum BoardPurpose {
   GENERAL = 'general',
@@ -24,10 +27,6 @@ export class Board {
   @ApiProperty({ description: 'Board ID' })
   @PrimaryGeneratedColumn()
   id: number;
-
-  @ApiProperty({ description: 'Unique board identifier' })
-  @Column({ unique: true })
-  slug: string;
 
   @ApiProperty({ description: 'Board display name' })
   @Column()
@@ -71,6 +70,14 @@ export class Board {
     orphanedRowAction: 'delete',
   })
   category: Category;
+
+  @ApiProperty({ description: 'Unique board identifier by categorySlug' })
+  @OneToOne(() => CategorySlug, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn()
+  categorySlug: CategorySlug;
 
   @ApiProperty({ description: 'Creation timestamp' })
   @CreateDateColumn()

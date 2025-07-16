@@ -6,7 +6,7 @@ export class ScrapingTargetBoardDto {
 
   static fromEntity(entity: Board): ScrapingTargetBoardDto {
     return {
-      slug: entity.slug,
+      slug: entity.categorySlug.slug,
       name: entity.name,
     };
   }

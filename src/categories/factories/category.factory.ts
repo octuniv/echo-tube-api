@@ -15,16 +15,6 @@ export const createCategory = (overrides: Partial<Category> = {}): Category => {
     ...overrides,
   };
 
-  // 카테고리와 연결된 슬러그 생성
-  if (overrides.slugs && overrides.slugs.length > 0) {
-    category.slugs = overrides.slugs as CategorySlug[];
-  } else {
-    category.slugs = [
-      createCategorySlug({ slug: 'announcements' }),
-      createCategorySlug({ slug: 'notices' }),
-    ];
-  }
-
   return category;
 };
 
@@ -35,9 +25,6 @@ export const createCategorySlug = (
     id: faker.number.int({ min: 1, max: 100 }),
     slug: faker.helpers.slugify(faker.lorem.words()),
     category: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    deletedAt: null,
     ...overrides,
   };
 };

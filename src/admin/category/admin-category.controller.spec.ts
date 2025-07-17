@@ -266,6 +266,72 @@ describe('AdminCategoryController', () => {
     });
   });
 
+  describe('GET /admin/categories/available', () => {
+    const mockAvailableCategories = [
+      {
+        id: 1,
+        name: 'Technology',
+        availableSlugs: [{ slug: 'innovation' }],
+      },
+      {
+        id: 2,
+        name: 'Health',
+        availableSlugs: [],
+      },
+    ];
+
+    beforeEach(() => {
+      (categoriesService.getAvailableCategories as jest.Mock)
+        .mockReset()
+        .mockResolvedValue(mockAvailableCategories);
+    });
+
+    it('200 OK - should return available categories for new board', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/categories/available')
+        .expect(200);
+
+      expect(res.body).toEqual(mockAvailableCategories);
+      expect(categoriesService.getAvailableCategories).toHaveBeenCalledWith(
+        undefined,
+      );
+    });
+
+    it('200 OK - should return available categories for editing board', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/categories/available?boardId=101')
+        .expect(200);
+
+      expect(res.body).toEqual(mockAvailableCategories);
+      expect(categoriesService.getAvailableCategories).toHaveBeenCalledWith(
+        101,
+      );
+    });
+
+    it('200 OK - should handle empty categories list', async () => {
+      (
+        categoriesService.getAvailableCategories as jest.Mock
+      ).mockResolvedValueOnce([]);
+
+      const res = await request(app.getHttpServer())
+        .get('/admin/categories/available')
+        .expect(200);
+
+      expect(res.body).toEqual([]);
+      expect(categoriesService.getAvailableCategories).toHaveBeenCalledWith(
+        undefined,
+      );
+    });
+
+    it('400 Bad Request - invalid boardId', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/categories/available?boardId=invalid')
+        .expect(400);
+
+      expect(res.body.message).toContain('boardId must be an integer number');
+    });
+  });
+
   describe('POST /admin/categories', () => {
     it('should create category', async () => {
       const dto: CreateCategoryDto = {

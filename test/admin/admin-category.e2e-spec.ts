@@ -11,6 +11,7 @@ import {
 import { DataSource } from 'typeorm';
 import { CreateCategoryDto } from '@/admin/category/dto/CRUD/create-category.dto';
 import { UpdateCategoryDto } from '@/admin/category/dto/CRUD/update-category.dto';
+import { CreateBoardDto } from '@/admin/board/dto/CRUD/create-board.dto';
 
 const envFile = `.env.${process.env.NODE_ENV || 'production'}`;
 dotenv.config({ path: envFile });
@@ -638,6 +639,169 @@ describe('Admin Categories - /admin/categories (e2e)', () => {
             CATEGORY_ERROR_MESSAGES.CATEGORY_NOT_FOUND,
           );
         });
+    });
+  });
+
+  describe('GET /admin/categories/available', () => {
+    let categoryId1: number;
+    let categoryId2: number;
+    let board1Id: number;
+
+    beforeAll(async () => {
+      // 카테고리 생성
+      const category1 = await createCategory('availableTest1', [
+        'availableslug1',
+        'availableslug2',
+        'availableslug3',
+      ]);
+      categoryId1 = category1.id;
+
+      const category2 = await createCategory('availableTest2', [
+        'availableslug4',
+        'availableslug5',
+      ]);
+      categoryId2 = category2.id;
+
+      // 보드 생성
+      const board1 = await createBoard(categoryId1, 'availableslug1');
+      board1Id = board1.id;
+
+      await createBoard(categoryId2, 'availableslug4');
+    });
+
+    afterAll(async () => {
+      await deleteCategory(categoryId1);
+      await deleteCategory(categoryId2);
+      await checkToDeleteCategory(categoryId1);
+      await checkToDeleteCategory(categoryId2);
+    });
+
+    async function createCategory(
+      name: string,
+      slugs: string[],
+    ): Promise<{ id: number }> {
+      const dto: CreateCategoryDto = { name, allowedSlugs: slugs };
+      const res = await request(app.getHttpServer())
+        .post('/admin/categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(dto)
+        .expect(201);
+      return { id: res.body.id };
+    }
+
+    async function createBoard(
+      categoryId: number,
+      slug: string,
+    ): Promise<{ id: number }> {
+      const res = await request(app.getHttpServer())
+        .post('/admin/boards')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: `Test Board ${slug}`,
+          description: 'Test',
+          categoryId,
+          slug,
+        } satisfies CreateBoardDto)
+        .expect(201);
+      return { id: res.body.id };
+    }
+
+    async function deleteCategory(categoryId: number) {
+      return request(app.getHttpServer())
+        .delete(`/admin/categories/${categoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(204);
+    }
+
+    async function checkToDeleteCategory(categoryId: number) {
+      await request(app.getHttpServer())
+        .get(`/admin/categories/${categoryId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(404);
+    }
+
+    it('should return 401 if unauthenticated', () => {
+      return request(app.getHttpServer())
+        .get('/admin/categories/available')
+        .expect(401);
+    });
+
+    it('should return 403 if non-admin user', () => {
+      return request(app.getHttpServer())
+        .get('/admin/categories/available')
+        .set('Authorization', `Bearer ${nonAdminToken}`)
+        .expect(403);
+    });
+
+    it('should return 200 with available slugs (new board)', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/admin/categories/available')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      // 카테고리 1의 사용 가능 슬러그: slug2, slug3
+      const category1 = res.body.find((cat: any) => cat.id === categoryId1);
+      expect(category1.availableSlugs.map((s: any) => s.slug)).toEqual([
+        'availableslug2',
+        'availableslug3',
+      ]);
+
+      // 카테고리 2의 사용 가능 슬러그: slug5
+      const category2 = res.body.find((cat: any) => cat.id === categoryId2);
+      expect(category2.availableSlugs.map((s: any) => s.slug)).toEqual([
+        'availableslug5',
+      ]);
+    });
+
+    it('should include current board slug when editing', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/admin/categories/available?boardId=${board1Id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      // 카테고리 1의 사용 가능 슬러그: slug1, slug2, slug3
+      const category1 = res.body.find((cat: any) => cat.id === categoryId1);
+      expect(category1.availableSlugs.map((s: any) => s.slug)).toEqual([
+        'availableslug1',
+        'availableslug2',
+        'availableslug3',
+      ]);
+    });
+
+    it('should return all categories even if some have no available slugs', async () => {
+      // 기존 카테고리에 추가 슬러그 사용
+      await createBoard(categoryId1, 'availableslug2');
+
+      const res = await request(app.getHttpServer())
+        .get('/admin/categories/available')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      // 카테고리 1의 사용 가능 슬러그: slug3
+      const category1 = res.body.find((cat: any) => cat.id === categoryId1);
+      expect(category1.availableSlugs.map((s: any) => s.slug)).toEqual([
+        'availableslug3',
+      ]);
+
+      // 카테고리 2는 여전히 slug5만 사용 가능
+      const category2 = res.body.find((cat: any) => cat.id === categoryId2);
+      expect(category2.availableSlugs.map((s: any) => s.slug)).toEqual([
+        'availableslug5',
+      ]);
+    });
+
+    it('should work with multiple boards in same category', async () => {
+      // 카테고리 1에 추가 슬러그 사용
+      await createBoard(categoryId1, 'availableslug3');
+
+      const res = await request(app.getHttpServer())
+        .get('/admin/categories/available')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      // 카테고리 1의 사용 가능 슬러그: 없음
+      const category1 = res.body.find((cat: any) => cat.id === categoryId1);
+      expect(category1.availableSlugs).toEqual([]);
     });
   });
 });

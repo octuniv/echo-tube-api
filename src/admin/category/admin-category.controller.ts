@@ -32,6 +32,8 @@ import { ValidateSlugQueryDto } from './dto/query/validate-slug.query.dto';
 import { CATEGORY_ERROR_MESSAGES } from '@/common/constants/error-messages.constants';
 import { CategoryDetailsResponseDto } from './dto/response/category-details-response.dto';
 import { ValidateNameQueryDto } from './dto/query/validate-name.query.dto';
+import { AvailableCategoryDto } from './dto/available-category.dto';
+import { AvailableCategoriesQueryDto } from './dto/query/available-categories.query.dto';
 
 @ApiTags('admin-categories')
 @Controller('admin/categories')
@@ -150,6 +152,30 @@ export class AdminCategoryController {
     return {
       isUsed,
     };
+  }
+
+  @Get('available')
+  @ApiOperation({
+    summary: '카테고리 및 사용 가능한 슬러그 조회',
+    description:
+      '보드 생성/수정 시 사용 가능한 카테고리와 슬러그를 조회합니다.',
+  })
+  @ApiQuery({
+    name: 'boardId',
+    type: 'number',
+    required: false,
+    example: 1,
+    description: '편집 중인 보드 ID (생략 시 신규 보드로 간주)',
+  })
+  @ApiResponse({
+    status: 200,
+    type: [AvailableCategoryDto],
+    description: '성공적으로 조회됨',
+  })
+  async getAvailableCategories(
+    @Query() dto: AvailableCategoriesQueryDto,
+  ): Promise<AvailableCategoryDto[]> {
+    return this.categoriesService.getAvailableCategories(dto?.boardId);
   }
 
   @Post()

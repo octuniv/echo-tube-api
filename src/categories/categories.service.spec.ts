@@ -821,4 +821,117 @@ describe('CategoriesService', () => {
       ]);
     });
   });
+
+  describe('getAvailableCategories', () => {
+    const mockCategorySlugs = [
+      createCategorySlug({ id: 1, slug: 'tech' }),
+      createCategorySlug({ id: 2, slug: 'innovation' }),
+      createCategorySlug({ id: 3, slug: 'wellness' }),
+      createCategorySlug({ id: 4, slug: 'fitness' }),
+    ];
+
+    const mockCategories = [
+      createCategory({
+        id: 1,
+        name: 'Technology',
+        slugs: [mockCategorySlugs[0], mockCategorySlugs[1]],
+        boards: [createBoard({ id: 101, categorySlug: mockCategorySlugs[0] })],
+      }),
+      createCategory({
+        id: 2,
+        name: 'Health',
+        slugs: [mockCategorySlugs[2], mockCategorySlugs[3]],
+        boards: [
+          createBoard({ id: 102, categorySlug: mockCategorySlugs[2] }),
+          createBoard({ id: 103, categorySlug: mockCategorySlugs[3] }),
+        ],
+      }),
+    ];
+
+    beforeEach(() => {
+      categoryRepository.find = jest.fn().mockResolvedValue(mockCategories);
+    });
+
+    it('should return categories with available slugs (new board)', async () => {
+      // Mock: No boardId provided (new board)
+      const result = await service.getAvailableCategories();
+
+      expect(result).toEqual([
+        {
+          id: 1,
+          name: 'Technology',
+          availableSlugs: [{ slug: 'innovation' }],
+        },
+        {
+          id: 2,
+          name: 'Health',
+          availableSlugs: [], // All slugs used by other boards
+        },
+      ]);
+    });
+
+    it('should return categories with available slugs (editing board)', async () => {
+      // Mock: Editing board ID=101 (uses slug 'tech')
+      const result = await service.getAvailableCategories(101);
+
+      expect(result).toEqual([
+        {
+          id: 1,
+          name: 'Technology',
+          availableSlugs: [{ slug: 'tech' }, { slug: 'innovation' }],
+        },
+        {
+          id: 2,
+          name: 'Health',
+          availableSlugs: [], // All slugs used by other boards
+        },
+      ]);
+    });
+
+    it('should handle categories with no slugs', async () => {
+      const categoryWithNoSlugs = createCategory({
+        id: 3,
+        name: 'Empty',
+        slugs: [],
+        boards: [],
+      });
+
+      categoryRepository.find = jest
+        .fn()
+        .mockResolvedValue([categoryWithNoSlugs]);
+
+      const result = await service.getAvailableCategories();
+
+      expect(result).toEqual([
+        {
+          id: 3,
+          name: 'Empty',
+          availableSlugs: [],
+        },
+      ]);
+    });
+
+    it('should handle categories with no boards', async () => {
+      const categoryWithNoBoards = createCategory({
+        id: 4,
+        name: 'No Boards',
+        slugs: [createCategorySlug({ id: 5, slug: 'test' })],
+        boards: [],
+      });
+
+      categoryRepository.find = jest
+        .fn()
+        .mockResolvedValue([categoryWithNoBoards]);
+
+      const result = await service.getAvailableCategories();
+
+      expect(result).toEqual([
+        {
+          id: 4,
+          name: 'No Boards',
+          availableSlugs: [{ slug: 'test' }],
+        },
+      ]);
+    });
+  });
 });

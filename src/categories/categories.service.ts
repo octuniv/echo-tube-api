@@ -23,6 +23,7 @@ import {
   CATEGORY_ERROR_MESSAGES,
 } from '@/common/constants/error-messages.constants';
 import { CategoryDetailsResponseDto } from '@/admin/category/dto/response/category-details-response.dto';
+import { AvailableCategoryDto } from '@/admin/category/dto/available-category.dto';
 
 @Injectable()
 export class CategoriesService {
@@ -315,5 +316,27 @@ export class CategoriesService {
       );
     }
     return categorySlug;
+  }
+
+  async getAvailableCategories(
+    boardId?: number,
+  ): Promise<AvailableCategoryDto[]> {
+    const categories = await this.categoryRepository.find({
+      relations: { slugs: true, boards: { categorySlug: true } },
+    });
+
+    return categories.map((category) => {
+      const usedSlugs = category.boards
+        .filter((board) => (boardId ? board.id !== boardId : true))
+        .map((board) => board.categorySlug.slug);
+
+      return {
+        id: category.id,
+        name: category.name,
+        availableSlugs: category.slugs
+          .filter((slug) => !usedSlugs.includes(slug.slug))
+          .map((slug) => ({ slug: slug.slug })),
+      };
+    });
   }
 }

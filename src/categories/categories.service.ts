@@ -14,7 +14,7 @@ import { UpdateCategoryDto } from '../admin/category/dto/CRUD/update-category.dt
 import { CreateCategoryDto } from '../admin/category/dto/CRUD/create-category.dto';
 import { CategoryWithBoardsResponse } from './dto/category-specific/category-with-boards.dto';
 import { BoardPurpose } from '@/boards/entities/board.entity';
-import { plainToClass } from 'class-transformer';
+import { plainToInstance } from 'class-transformer';
 import { CategoryBoardGroup } from './dto/category-specific/category-board-group.dto';
 import { CategoryBoardSummary } from './dto/category-specific/category-board-summary.dto';
 import { Transactional } from 'typeorm-transactional';
@@ -278,14 +278,14 @@ export class CategoriesService {
         const boards = category.boards
           .filter((board) => board.type === purpose)
           .map((board) =>
-            plainToClass(CategoryBoardSummary, {
+            plainToInstance(CategoryBoardSummary, {
               id: board.id,
               slug: board.categorySlug.slug,
               name: board.name,
             }),
           );
 
-        const boardGroup = plainToClass(CategoryBoardGroup, {
+        const boardGroup = plainToInstance(CategoryBoardGroup, {
           purpose,
           boards,
         });
@@ -293,7 +293,7 @@ export class CategoriesService {
         return boardGroup;
       });
 
-      const dto = plainToClass(CategoryWithBoardsResponse, {
+      const dto = plainToInstance(CategoryWithBoardsResponse, {
         name: category.name,
         boardGroups,
       });

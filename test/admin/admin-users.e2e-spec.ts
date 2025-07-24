@@ -522,5 +522,59 @@ describe('Admin User - /admin/users (e2e)', () => {
       expect(dto.deletedAt).toBeInstanceOf(Date);
       expect(dto.deletedAt).not.toBeNull();
     });
+
+    it('should NOT include passwordHash in the response', async () => {
+      // 1. 단일 유저 조회 테스트
+      const singleUserRes = await request(app.getHttpServer())
+        .get(`/admin/users/${testUser.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(singleUserRes.body).not.toHaveProperty('passwordHash');
+
+      // 2. 유저 리스트 조회 테스트
+      const listUserRes = await request(app.getHttpServer())
+        .get('/admin/users')
+        .query({ page: 1, limit: 10 })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(listUserRes.body.data).toBeInstanceOf(Array);
+      expect(listUserRes.body.data.length).toBeGreaterThan(0);
+
+      listUserRes.body.data.forEach((userItem: any) => {
+        expect(userItem).not.toHaveProperty('passwordHash');
+      });
+
+      // 3. 유저 검색 테스트 (예: 특정 닉네임으로 검색)
+      const searchUserRes = await request(app.getHttpServer())
+        .get('/admin/users/search')
+        .query({ searchNickname: testUser.nickname })
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(searchUserRes.body.data).toBeInstanceOf(Array);
+      if (searchUserRes.body.data.length > 0) {
+        searchUserRes.body.data.forEach((userItem: any) => {
+          expect(userItem).not.toHaveProperty('passwordHash');
+        });
+      }
+
+      // 4. soft-delete된 유저 조회 테스트 (이미 soft-delete된 경우를 대비해 재조회)
+      // 테스트를 위해 새로운 유저를 만들고 soft-delete 후 확인
+      const tempUser = await createTestUser({
+        name: 'Temp for PW Hash Test',
+        nickname: 'temp_pw_tester',
+        email: 'temp.pw.test@example.com',
+      });
+      await userRepository.softDelete(tempUser.id);
+
+      const deletedUserRes = await request(app.getHttpServer())
+        .get(`/admin/users/${tempUser.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(deletedUserRes.body).not.toHaveProperty('passwordHash');
+    });
   });
 });

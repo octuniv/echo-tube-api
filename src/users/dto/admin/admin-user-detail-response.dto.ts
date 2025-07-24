@@ -8,23 +8,27 @@ import {
   IsOptional,
   IsDate,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 
 export class AdminUserDetailResponseDto {
   @ApiProperty({ example: 1, description: 'User ID' })
   @IsNumber()
+  @Expose()
   id: number;
 
   @ApiProperty({ example: 'John Doe', description: 'User name' })
   @IsString()
+  @Expose()
   name: string;
 
   @ApiProperty({ example: 'johndoe123', description: 'User nickname' })
   @IsString()
+  @Expose()
   nickname: string;
 
   @ApiProperty({ example: 'john.doe@example.com', description: 'User email' })
   @IsString()
+  @Expose()
   email: string;
 
   @ApiProperty({
@@ -33,6 +37,7 @@ export class AdminUserDetailResponseDto {
     description: 'User role (admin/user/bot)',
   })
   @IsEnum(UserRole)
+  @Expose()
   role: UserRole;
 
   @ApiProperty({
@@ -41,6 +46,7 @@ export class AdminUserDetailResponseDto {
   })
   @IsDate()
   @Type(() => Date)
+  @Expose()
   createdAt: Date;
 
   @ApiProperty({
@@ -49,11 +55,13 @@ export class AdminUserDetailResponseDto {
   })
   @IsDate()
   @Type(() => Date)
+  @Expose()
   updatedAt: Date;
 
   @ApiProperty({ example: null, description: 'Deletion date (null if active)' })
   @IsDate()
   @Type(() => Date)
   @IsOptional()
+  @Expose()
   deletedAt: Date | null;
 }

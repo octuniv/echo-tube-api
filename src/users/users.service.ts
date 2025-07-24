@@ -223,7 +223,9 @@ export class UsersService {
     });
 
     const data = users.map((user) =>
-      plainToInstance(AdminUserDetailResponseDto, user),
+      plainToInstance(AdminUserDetailResponseDto, user, {
+        excludeExtraneousValues: true,
+      }),
     );
 
     const totalPages = Math.ceil(totalItems / limit);
@@ -246,7 +248,9 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
-    return plainToInstance(AdminUserDetailResponseDto, user);
+    return plainToInstance(AdminUserDetailResponseDto, user, {
+      excludeExtraneousValues: true,
+    });
   }
 
   async findUsersWithSearch(
@@ -285,7 +289,9 @@ export class UsersService {
     const [users, totalItems] = await queryBuilder.getManyAndCount();
     return {
       data: users.map((user) =>
-        plainToInstance(AdminUserDetailResponseDto, user),
+        plainToInstance(AdminUserDetailResponseDto, user, {
+          excludeExtraneousValues: true,
+        }),
       ),
       currentPage: page,
       totalItems,

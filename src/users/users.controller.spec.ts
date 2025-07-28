@@ -40,11 +40,13 @@ describe('UsersController', () => {
     it('should create a new user', async () => {
       const userDtoForCreate = createUserDto();
       jest.spyOn(usersService, 'createUser').mockResolvedValue({
+        userId: 1,
         email: userDtoForCreate.email,
         message: 'Successfully created account',
       });
       const result = await usersController.createUser(userDtoForCreate);
-      expect(result).toEqual({
+      expect(result).toMatchObject({
+        userId: expect.any(Number),
         email: userDtoForCreate.email,
         message: 'Successfully created account',
       });

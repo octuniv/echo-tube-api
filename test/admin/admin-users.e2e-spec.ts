@@ -167,9 +167,21 @@ describe('Admin User - /admin/users (e2e)', () => {
   describe('List users', () => {
     beforeAll(async () => {
       // 정렬 테스트용 유저 생성
-      await createTestUser({ updatedAt: new Date('2023-01-01') });
-      await createTestUser({ updatedAt: new Date('2024-01-01') });
-      await createTestUser({ updatedAt: new Date('2025-01-01') });
+      await createTestUser({
+        name: 'test1',
+        nickname: 'test1',
+        updatedAt: new Date('2023-01-01'),
+      });
+      await createTestUser({
+        name: 'test2',
+        nickname: 'test2',
+        updatedAt: new Date('2024-01-01'),
+      });
+      await createTestUser({
+        name: 'test3',
+        nickname: 'test3',
+        updatedAt: new Date('2025-01-01'),
+      });
     });
 
     it('should return paginated user list', async () => {

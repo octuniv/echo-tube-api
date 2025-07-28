@@ -51,12 +51,12 @@ describe('UsersService', () => {
     const userDtoForCreate = createUserDto();
     const { name, email, nickname, password } = userDtoForCreate;
     const hashedPassword = bcrypt.hashSync(password, 10);
-    const user = {
+    const user = createUserEntity({
       name: name,
       nickname: nickname,
       email: email,
       passwordHash: hashedPassword,
-    };
+    });
 
     beforeEach(() => {
       jest.clearAllMocks();
@@ -78,11 +78,15 @@ describe('UsersService', () => {
       const result = await service.createUser(userDtoForCreate);
 
       expect(result).toEqual({
+        userId: user.id,
         email: user.email,
         message: 'Successfully created account',
       } satisfies CreateUserResponseDto);
       expect(repository.create).toHaveBeenCalledWith({
-        ...user,
+        email: user.email,
+        name: user.name,
+        nickname: user.nickname,
+        passwordHash: user.passwordHash,
         role: UserRole.USER,
       });
       expect(repository.save).toHaveBeenCalledWith({
@@ -117,22 +121,23 @@ describe('UsersService', () => {
         role: UserRole.ADMIN,
       };
 
-      const admin = {
+      const user = createUserEntity({
         name: dto.name,
         nickname: dto.nickname,
         email: dto.email,
         passwordHash: hashedPassword,
         role: UserRole.USER,
-      };
+      });
       jest.spyOn(service, 'isUserExists').mockResolvedValue(false);
       jest.spyOn(service, 'isNicknameAvailable').mockResolvedValue(false);
       jest.spyOn(bcrypt, 'hash').mockResolvedValue(hashedPassword as never);
-      jest.spyOn(repository, 'create').mockReturnValue(admin as User);
-      jest.spyOn(repository, 'save').mockResolvedValue(admin as User);
+      jest.spyOn(repository, 'create').mockReturnValue(user as User);
+      jest.spyOn(repository, 'save').mockResolvedValue(user as User);
 
       const result = await service.createUser(dto);
       expect(result).toEqual({
-        email: dto.email,
+        userId: user.id,
+        email: user.email,
         message: 'Successfully created account',
       } satisfies CreateUserResponseDto);
     });

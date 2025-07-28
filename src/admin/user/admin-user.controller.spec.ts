@@ -57,6 +57,7 @@ describe('AdminUserController', () => {
       };
 
       const mockResponse: CreateUserResponseDto = {
+        userId: 1,
         email: dto.email,
         message: 'Successfully created account',
       };

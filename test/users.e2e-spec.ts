@@ -59,6 +59,7 @@ describe('User - /users (e2e)', () => {
       .expect(201);
 
     expect(response.body).toMatchObject({
+      userId: expect.any(Number),
       email: anotherUserInfo.email,
       message: 'Successfully created account',
     });

@@ -56,6 +56,7 @@ export class UsersService {
     });
     await this.usersRepository.save(user);
     return {
+      userId: user.id,
       email: user.email,
       message: 'Successfully created account',
     };

@@ -21,6 +21,7 @@ import {
   signUpAndLogin,
   truncateAllTables,
 } from './utils/test.util';
+import { UserRole } from '@/users/entities/user-role.enum';
 
 describe('User - /users (e2e)', () => {
   let app: INestApplication;
@@ -34,7 +35,7 @@ describe('User - /users (e2e)', () => {
     ({ app, module, dataSource } = testApp);
 
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
-  }, 15000);
+  }, 30000);
 
   afterAll(async () => {
     await truncateAllTables(dataSource);
@@ -73,6 +74,19 @@ describe('User - /users (e2e)', () => {
           password: anotherUserInfo.password,
         })
         .expect(400);
+    });
+
+    it('should return badrequest to include undefined property in this signup.', async () => {
+      const anotherUserInfo = createUserDto();
+      const response = await request(app.getHttpServer())
+        .post('/users')
+        .send({
+          ...anotherUserInfo,
+          role: UserRole.ADMIN,
+        })
+        .expect(400);
+
+      expect(response.body.message).toContain('property role should not exist');
     });
 
     it('should return conflictException if you put an existed Email', async () => {
@@ -209,7 +223,7 @@ describe('User - /users (e2e)', () => {
 
       expect(response.body).toEqual({
         error: 'Bad Request',
-        message: ['nickname should not be empty'],
+        message: ['Nickname should not be empty'],
         statusCode: 400,
       });
     });
@@ -250,7 +264,7 @@ describe('User - /users (e2e)', () => {
 
       expect(response.body).toEqual({
         error: 'Bad Request',
-        message: ['password should not be empty'],
+        message: ['Password should not be empty'],
         statusCode: 400,
       });
     });

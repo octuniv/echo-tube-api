@@ -103,7 +103,7 @@ describe('Posts - /posts (e2e)', () => {
       const createPostDto: CreatePostDto = {
         title: 'Test Post',
         content: 'This is a test post',
-        boardSlug: userBoard.slug,
+        boardSlug: userBoard.categorySlug.slug,
       };
 
       const response = await request(app.getHttpServer())
@@ -117,7 +117,7 @@ describe('Posts - /posts (e2e)', () => {
         title: createPostDto.title,
         board: {
           id: expect.any(Number),
-          slug: userBoard.slug,
+          slug: userBoard.categorySlug.slug,
           name: expect.any(String),
         },
         hotScore: expect.any(Number),
@@ -135,7 +135,7 @@ describe('Posts - /posts (e2e)', () => {
       const createPostDto: CreatePostDto = {
         title: 'Test Post',
         content: 'This is a test post',
-        boardSlug: userBoard.slug,
+        boardSlug: userBoard.categorySlug.slug,
       };
 
       await request(app.getHttpServer())
@@ -163,7 +163,7 @@ describe('Posts - /posts (e2e)', () => {
         .send({
           title: 'Unauthorized Post',
           content: 'Test',
-          boardSlug: adminBoard.slug,
+          boardSlug: adminBoard.categorySlug.slug,
         })
         .expect(401);
 
@@ -308,7 +308,7 @@ describe('Posts - /posts (e2e)', () => {
       expect(response.body.hotScore).toBeDefined();
       expect(response.body.board).toMatchObject({
         id: userBoard.id,
-        slug: userBoard.slug,
+        slug: userBoard.categorySlug.slug,
       });
     });
 

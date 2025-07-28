@@ -301,4 +301,52 @@ describe('AuthController (e2e)', () => {
         .expect(403);
     });
   });
+
+  describe('POST /auth/logout', () => {
+    let userDto: ReturnType<typeof createUserDto>;
+    let loginResponse: request.Response;
+
+    beforeEach(async () => {
+      userDto = createUserDto();
+      await userRepository.save({
+        name: userDto.name,
+        nickname: userDto.nickname,
+        email: userDto.email,
+        passwordHash: bcrypt.hashSync(userDto.password, 10),
+      });
+      loginResponse = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: userDto.email,
+          password: userDto.password,
+        } satisfies LoginUserDto)
+        .expect(200);
+    });
+
+    it('should successfully revoke refresh token and prevent reuse', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refresh_token: loginResponse.body.refresh_token })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refresh_token: loginResponse.body.refresh_token })
+        .expect(401);
+    });
+
+    it('should return 401 if refresh_token is missing', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({})
+        .expect(401);
+    });
+
+    it('should return 401 if refresh_token is invalid', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .send({ refresh_token: 'invalid-refresh-token' })
+        .expect(401);
+    });
+  });
 });

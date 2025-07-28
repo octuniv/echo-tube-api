@@ -9,8 +9,6 @@ import {
   UseGuards,
   Req,
   Query,
-  UsePipes,
-  ValidationPipe,
   ParseIntPipe,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
@@ -51,7 +49,6 @@ export class PostsController {
   @Get('recent')
   @ApiOperation({ summary: 'Get recent posts' })
   @ApiResponse({ status: 200, type: [PostResponseDto] })
-  @UsePipes(new ValidationPipe({ transform: true }))
   async findRecent(@Query() query: FindRecentPostsDto) {
     return this.postsService.findRecentPosts(query.boardIds, query.limit);
   }

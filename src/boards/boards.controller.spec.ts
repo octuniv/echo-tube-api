@@ -1,11 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BoardsController } from './boards.controller';
 import { BoardsService } from './boards.service';
-import { BoardListItemDto } from './dto/board-list-item.dto';
-import { ScrapingTargetBoardDto } from './dto/scraping-target-board.dto';
+import { BoardListItemDto } from './dto/list/board-list-item.dto';
 import { createScrapingTargetBoard } from './factories/scraping-target-board.factory';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { BoardPurpose } from './entities/board.entity';
+import { ScrapingTargetBoardDto } from './dto/scraping/scraping-target-board.dto';
 
 describe('BoardsController', () => {
   let controller: BoardsController;

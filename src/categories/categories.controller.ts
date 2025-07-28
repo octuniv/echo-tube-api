@@ -1,7 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { CategoryResponseDto } from './dto/category-response.dto';
+import { CategoryResponseDto } from './dto/list/category-response.dto';
+import { CategoryWithBoardsResponse } from './dto/category-specific/category-with-boards.dto';
 
 // src/categories/categories.controller.ts
 @ApiTags('Categories')
@@ -16,7 +17,20 @@ export class CategoriesController {
     description: 'Successful response',
     type: [CategoryResponseDto],
   })
-  async getAllCategories(): Promise<CategoryResponseDto[]> {
-    return this.categoriesService.getAllCategoriesWithSlugs();
+  async listAllCategoriesWithSlugs(): Promise<CategoryResponseDto[]> {
+    return this.categoriesService.listAllCategoriesWithSlugs();
+  }
+
+  @Get('with-boards')
+  @ApiOperation({
+    summary: 'Get all categories with boards grouped by purpose',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Successful response',
+    type: [CategoryWithBoardsResponse],
+  })
+  async getCategoriesWithBoards(): Promise<CategoryWithBoardsResponse[]> {
+    return this.categoriesService.getCategoriesWithBoards();
   }
 }

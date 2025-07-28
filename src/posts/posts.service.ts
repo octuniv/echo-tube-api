@@ -55,8 +55,11 @@ export class PostsService {
     user: User,
   ): Promise<PostResponseDto> {
     const { title, content, boardSlug, videoUrl } = createPostDto;
-    const board = await this.boardsService.findOne(boardSlug);
-    await this.categoriesService.validateSlug(board.category.name, board.slug);
+    const board = await this.boardsService.findOneBySlug(boardSlug);
+    await this.categoriesService.verifySlugBelongsToCategory(
+      board.category.name,
+      board.categorySlug.slug,
+    );
 
     if (!this.checkRole(user.role, board.requiredRole)) {
       throw new UnauthorizedException('해당 게시판에 글쓰기 권한이 없습니다');
@@ -78,7 +81,12 @@ export class PostsService {
   // 모든 게시글 조회
   async findAll(): Promise<PostResponseDto[]> {
     const posts = await this.postRepository.find({
-      relations: ['createdBy', 'board'],
+      relations: {
+        createdBy: true,
+        board: {
+          categorySlug: true,
+        },
+      },
     });
     return posts.map(PostResponseDto.fromEntity); // DTO로 변환
   }
@@ -87,7 +95,12 @@ export class PostsService {
   async findByUser(userId: number): Promise<PostResponseDto[]> {
     const posts = await this.postRepository.find({
       where: { createdBy: { id: userId } },
-      relations: ['createdBy', 'board'],
+      relations: {
+        createdBy: true,
+        board: {
+          categorySlug: true,
+        },
+      },
     });
     return posts.map(PostResponseDto.fromEntity);
   }
@@ -96,7 +109,12 @@ export class PostsService {
   async findById(id: number): Promise<Post> {
     const post = await this.postRepository.findOne({
       where: { id },
-      relations: ['createdBy', 'board'],
+      relations: {
+        createdBy: true,
+        board: {
+          categorySlug: true,
+        },
+      },
     });
     if (!post) throw new NotFoundException('Post not found');
     return post;
@@ -161,11 +179,14 @@ export class PostsService {
     const query = this.postRepository
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.board', 'board')
+      .leftJoinAndSelect('board.categorySlug', 'categorySlug')
       .leftJoinAndSelect('post.createdBy', 'createdBy');
 
     // 제외할 슬러그 처리
     if (excludedSlugs.length > 0) {
-      query.where('board.slug NOT IN (:...excludedSlugs)', { excludedSlugs });
+      query.where('categorySlug.slug NOT IN (:...excludedSlugs)', {
+        excludedSlugs,
+      });
     }
 
     // 게시판 ID 필터링
@@ -185,7 +206,12 @@ export class PostsService {
   async findPostsByBoardId(boardId: number): Promise<PostResponseDto[]> {
     const posts = await this.postRepository.find({
       where: { board: { id: boardId } },
-      relations: ['createdBy', 'board'],
+      relations: {
+        createdBy: true,
+        board: {
+          categorySlug: true,
+        },
+      },
     });
     return posts.map(PostResponseDto.fromEntity);
   }
@@ -193,8 +219,13 @@ export class PostsService {
   // 보드별 게시물 조회 (slug)
   async findPostsByBoardSlug(slug: string): Promise<PostResponseDto[]> {
     const posts = await this.postRepository.find({
-      where: { board: { slug: slug } },
-      relations: ['createdBy', 'board'],
+      where: { board: { categorySlug: { slug } } },
+      relations: {
+        createdBy: true,
+        board: {
+          categorySlug: true,
+        },
+      },
     });
     return posts.map(PostResponseDto.fromEntity);
   }
@@ -206,11 +237,12 @@ export class PostsService {
     const query = this.postRepository
       .createQueryBuilder('post')
       .leftJoinAndSelect('post.board', 'board')
+      .leftJoinAndSelect('board.categorySlug', 'categorySlug')
       .leftJoinAndSelect('post.createdBy', 'createdBy');
 
     // 제외할 슬러그가 있는 경우 조건 추가
     if (excludedSlugs.length > 0) {
-      query.where('board.slug NOT IN (:...excludedSlugs)', {
+      query.where('categorySlug.slug NOT IN (:...excludedSlugs)', {
         excludedSlugs,
       });
     }
@@ -242,7 +274,7 @@ export class PostsService {
     boardSlug: string,
     user: User,
   ): Promise<Post> {
-    const board = await this.boardsService.findOne(boardSlug);
+    const board = await this.boardsService.findOneBySlug(boardSlug);
 
     // 게시판 타입 검증
     await this.boardsService.validateBoardType(

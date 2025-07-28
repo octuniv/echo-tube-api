@@ -32,6 +32,11 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
   @ApiBadRequestResponse({ description: 'Validation failed' })
   async login(@Body() loginUserDto: LoginUserDto): Promise<LoginResponseDto> {
+    /*
+    
+    ToDO : apply two-factor authentication to adminstrator
+    
+    */
     const user = await this.authService.validateUser(
       loginUserDto.email,
       loginUserDto.password,
@@ -81,5 +86,23 @@ export class AuthController {
     const isValid = await this.authService.validateAccessToken(token);
 
     return { valid: isValid };
+  }
+
+  @Post('logout')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Logout user by invalidating refresh token' })
+  @ApiUnauthorizedResponse({ description: 'Invalid refresh token' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { refresh_token: { type: 'string' } },
+    },
+  })
+  async logout(@Body('refresh_token') refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token is required');
+    }
+    await this.authService.logout(refreshToken);
+    return { message: 'Successfully logged out' };
   }
 }

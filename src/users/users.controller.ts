@@ -27,6 +27,8 @@ import {
   ApiNotFoundResponse,
   ApiInternalServerErrorResponse,
 } from '@nestjs/swagger';
+import { CreateUserResponseDto } from './dto/user-create-response.dto';
+import { UserDeleteResponseDto } from './dto/user-delete-response.dto';
 
 @ApiTags('users')
 @Controller('users')
@@ -45,13 +47,10 @@ export class UsersController {
   })
   @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiConflictResponse({ description: 'Email or nickname already exists' })
-  async createUser(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.createUser(createUserDto).then((res) => {
-      return {
-        email: res.email,
-        message: 'Successfully created account',
-      };
-    });
+  async createUser(
+    @Body() createUserDto: CreateUserDto,
+  ): Promise<CreateUserResponseDto> {
+    return this.usersService.createUser(createUserDto);
   }
 
   @Post('check-email')
@@ -98,11 +97,7 @@ export class UsersController {
     @Req() req: any,
   ) {
     const userId = Number(req.user.id);
-    return this.usersService.updateUserNickname(userId, updateDto).then(() => {
-      return {
-        message: 'Nickname change successful.',
-      };
-    });
+    return this.usersService.updateUserNickname(userId, updateDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -120,11 +115,7 @@ export class UsersController {
     @Req() req: any,
   ) {
     const userId = Number(req.user.id);
-    return this.usersService.updateUserPassword(userId, updateDto).then(() => {
-      return {
-        message: 'Passcode change successful.',
-      };
-    });
+    return this.usersService.updateUserPassword(userId, updateDto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -132,17 +123,15 @@ export class UsersController {
   @ApiOperation({ summary: 'Soft delete user account' })
   @ApiBearerAuth()
   @ApiOkResponse({
-    schema: { example: { message: 'Successfully deleted account' } },
+    schema: {
+      example: { message: 'Successfully deleted account', success: true },
+    },
   })
   @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
   @ApiNotFoundResponse({ description: 'User not found' })
   @ApiInternalServerErrorResponse({ description: 'Deletion failed' })
-  async deleteUser(@Req() req: any) {
+  async deleteUser(@Req() req: any): Promise<UserDeleteResponseDto> {
     const userId = Number(req.user.id);
-    return this.usersService.softDeleteUser(userId).then(() => {
-      return {
-        message: 'Successfully deleted account',
-      };
-    });
+    return this.usersService.softDeleteUser(userId);
   }
 }

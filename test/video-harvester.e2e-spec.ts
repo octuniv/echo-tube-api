@@ -46,9 +46,9 @@ describe('Video-harvester (e2e)', () => {
   });
 
   beforeAll(async () => {
-    externalBoard = await boardRepository.findOneBy({
-      type: BoardPurpose.AI_DIGEST,
-      slug: 'nestjs',
+    externalBoard = await boardRepository.findOne({
+      where: { type: BoardPurpose.AI_DIGEST, categorySlug: { slug: 'nestjs' } },
+      relations: { categorySlug: true },
     });
 
     expect(externalBoard).toBeTruthy();
@@ -65,7 +65,7 @@ describe('Video-harvester (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/harvest/videos')
         .set('Authorization', getAuthHeaders(access_token).Authorization)
-        .query({ slug: externalBoard.slug })
+        .query({ slug: externalBoard.categorySlug.slug })
         .send(validDto)
         .expect(201);
 
@@ -91,7 +91,7 @@ describe('Video-harvester (e2e)', () => {
     it('실패: 인증 없이 접근', async () => {
       await request(app.getHttpServer())
         .post('/harvest/videos')
-        .query({ slug: externalBoard.slug })
+        .query({ slug: externalBoard.categorySlug.slug })
         .send(validDto)
         .expect(401);
     });
@@ -106,8 +106,9 @@ describe('Video-harvester (e2e)', () => {
     });
 
     it('실패: GENERAL 타입 게시판 사용', async () => {
-      const generalBoard = await boardRepository.findOneBy({
-        type: BoardPurpose.GENERAL,
+      const generalBoard = await boardRepository.findOne({
+        where: { type: BoardPurpose.GENERAL },
+        relations: { categorySlug: true },
       });
 
       expect(generalBoard).toBeDefined();
@@ -115,7 +116,7 @@ describe('Video-harvester (e2e)', () => {
       await request(app.getHttpServer())
         .post('/harvest/videos')
         .set('Authorization', getAuthHeaders(access_token).Authorization)
-        .query({ slug: generalBoard.slug })
+        .query({ slug: generalBoard.categorySlug.slug })
         .send(validDto)
         .expect(400);
     });
@@ -129,7 +130,7 @@ describe('Video-harvester (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/harvest/videos')
         .set('Authorization', getAuthHeaders(access_token).Authorization)
-        .query({ slug: externalBoard.slug })
+        .query({ slug: externalBoard.categorySlug.slug })
         .send(invalidDto)
         .expect(400);
 

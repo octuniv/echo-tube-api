@@ -6,6 +6,7 @@ import { PostsService } from '@/posts/posts.service';
 import { createBoard } from '@/boards/factories/board.factory';
 import { PostResponseDto } from '@/posts/dto/post-response.dto';
 import { InternalServerErrorException } from '@nestjs/common';
+import { createCategorySlug } from '@/categories/factories/category.factory';
 
 describe('DashboardService', () => {
   let service: DashboardService;
@@ -74,7 +75,9 @@ describe('DashboardService', () => {
       createPost({
         id: 4,
         title: '공지사항 1',
-        board: createBoard({ slug: NOTICE_BOARD_SLUG }),
+        board: createBoard({
+          categorySlug: createCategorySlug({ slug: NOTICE_BOARD_SLUG }),
+        }),
       }),
     ];
 

@@ -63,7 +63,9 @@ describe('DashboardController (e2e)', () => {
 
   it('/dashboard/summary (GET) should return dashboard summary', async () => {
     const boards = await boardsService.findAll();
-    const testBoard = boards.find((board) => board.slug === 'free');
+    const testBoard = boards.find(
+      (board) => board.categorySlug.slug === 'free',
+    );
 
     const recentPosts = [
       createPost({

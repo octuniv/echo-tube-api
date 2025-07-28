@@ -9,18 +9,11 @@ export const createCategory = (overrides: Partial<Category> = {}): Category => {
     name: faker.commerce.department(),
     slugs: [],
     boards: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    deletedAt: null,
     ...overrides,
   };
-
-  // 카테고리와 연결된 슬러그 생성
-  if (overrides.slugs && overrides.slugs.length > 0) {
-    category.slugs = overrides.slugs as CategorySlug[];
-  } else {
-    category.slugs = [
-      createCategorySlug({ slug: 'announcements' }),
-      createCategorySlug({ slug: 'notices' }),
-    ];
-  }
 
   return category;
 };

@@ -79,16 +79,25 @@ export default class VideoHarvesterSeeder extends BaseSeeder implements Seeder {
         );
       }
 
-      let nestjsBoard = await boardRepo.findOneBy({
-        type: BoardPurpose.AI_DIGEST,
-        slug: this.SCRAPER_CATEGORY.slug,
+      let nestjsBoard = await boardRepo.findOne({
+        where: {
+          type: BoardPurpose.AI_DIGEST,
+          categorySlug: { slug: this.SCRAPER_CATEGORY.slug },
+        },
+        relations: { categorySlug: true },
       });
 
       if (!nestjsBoard) {
+        const categorySlug = await slugRepo.findOne({
+          where: {
+            slug: this.SCRAPER_CATEGORY.slug,
+          },
+        });
         nestjsBoard = await boardRepo.save(
           boardRepo.create({
             ...this.SCRAPER_CATEGORY.board,
             category: scraperCategory,
+            categorySlug,
           }),
         );
       }

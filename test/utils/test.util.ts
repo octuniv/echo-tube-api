@@ -30,7 +30,13 @@ export async function setupTestApp(): Promise<TestApp> {
 
   const module: TestingModule = await moduleBuilder.compile();
   const app = module.createNestApplication();
-  app.useGlobalPipes(new ValidationPipe({ transform: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
   await app.init();
 
   return {

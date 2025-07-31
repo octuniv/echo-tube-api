@@ -20,10 +20,13 @@ import { FindRecentPostsDto } from './dto/find-recent.dto';
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { PostResponseDto } from './dto/post-response.dto';
+import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
+import { PaginationDto } from '@/common/dto/pagination.dto';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -91,9 +94,30 @@ export class PostsController {
   }
 
   @Get('board/:boardId')
-  @ApiOperation({ summary: 'Get posts by board ID' })
-  @ApiResponse({ status: 200, type: [PostResponseDto] })
-  async findByBoard(@Param('boardId', ParseIntPipe) boardId: number) {
-    return this.postsService.findPostsByBoardId(boardId);
+  @ApiOperation({ summary: 'Get posts by board ID (paginated)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully retrieved paginated posts by board ID.',
+    type: PaginatedResponseDto<PostResponseDto>,
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    enum: ['createdAt', 'updatedAt'],
+    example: 'createdAt',
+  })
+  @ApiQuery({
+    name: 'order',
+    required: false,
+    enum: ['ASC', 'DESC'],
+    example: 'DESC',
+  })
+  async findByBoard(
+    @Param('boardId', ParseIntPipe) boardId: number,
+    @Query() paginationDto: PaginationDto,
+  ): Promise<PaginatedResponseDto<PostResponseDto>> {
+    return this.postsService.findPostsByBoardId(boardId, paginationDto);
   }
 }

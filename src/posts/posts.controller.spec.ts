@@ -10,6 +10,9 @@ import { createMock } from '@golevelup/ts-jest';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
 import { createPost } from './factories/post.factory';
 import { FindRecentPostsDto } from './dto/find-recent.dto';
+import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
+import { PaginationDto } from '@/common/dto/pagination.dto';
+import { PostResponseDto } from './dto/post-response.dto';
 
 describe('PostsController', () => {
   let controller: PostsController;
@@ -138,34 +141,71 @@ describe('PostsController', () => {
   });
 
   describe('findByBoard', () => {
-    it('should look up posts on specific boards', async () => {
+    it('should look up paginated posts on specific boards', async () => {
       // Arrange
       const boardId = 1;
       const mockPosts = [
         { id: 1, title: 'Test Post 1' },
         { id: 2, title: 'Test Post 2' },
       ].map((post) => createPost(post));
-      service.findPostsByBoardId = jest.fn().mockResolvedValue(mockPosts);
+
+      // 페이지네이션 DTO 설정
+      const paginationDto: PaginationDto = {
+        page: 1,
+        limit: 10,
+        sort: 'createdAt',
+        order: 'DESC',
+      };
+
+      // 페이지네이션된 응답 DTO 형식으로 변경
+      const paginatedResult: PaginatedResponseDto<PostResponseDto> = {
+        data: mockPosts.map(PostResponseDto.fromEntity),
+        currentPage: paginationDto.page!,
+        totalItems: mockPosts.length,
+        totalPages: 1,
+      };
+
+      // 서비스 메서드 모킹 (페이지네이션된 결과 반환)
+      service.findPostsByBoardId = jest.fn().mockResolvedValue(paginatedResult); // 페이지네이션된 결과 모킹
 
       // Act
-      const result = await controller.findByBoard(boardId);
+      const result = await controller.findByBoard(boardId, paginationDto); // 페이지네이션 DTO 전달
 
       // Assert
-      expect(service.findPostsByBoardId).toHaveBeenCalledWith(boardId);
-      expect(result).toEqual(mockPosts);
+      expect(service.findPostsByBoardId).toHaveBeenCalledWith(
+        boardId,
+        paginationDto,
+      ); // 페이지네이션 DTO 전달 확인
+      expect(result).toEqual(paginatedResult); // 페이지네이션된 결과 비교
     });
 
-    it('should return empty array If no post is present', async () => {
+    it('should return empty paginated result if no post is present', async () => {
       // Arrange
       const boardId = 999;
-      service.findPostsByBoardId = jest.fn().mockResolvedValue([]);
+      const paginationDto: PaginationDto = { page: 1, limit: 10 };
+
+      // 빈 페이지네이션된 응답 DTO 형식
+      const emptyPaginatedResult: PaginatedResponseDto<PostResponseDto> = {
+        data: [],
+        currentPage: paginationDto.page!,
+        totalItems: 0,
+        totalPages: 0,
+      };
+
+      // 서비스 메서드 모킹 (빈 페이지네이션된 결과 반환)
+      service.findPostsByBoardId = jest
+        .fn()
+        .mockResolvedValue(emptyPaginatedResult);
 
       // Act
-      const result = await controller.findByBoard(boardId);
+      const result = await controller.findByBoard(boardId, paginationDto); // 페이지네이션 DTO 전달
 
       // Assert
-      expect(service.findPostsByBoardId).toHaveBeenCalledWith(boardId);
-      expect(result).toEqual([]);
+      expect(service.findPostsByBoardId).toHaveBeenCalledWith(
+        boardId,
+        paginationDto,
+      ); // 페이지네이션 DTO 전달 확인
+      expect(result).toEqual(emptyPaginatedResult); // 빈 페이지네이션된 결과 비교
     });
   });
 });

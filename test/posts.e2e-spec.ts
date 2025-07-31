@@ -532,6 +532,8 @@ describe('Posts - /posts (e2e)', () => {
 
   describe('GET /posts/board/:boardId', () => {
     let user: User;
+    const totalPosts = 15; // 테스트용 게시글 수
+    const defaultLimit = 10; // 컨트롤러/서비스 기본값
 
     beforeAll(() => {
       if (!users || users.length === 0) {
@@ -540,24 +542,138 @@ describe('Posts - /posts (e2e)', () => {
       user = users[0];
     });
 
-    it('should return posts from specific board', async () => {
-      const post = createPost({
-        title: 'Test',
-        content: 'Content',
-        board: userBoard,
-        createdBy: user,
-      });
-      await postRepository.save(post);
+    beforeEach(async () => {
+      // 테스트 전에 해당 보드에 여러 게시글 생성
+      const postsToCreate = Array.from({ length: totalPosts }, (_, i) =>
+        createPost({
+          title: `Test Post ${i + 1}`,
+          content: `Content for post ${i + 1}`,
+          board: userBoard,
+          createdBy: user,
+          createdAt: new Date(Date.now() - i * 1000 * 60 * 60),
+          views: i + 1,
+        }),
+      );
+      await postRepository.save(postsToCreate);
+    });
 
+    it('should return paginated posts from a specific board (default page 1)', async () => {
       const response = await request(app.getHttpServer())
         .get(`/posts/board/${userBoard.id}`)
         .expect(200);
 
-      expect(response.body[0]).toMatchObject({
-        title: post.title,
-        content: post.content,
-        nickname: user.nickname,
+      expect(response.body).toEqual({
+        data: expect.any(Array),
+        currentPage: 1,
+        totalItems: totalPosts,
+        totalPages: Math.ceil(totalPosts / defaultLimit),
       });
+
+      // 기본 limit (10) 확인
+      expect(response.body.data).toHaveLength(defaultLimit);
+      // 게시글 내용 확인
+      expect(response.body.data[0].title).toBe('Test Post 1'); // 최신순 (기본 정렬)
+      expect(response.body.data[0].board.id).toBe(userBoard.id);
+      expect(response.body.data[0].nickname).toBe(user.nickname);
+    });
+
+    it('should return paginated posts with custom page and limit', async () => {
+      const page = 2;
+      const limit = 5;
+
+      const response = await request(app.getHttpServer())
+        .get(`/posts/board/${userBoard.id}`)
+        .query({ page, limit })
+        .expect(200);
+
+      expect(response.body).toEqual({
+        data: expect.any(Array),
+        currentPage: page,
+        totalItems: totalPosts,
+        totalPages: Math.ceil(totalPosts / limit),
+      });
+
+      expect(response.body.data).toHaveLength(limit);
+      // 두 번째 페이지의 첫 번째 게시글은 6번째 게시글이어야 함 (1-based index)
+      expect(response.body.data[0].title).toBe('Test Post 6');
+    });
+
+    it('should return correct pagination info for last page', async () => {
+      const page = Math.ceil(totalPosts / defaultLimit); // 마지막 페이지
+      const expectedItemsOnLastPage = totalPosts % defaultLimit || defaultLimit; // 마지막 페이지 아이템 수
+
+      const response = await request(app.getHttpServer())
+        .get(`/posts/board/${userBoard.id}`)
+        .query({ page })
+        .expect(200);
+
+      expect(response.body).toEqual({
+        data: expect.any(Array),
+        currentPage: page,
+        totalItems: totalPosts,
+        totalPages: page, // totalPages는 마지막 페이지 번호와 같음
+      });
+
+      expect(response.body.data).toHaveLength(expectedItemsOnLastPage);
+    });
+
+    it('should return empty data array if page is out of range', async () => {
+      const page = Math.ceil(totalPosts / defaultLimit) + 1; // 범위를 벗어난 페이지
+
+      const response = await request(app.getHttpServer())
+        .get(`/posts/board/${userBoard.id}`)
+        .query({ page })
+        .expect(200); // 404 대신 200 OK, 빈 데이터 배열 반환
+
+      expect(response.body).toEqual({
+        data: [],
+        currentPage: page,
+        totalItems: totalPosts,
+        totalPages: Math.ceil(totalPosts / defaultLimit),
+      });
+    });
+
+    it('should sort posts by createdAt DESC by default', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/posts/board/${userBoard.id}`)
+        .expect(200);
+
+      const dates = response.body.data.map((post: any) =>
+        new Date(post.createdAt).getTime(),
+      );
+      const sortedDates = [...dates].sort((a, b) => b - a); // 내림차순 정렬
+      expect(dates).toEqual(sortedDates);
+    });
+
+    it('should sort posts by createdAt ASC when specified', async () => {
+      const response = await request(app.getHttpServer())
+        .get(`/posts/board/${userBoard.id}`)
+        .query({ sort: 'createdAt', order: 'ASC' })
+        .expect(200);
+
+      const dates = response.body.data.map((post: any) => post.createdAt);
+      const sortedDates = [...dates].sort((a, b) => a - b); // 오름차순 정렬
+      expect(dates).toEqual(sortedDates);
+    });
+
+    it('should return empty paginated result if board has no posts', async () => {
+      // 다른 보드 (게시글 없는)를 사용하거나, 기존 게시글을 모두 삭제한 후 테스트
+      await truncatePostsTable(dataSource); // 현재 테스트 전에 게시글 삭제
+
+      const response = await request(app.getHttpServer())
+        .get(`/posts/board/${userBoard.id}`) // 게시글이 없는 보드
+        .expect(200);
+
+      expect(response.body).toEqual({
+        data: [],
+        currentPage: 1,
+        totalItems: 0,
+        totalPages: 0,
+      });
+    });
+
+    afterEach(async () => {
+      await truncatePostsTable(dataSource);
     });
   });
 });

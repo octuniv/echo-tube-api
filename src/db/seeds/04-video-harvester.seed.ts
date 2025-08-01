@@ -2,7 +2,7 @@
 import { Seeder } from 'typeorm-extension';
 import { DataSource } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
-import * as bcrypt from 'bcryptjs';
+// import * as bcrypt from 'bcryptjs';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { BaseSeeder } from './base.seeder';
 import { Category } from '@/categories/entities/category.entity';
@@ -31,20 +31,13 @@ export default class VideoHarvesterSeeder extends BaseSeeder implements Seeder {
   public async run(dataSource: DataSource): Promise<void> {
     await this.withTransaction(dataSource, async () => {
       const userRepo = dataSource.getRepository(User);
-      let scraperBotAccount = await userRepo.findOneBy({
+      const scraperBotAccount = await userRepo.findOneBy({
         email: this.BOT_ACCOUNT.email,
         role: UserRole.BOT,
       });
 
       if (!scraperBotAccount) {
-        const hashedPassword = await bcrypt.hash(this.BOT_ACCOUNT.password, 10);
-        scraperBotAccount = await userRepo.save({
-          name: 'bot',
-          nickname: 'scraperBot',
-          email: this.BOT_ACCOUNT.email,
-          passwordHash: hashedPassword,
-          role: UserRole.BOT,
-        });
+        throw new Error('Test user not found. Please run user seeders first.');
       }
 
       const categoryRepo = dataSource.getRepository(Category);

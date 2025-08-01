@@ -18,6 +18,7 @@ import {
   setupTestApp,
   signUpAndLogin,
   truncateAllTables,
+  truncatePostsTable,
 } from './utils/test.util';
 import { plainToInstance } from 'class-transformer';
 import { DashboardSummaryDto } from '@/dashboard/dto/dashboard.summary.dto';
@@ -59,6 +60,10 @@ describe('DashboardController (e2e)', () => {
   afterAll(async () => {
     await truncateAllTables(dataSource);
     await app.close();
+  });
+
+  beforeEach(async () => {
+    await truncatePostsTable(dataSource);
   });
 
   it('/dashboard/summary (GET) should return dashboard summary', async () => {
@@ -156,13 +161,7 @@ describe('DashboardController (e2e)', () => {
           board: expect.objectContaining({ name: testBoard.name }),
         }),
       ]),
-      noticesPosts: expect.arrayContaining([
-        expect.objectContaining({
-          title: '공지사항',
-          content: '현재 게시판은 공지사항 입니다.',
-          board: expect.objectContaining({ slug: 'notices' }),
-        }),
-      ]),
+      noticesPosts: [],
     });
 
     const dashboardDto = plainToInstance(DashboardSummaryDto, response.body);

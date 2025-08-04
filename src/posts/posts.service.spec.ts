@@ -24,6 +24,7 @@ import { UserRole } from '@/users/entities/user-role.enum';
 import { BoardPurpose } from '@/boards/entities/board.entity';
 import { CreateScrapedVideoDto } from '@/video-harvester/dto/create-scraped-video.dto';
 import { VideoFactory } from '@/video-harvester/factory/video.factory';
+import { PaginationDto } from '@/common/dto/pagination.dto';
 
 describe('PostsService', () => {
   let service: PostsService;
@@ -413,36 +414,103 @@ describe('PostsService', () => {
   });
 
   describe('findPostsByBoardId', () => {
-    it('should return all posts in the specified board', async () => {
-      // Arrange
-      const board = createBoard({ id: 1 });
+    it('should return paginated posts in the specified board', async () => {
+      const boardId = 1;
+      const board = createBoard({ id: boardId });
       const mockPosts = [
         createPost({ id: 1, title: 'Post 1', board: board }),
         createPost({ id: 2, title: 'Post 2', board: board }),
       ] satisfies Post[];
 
-      postRepository.find = jest.fn().mockResolvedValue(mockPosts);
+      // 페이지네이션 DTO 설정
+      const paginationDto: PaginationDto = {
+        page: 1,
+        limit: 10,
+        sort: 'createdAt',
+        order: 'DESC',
+      };
+
+      // 총 아이템 수
+      const totalItems = mockPosts.length;
+
+      // QueryBuilder 모킹
+      const queryBuilderMock = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([mockPosts, totalItems]), // getManyAndCount 모킹
+      };
+
+      // createQueryBuilder 모킹
+      jest
+        .spyOn(postRepository, 'createQueryBuilder')
+        .mockReturnValue(queryBuilderMock as any);
 
       // Act
-      const result = await service.findPostsByBoardId(board.id);
+      const result = await service.findPostsByBoardId(boardId, paginationDto); // 페이지네이션 DTO 전달
 
       // Assert
-      expect(postRepository.find).toHaveBeenCalledWith({
-        where: { board: { id: board.id } },
-        relations: {
-          createdBy: true,
-          board: {
-            categorySlug: true,
-          },
-        },
+      expect(postRepository.createQueryBuilder).toHaveBeenCalledWith('post');
+      expect(queryBuilderMock.where).toHaveBeenCalledWith(
+        'post.board.id = :boardId',
+        { boardId },
+      );
+      expect(queryBuilderMock.orderBy).toHaveBeenCalledWith(
+        'post.createdAt',
+        'DESC',
+      );
+      expect(queryBuilderMock.skip).toHaveBeenCalledWith(0); // (page - 1) * limit = (1 - 1) * 10 = 0
+      expect(queryBuilderMock.take).toHaveBeenCalledWith(10);
+      expect(queryBuilderMock.getManyAndCount).toHaveBeenCalled();
+
+      // 결과가 PaginatedResponseDto 형식인지 확인
+      expect(result).toEqual({
+        data: mockPosts.map(PostResponseDto.fromEntity),
+        currentPage: paginationDto.page,
+        totalItems,
+        totalPages: Math.ceil(totalItems / paginationDto.limit!),
       });
-      expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
     });
 
-    it('should return empty array when board has no posts', async () => {
-      postRepository.find = jest.fn().mockResolvedValue([]);
-      const result = await service.findPostsByBoardId(999);
-      expect(result).toEqual([]);
+    it('should return empty paginated result when board has no posts', async () => {
+      // Arrange
+      const boardId = 999;
+      const paginationDto: PaginationDto = { page: 1, limit: 10 };
+
+      // QueryBuilder 모킹 (빈 배열 반환)
+      const queryBuilderMock = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]), // 빈 배열과 0개의 총 아이템
+      };
+
+      jest
+        .spyOn(postRepository, 'createQueryBuilder')
+        .mockReturnValue(queryBuilderMock as any);
+
+      // Act
+      const result = await service.findPostsByBoardId(boardId, paginationDto); // 페이지네이션 DTO 전달
+
+      // Assert
+      expect(postRepository.createQueryBuilder).toHaveBeenCalledWith('post');
+      expect(queryBuilderMock.where).toHaveBeenCalledWith(
+        'post.board.id = :boardId',
+        { boardId },
+      );
+      expect(queryBuilderMock.getManyAndCount).toHaveBeenCalled();
+
+      // 결과가 빈 PaginatedResponseDto 형식인지 확인
+      expect(result).toEqual({
+        data: [],
+        currentPage: paginationDto.page,
+        totalItems: 0,
+        totalPages: 0, // 0 / 10 = 0
+      });
     });
   });
 

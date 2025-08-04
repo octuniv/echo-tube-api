@@ -12,22 +12,56 @@ export default class InitialUserSeeder extends BaseSeeder implements Seeder {
     password: process.env.SYSTEM_USER_PASSWORD || 'system1234',
   };
 
+  private readonly BOT_ACCOUNT = {
+    email: process.env.BOT_EMAIL || 'bot@example.com',
+    password: process.env.BOT_PASSWORD || 'bot123456',
+  };
+
+  private readonly TESTER_USER = {
+    email: process.env.TESTER_EMAIL || 'test@example.com',
+    password: process.env.TESTER_PASSWORD || 'tester123456',
+  };
+
+  private readonly USERS = [
+    {
+      ...this.SYSTEM_USER,
+      name: 'System',
+      nickname: 'system',
+      role: UserRole.ADMIN,
+    },
+    {
+      ...this.BOT_ACCOUNT,
+      name: 'Bot',
+      nickname: 'bot',
+      role: UserRole.BOT,
+    },
+    {
+      ...this.TESTER_USER,
+      name: 'Tester',
+      nickname: 'tester',
+      role: UserRole.USER,
+    },
+  ];
+
   public async run(dataSource: DataSource): Promise<void> {
     await this.withTransaction(dataSource, async () => {
       const userRepo = dataSource.getRepository(User);
-      const existing = await userRepo.findOneBy({
-        email: this.SYSTEM_USER.email,
-      });
 
-      if (!existing) {
-        const hashedPassword = await bcrypt.hash(this.SYSTEM_USER.password, 10);
-        await userRepo.save({
-          name: 'System',
-          nickname: 'system',
-          email: this.SYSTEM_USER.email,
-          passwordHash: hashedPassword,
-          role: UserRole.ADMIN,
+      for (const userData of this.USERS) {
+        const existing = await userRepo.findOneBy({
+          email: userData.email,
         });
+
+        if (!existing) {
+          const hashedPassword = await bcrypt.hash(userData.password, 10);
+          await userRepo.save({
+            name: userData.name,
+            nickname: userData.nickname,
+            email: userData.email,
+            passwordHash: hashedPassword,
+            role: userData.role,
+          });
+        }
       }
     });
   }

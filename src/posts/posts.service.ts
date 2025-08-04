@@ -17,6 +17,8 @@ import { BoardsService } from '@/boards/boards.service';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { CreateScrapedVideoDto } from '@/video-harvester/dto/create-scraped-video.dto';
 import { BoardPurpose } from '@/boards/entities/board.entity';
+import { PaginationDto } from '@/common/dto/pagination.dto';
+import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
 
 @Injectable()
 export class PostsService {
@@ -203,17 +205,45 @@ export class PostsService {
   }
 
   // 보드별 게시물 조회 (id)
-  async findPostsByBoardId(boardId: number): Promise<PostResponseDto[]> {
-    const posts = await this.postRepository.find({
-      where: { board: { id: boardId } },
-      relations: {
-        createdBy: true,
-        board: {
-          categorySlug: true,
-        },
-      },
-    });
-    return posts.map(PostResponseDto.fromEntity);
+  async findPostsByBoardId(
+    boardId: number,
+    paginationDto: PaginationDto,
+  ): Promise<PaginatedResponseDto<PostResponseDto>> {
+    const {
+      page = 1,
+      limit = 10,
+      sort = 'createdAt',
+      order = 'DESC',
+    } = paginationDto;
+
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.postRepository
+      .createQueryBuilder('post')
+      .leftJoinAndSelect('post.createdBy', 'createdBy')
+      .leftJoinAndSelect('post.board', 'board')
+      .leftJoinAndSelect('board.categorySlug', 'categorySlug')
+      .where('post.board.id = :boardId', { boardId });
+
+    if (sort === 'createdAt' || sort === 'updatedAt') {
+      queryBuilder.orderBy(`post.${sort}`, order);
+    } else {
+      queryBuilder.orderBy('post.createdAt', 'DESC');
+    }
+
+    const [posts, totalItems] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
+
+    const data = posts.map(PostResponseDto.fromEntity);
+
+    return {
+      data,
+      currentPage: page,
+      totalItems,
+      totalPages: Math.ceil(totalItems / limit),
+    };
   }
 
   // 보드별 게시물 조회 (slug)

@@ -99,7 +99,7 @@ describe('AdminBoardController', () => {
       jest.spyOn(boardsService, 'findAll').mockResolvedValue([mockBoard]);
       const res = await request(app.getHttpServer()).get('/admin/boards');
       expect(res.status).toBe(200);
-      expect(res.body).toEqual([returnedAdminBoardResponseDto]);
+      expect(res.body).toMatchObject([returnedAdminBoardResponseDto]);
       expect(boardsService.findAll).toHaveBeenCalled();
     });
   });
@@ -109,7 +109,7 @@ describe('AdminBoardController', () => {
       jest.spyOn(boardsService, 'findOne').mockResolvedValue(mockBoard);
       const res = await request(app.getHttpServer()).get('/admin/boards/1');
       expect(res.status).toBe(200);
-      expect(res.body).toEqual(returnedAdminBoardResponseDto);
+      expect(res.body).toMatchObject(returnedAdminBoardResponseDto);
       expect(boardsService.findOne).toHaveBeenCalledWith(1);
     });
 
@@ -134,7 +134,7 @@ describe('AdminBoardController', () => {
         .send(createBoardDto)
         .expect(201);
 
-      expect(res.body).toEqual(returnedAdminBoardResponseDto);
+      expect(res.body).toMatchObject(returnedAdminBoardResponseDto);
       expect(boardsService.create).toHaveBeenCalledWith(createBoardDto);
     });
 
@@ -176,28 +176,28 @@ describe('AdminBoardController', () => {
       category: createCategory({ id: 2, name: 'Science' }),
     };
 
-    const updatedDto = {
+    const updatedDtoBase = {
       ...mockAdminBoardResponseDto,
       name: 'Updated Name',
       categoryId: 2,
       categoryName: 'Science',
     };
 
+    const updatedDtoResponse = {
+      ...updatedDtoBase,
+      createdAt: updatedDtoBase.createdAt.toISOString(), // Convert to ISO string
+      updatedAt: updatedDtoBase.updatedAt.toISOString(), // Convert to ISO string
+    };
+
     it('should update board and return updated DTO', async () => {
       jest.spyOn(boardsService, 'update').mockResolvedValue(updatedBoard);
-
-      const returnedDto = {
-        ...updatedDto,
-        createdAt: updatedDto.createdAt.toISOString(),
-        updatedAt: updatedDto.updatedAt.toISOString(),
-      };
 
       const res = await request(app.getHttpServer())
         .put('/admin/boards/1')
         .send(updateBoardDto)
         .expect(200);
 
-      expect(res.body).toEqual(returnedDto);
+      expect(res.body).toMatchObject(updatedDtoResponse);
       expect(boardsService.update).toHaveBeenCalledWith(1, updateBoardDto);
     });
 

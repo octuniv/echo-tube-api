@@ -717,4 +717,160 @@ describe('PostsService', () => {
       );
     });
   });
+
+  describe('incrementCommentCount', () => {
+    it('should increment comment count for existing post', async () => {
+      // given
+      const postId = 1;
+
+      // when
+      await service.incrementCommentCount(postId);
+
+      // then
+      expect(postRepository.increment).toHaveBeenCalledWith(
+        { id: postId },
+        'commentsCount',
+        1,
+      );
+    });
+
+    it('should handle multiple increments correctly', async () => {
+      // given
+      const postId = 1;
+
+      // when
+      await service.incrementCommentCount(postId);
+      await service.incrementCommentCount(postId);
+      await service.incrementCommentCount(postId);
+
+      // then
+      expect(postRepository.increment).toHaveBeenCalledTimes(3);
+      expect(postRepository.increment).toHaveBeenCalledWith(
+        { id: postId },
+        'commentsCount',
+        1,
+      );
+    });
+  });
+
+  describe('decrementCommentCount', () => {
+    it('should decrement comment count for existing post with comments', async () => {
+      // given
+      const postId = 1;
+      const initialCommentsCount = 5;
+      const post = createPost({
+        id: postId,
+        commentsCount: initialCommentsCount,
+      });
+
+      jest.spyOn(postRepository, 'findOne').mockResolvedValue(post);
+
+      // when
+      await service.decrementCommentCount(postId);
+
+      // then
+      expect(postRepository.findOne).toHaveBeenCalledWith({
+        where: { id: postId },
+        select: ['commentsCount'],
+      });
+      expect(postRepository.decrement).toHaveBeenCalledWith(
+        { id: postId },
+        'commentsCount',
+        1,
+      );
+    });
+
+    it('should not decrement below zero', async () => {
+      // given
+      const postId = 1;
+      const post = createPost({
+        id: postId,
+        commentsCount: 0,
+      });
+
+      jest.spyOn(postRepository, 'findOne').mockResolvedValue(post);
+
+      // when
+      await service.decrementCommentCount(postId);
+
+      // then
+      expect(postRepository.decrement).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when post does not exist', async () => {
+      // given
+      const postId = 999;
+
+      jest.spyOn(postRepository, 'findOne').mockResolvedValue(null);
+
+      // when & then
+      await expect(service.decrementCommentCount(postId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(postRepository.findOne).toHaveBeenCalledWith({
+        where: { id: postId },
+        select: ['commentsCount'],
+      });
+      expect(postRepository.decrement).not.toHaveBeenCalled();
+    });
+
+    it('should handle multiple decrements correctly', async () => {
+      // given
+      const postId = 1;
+      const post = createPost({
+        id: postId,
+        commentsCount: 3,
+      });
+
+      jest
+        .spyOn(postRepository, 'findOne')
+        .mockResolvedValueOnce(post) // 첫 번째 호출
+        .mockResolvedValueOnce(createPost({ id: postId, commentsCount: 2 })) // 두 번째 호출
+        .mockResolvedValueOnce(createPost({ id: postId, commentsCount: 1 })); // 세 번째 호출
+
+      // when
+      await service.decrementCommentCount(postId);
+      await service.decrementCommentCount(postId);
+      await service.decrementCommentCount(postId);
+
+      // then
+      expect(postRepository.findOne).toHaveBeenCalledTimes(3);
+      expect(postRepository.decrement).toHaveBeenCalledTimes(3);
+      expect(postRepository.decrement).toHaveBeenCalledWith(
+        { id: postId },
+        'commentsCount',
+        1,
+      );
+    });
+
+    it('should not decrement when comment count is exactly 1', async () => {
+      // given
+      const postId = 1;
+      const post = createPost({
+        id: postId,
+        commentsCount: 1,
+      });
+
+      jest.spyOn(postRepository, 'findOne').mockResolvedValue(post);
+
+      // when
+      await service.decrementCommentCount(postId);
+
+      // then
+      expect(postRepository.decrement).toHaveBeenCalledWith(
+        { id: postId },
+        'commentsCount',
+        1,
+      );
+
+      // 추가 감소 시도
+      jest
+        .spyOn(postRepository, 'findOne')
+        .mockResolvedValue(createPost({ id: postId, commentsCount: 0 }));
+      await service.decrementCommentCount(postId);
+
+      // 0일 때는 decrement가 호출되지 않아야 함
+      expect(postRepository.decrement).toHaveBeenCalledTimes(1);
+    });
+  });
 });

@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Board } from '@/boards/entities/board.entity';
 import { User } from '@/users/entities/user.entity';
+import { Comment } from '../comments/entities/comment.entity';
 import {
   AfterLoad,
   Column,
@@ -8,6 +9,7 @@ import {
   DeleteDateColumn,
   Entity,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -101,4 +103,11 @@ export class Post {
 
   @Column({ nullable: true })
   source?: string; // "YouTube" 등 출처
+
+  // Post 엔티티에 추가
+  @OneToMany(() => Comment, (comment) => comment.post, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  comments: Comment[];
 }

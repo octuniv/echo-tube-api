@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Board } from '@/boards/entities/board.entity';
 import { User } from '@/users/entities/user.entity';
-import { Comment } from '../comments/entities/comment.entity';
 import {
   AfterLoad,
   Column,
@@ -14,6 +13,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Expose } from 'class-transformer';
+import { Comment } from '@/comments/entities/comment.entity';
 
 export enum PostOrigin {
   USER = 'user',

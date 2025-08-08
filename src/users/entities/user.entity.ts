@@ -10,7 +10,7 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from './user-role.enum';
 import { Post } from '@/posts/entities/post.entity';
-import { Comment } from '@/posts/comments/entities/comment.entity';
+import { Comment } from '@/comments/entities/comment.entity';
 
 @Entity('users')
 export class User {

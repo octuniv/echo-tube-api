@@ -334,20 +334,22 @@ export class PostsService {
   }
 
   // 댓글 수 감소 메서드 (0 미만으로 내려가지 않도록 보장)
-  async decrementCommentCount(postId: number): Promise<void> {
-    // 먼저 현재 댓글 수 확인
-    const post = await this.postRepository.findOne({
-      where: { id: postId },
-      select: ['commentsCount'],
-    });
+  async decrementCommentCountBulk(
+    postId: number,
+    count: number,
+  ): Promise<void> {
+    if (count <= 0) return;
 
+    const post = await this.postRepository.findOne({ where: { id: postId } });
     if (!post) {
       throw new NotFoundException(`Post with ID ${postId} not found`);
     }
 
-    // 댓글 수가 0보다 클 때만 감소
-    if (post.commentsCount > 0) {
-      await this.postRepository.decrement({ id: postId }, 'commentsCount', 1);
-    }
+    await this.postRepository
+      .createQueryBuilder()
+      .update(Post)
+      .set({ commentsCount: () => `GREATEST(commentsCount - ${count}, 0)` }) // 음수 방지
+      .where('id = :id', { id: postId })
+      .execute();
   }
 }

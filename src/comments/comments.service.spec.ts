@@ -27,6 +27,13 @@ jest.mock('typeorm-transactional', () => ({
   Transactional: () => () => ({}),
 }));
 
+const mockQueryBuilder = {
+  update: jest.fn().mockReturnThis(),
+  set: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  execute: jest.fn(),
+};
+
 describe('CommentsService', () => {
   let service: CommentsService;
   let commentRepository: Repository<Comment>;
@@ -208,8 +215,8 @@ describe('CommentsService', () => {
       const result = await service.update(mockComment.id, updateDto, mockUser);
 
       expect(commentRepository.findOne).toHaveBeenCalledWith({
-        where: { id: mockComment.id, createdBy: { id: mockUser.id } },
-        relations: ['post'],
+        where: { id: mockComment.id },
+        relations: ['createdBy'],
       });
       expect(commentRepository.save).toHaveBeenCalledWith(updatedComment);
       expect(result).toEqual({
@@ -226,353 +233,53 @@ describe('CommentsService', () => {
       ).rejects.toThrow(NotFoundException);
 
       expect(commentRepository.findOne).toHaveBeenCalledWith({
-        where: { id: mockComment.id, createdBy: { id: mockUser.id } },
-        relations: ['post'],
+        where: { id: mockComment.id },
+        relations: ['createdBy'],
+      });
+      expect(commentRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('타인이 작성한 댓글 수정 시도 시 403 Forbidden 응답 확인', async () => {
+      const anotherUser = createUserEntity({ id: 10 });
+      jest.spyOn(commentRepository, 'findOne').mockResolvedValue(mockComment);
+
+      await expect(
+        service.update(mockComment.id, { content: 'Updated' }, anotherUser),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(commentRepository.findOne).toHaveBeenCalledWith({
+        where: { id: mockComment.id },
+        relations: ['createdBy'],
       });
       expect(commentRepository.save).not.toHaveBeenCalled();
     });
   });
 
-  describe('remove', () => {
-    const mockPost = createPost({ id: 1 });
-    const mockUser = createUserEntity({ id: 1 });
-    const mockOtherUser = createUserEntity({ id: 2 });
-    const mockAdminUser = createUserEntity({ id: 3, role: UserRole.ADMIN });
-
-    let mockComment: Comment;
-
-    beforeEach(() => {
-      mockComment = createComment({
-        id: 1,
-        content: 'Test Comment',
-        post: mockPost,
-        createdBy: mockUser,
-      });
-
-      jest.spyOn(commentRepository, 'findOne').mockClear();
-      jest.spyOn(commentRepository, 'softDelete').mockClear();
-      jest.spyOn(postsService, 'decrementCommentCount').mockClear();
-    });
-
-    describe('정상적인 댓글 삭제 시나리오', () => {
-      it('소유자가 자신의 댓글을 성공적으로 삭제해야 함', async () => {
-        jest.spyOn(commentRepository, 'findOne').mockResolvedValue(mockComment);
-        jest
-          .spyOn(commentRepository, 'softDelete')
-          .mockResolvedValue({ affected: 1 } as any);
-
-        const result = await service.remove(mockComment.id, mockUser);
-
-        expect(commentRepository.findOne).toHaveBeenCalledWith({
-          where: { id: mockComment.id },
-          relations: ['post', 'createdBy'],
-        });
-        expect(postsService.decrementCommentCount).toHaveBeenCalledWith(
-          mockPost.id,
-        );
-        expect(commentRepository.softDelete).toHaveBeenCalledWith(
-          mockComment.id,
-        );
-        expect(result).toEqual({
-          message: COMMENT_MESSAGES.DELETED,
-          id: mockComment.id,
-        });
-      });
-
-      it('관리자는 다른 사용자의 댓글을 성공적으로 삭제해야 함', async () => {
-        jest.spyOn(commentRepository, 'findOne').mockResolvedValue(mockComment);
-        jest
-          .spyOn(commentRepository, 'softDelete')
-          .mockResolvedValue({ affected: 1 } as any);
-
-        const result = await service.remove(mockComment.id, mockAdminUser);
-
-        expect(commentRepository.findOne).toHaveBeenCalledWith({
-          where: { id: mockComment.id },
-          relations: ['post', 'createdBy'],
-        });
-        expect(postsService.decrementCommentCount).toHaveBeenCalledWith(
-          mockPost.id,
-        );
-        expect(commentRepository.softDelete).toHaveBeenCalledWith(
-          mockComment.id,
-        );
-        expect(result).toEqual({
-          message: COMMENT_MESSAGES.DELETED,
-          id: mockComment.id,
-        });
-      });
-    });
-
-    describe('예외 처리 시나리오', () => {
-      it('존재하지 않는 댓글을 삭제하려고 하면 NotFoundException이 발생해야 함', async () => {
-        jest.spyOn(commentRepository, 'findOne').mockResolvedValue(null);
-
-        await expect(service.remove(999, mockUser)).rejects.toThrow(
-          new NotFoundException(COMMENT_ERRORS.NOT_FOUND),
-        );
-
-        expect(commentRepository.findOne).toHaveBeenCalledWith({
-          where: { id: 999 },
-          relations: ['post', 'createdBy'],
-        });
-        expect(postsService.decrementCommentCount).not.toHaveBeenCalled();
-        expect(commentRepository.softDelete).not.toHaveBeenCalled();
-      });
-
-      it('일반 사용자가 다른 사용자의 댓글을 삭제하려고 하면 ForbiddenException이 발생해야 함', async () => {
-        const otherUserComment = createComment({
-          id: 2,
-          content: 'Other User Comment',
-          post: mockPost,
-          createdBy: mockOtherUser,
-        });
-
-        jest
-          .spyOn(commentRepository, 'findOne')
-          .mockResolvedValue(otherUserComment);
-
-        await expect(
-          service.remove(otherUserComment.id, mockUser),
-        ).rejects.toThrow(new ForbiddenException(COMMENT_ERRORS.NO_PERMISSION));
-
-        expect(commentRepository.findOne).toHaveBeenCalledWith({
-          where: { id: otherUserComment.id },
-          relations: ['post', 'createdBy'],
-        });
-        expect(postsService.decrementCommentCount).not.toHaveBeenCalled();
-        expect(commentRepository.softDelete).not.toHaveBeenCalled();
-      });
-
-      it('데이터베이스에서 댓글 삭제에 실패하면 InternalServerErrorException이 발생해야 함', async () => {
-        jest.spyOn(commentRepository, 'findOne').mockResolvedValue(mockComment);
-        jest
-          .spyOn(commentRepository, 'softDelete')
-          .mockResolvedValue({ affected: 0 } as any);
-
-        await expect(service.remove(mockComment.id, mockUser)).rejects.toThrow(
-          new InternalServerErrorException('댓글 삭제 중 문제가 발생했습니다.'),
-        );
-
-        expect(commentRepository.findOne).toHaveBeenCalledWith({
-          where: { id: mockComment.id },
-          relations: ['post', 'createdBy'],
-        });
-        expect(postsService.decrementCommentCount).toHaveBeenCalledWith(
-          mockPost.id,
-        );
-        expect(commentRepository.softDelete).toHaveBeenCalledWith(
-          mockComment.id,
-        );
-      });
-    });
-
-    describe('에지 케이스 시나리오', () => {
-      it('관리자가 존재하지 않는 댓글을 삭제하려고 해도 NotFoundException이 발생해야 함', async () => {
-        jest.spyOn(commentRepository, 'findOne').mockResolvedValue(null);
-
-        await expect(service.remove(999, mockAdminUser)).rejects.toThrow(
-          new NotFoundException(COMMENT_ERRORS.NOT_FOUND),
-        );
-
-        expect(commentRepository.findOne).toHaveBeenCalledWith({
-          where: { id: 999 },
-          relations: ['post', 'createdBy'],
-        });
-      });
-    });
-  });
-
-  describe('getPagedCommentsFlat', () => {
-    const mockPostId = 1;
-    const limit = 20;
-
-    it('should return paginated comments with necessary parent comments', async () => {
-      const mockComments = [
-        createComment({
-          id: 4,
-          content: 'Comment 4',
-          createdAt: new Date(2024, 0, 4),
-        }),
-        createComment({
-          id: 2,
-          content: 'Reply to Comment 3',
-          parent: { id: 3 } as any,
-          createdAt: new Date(2024, 0, 2),
-        }),
-        createComment({
-          id: 1,
-          content: 'Comment 1',
-          createdAt: new Date(2024, 0, 1),
-        }),
-      ];
-
-      const mockParentComment = createComment({
-        id: 3,
-        content: 'Comment 3 (Parent)',
-        children: [{ id: 2 } as any],
-        createdAt: new Date(2024, 0, 3),
-      });
-
-      const mockFindAndCountResult: [Comment[], number] = [mockComments, 4];
-
-      jest
-        .spyOn(commentRepository, 'findAndCount')
-        .mockResolvedValue(mockFindAndCountResult);
-      jest
-        .spyOn(commentRepository, 'find')
-        .mockResolvedValue([mockParentComment]);
-
-      const page = 1;
-      const result = await service.getPagedCommentsFlat(mockPostId, page);
-
-      expect(commentRepository.findAndCount).toHaveBeenCalledWith({
-        where: {
-          post: { id: mockPostId },
-        },
-        relations: ['createdBy', 'parent', 'children'],
-        skip: 0,
-        take: limit,
-      });
-
-      expect(commentRepository.find).toHaveBeenCalledWith({
-        where: {
-          id: In([3]),
-        },
-        relations: ['createdBy', 'children'],
-      });
-
-      expect(result.data).toHaveLength(4);
-      expect(result.currentPage).toBe(1);
-      expect(result.totalItems).toBe(4);
-      expect(result.totalPages).toBe(1);
-
-      expect(result.data[0]).toHaveProperty('id');
-      expect(result.data[0]).toHaveProperty('content');
-      expect(result.data[0]).toHaveProperty('likes');
-      expect(result.data[0]).toHaveProperty('createdAt');
-      expect(result.data[0]).toHaveProperty('updatedAt');
-      expect(result.data[0]).toHaveProperty('nickname');
-      expect(result.data[0]).toHaveProperty('parentId');
-      expect(result.data[0]).toHaveProperty('hasReplies');
-
-      expect(result.data[0].id).toBe(4);
-      expect(result.data[1].id).toBe(3);
-      expect(result.data[2].id).toBe(2);
-      expect(result.data[3].id).toBe(1);
-
-      expect(result.data[0].hasReplies).toBe(false);
-      expect(result.data[1].hasReplies).toBe(true);
-      expect(result.data[2].hasReplies).toBe(false);
-      expect(result.data[3].hasReplies).toBe(false);
-    });
-
-    it('should handle pagination for second page', async () => {
-      const mockComments = [
-        createComment({
-          id: 22,
-          content: 'Comment 22',
-          createdAt: new Date(2024, 0, 22),
-        }),
-        createComment({
-          id: 21,
-          content: 'Comment 21',
-          createdAt: new Date(2024, 0, 21),
-        }),
-      ];
-
-      const mockFindAndCountResult: [Comment[], number] = [mockComments, 25];
-      jest
-        .spyOn(commentRepository, 'findAndCount')
-        .mockResolvedValue(mockFindAndCountResult);
-
-      const page = 2;
-      const result = await service.getPagedCommentsFlat(mockPostId, page);
-
-      expect(commentRepository.findAndCount).toHaveBeenCalledWith({
-        where: {
-          post: { id: mockPostId },
-        },
-        relations: ['createdBy', 'parent', 'children'],
-        skip: 20,
-        take: limit,
-      });
-
-      expect(result.data).toHaveLength(2);
-      expect(result.currentPage).toBe(2);
-      expect(result.totalItems).toBe(25);
-      expect(result.totalPages).toBe(2);
-
-      expect(result.data[0].id).toBe(22);
-      expect(result.data[1].id).toBe(21);
-    });
-
-    it('should handle empty comments', async () => {
-      jest.spyOn(commentRepository, 'findAndCount').mockResolvedValue([[], 0]);
-
-      const page = 1;
-      const result = await service.getPagedCommentsFlat(mockPostId, page);
-
-      expect(result.data).toHaveLength(0);
-      expect(result.currentPage).toBe(1);
-      expect(result.totalItems).toBe(0);
-      expect(result.totalPages).toBe(0);
-    });
-
-    it('should handle case with no missing parent comments', async () => {
-      const mockComments = [
-        createComment({
-          id: 2,
-          content: 'Comment 2',
-          createdAt: new Date(2024, 0, 2),
-          children: [],
-        }),
-        createComment({
-          id: 1,
-          content: 'Comment 1',
-          createdAt: new Date(2024, 0, 1),
-          children: [{ id: 2 } as any],
-        }),
-      ];
-
-      const mockFindAndCountResult: [Comment[], number] = [
-        mockComments,
-        mockComments.length,
-      ];
-
-      jest
-        .spyOn(commentRepository, 'findAndCount')
-        .mockResolvedValue(mockFindAndCountResult);
-
-      const page = 1;
-      const result = await service.getPagedCommentsFlat(mockPostId, page);
-
-      expect(commentRepository.find).not.toHaveBeenCalled();
-
-      expect(result.data).toHaveLength(2);
-      expect(result.currentPage).toBe(1);
-      expect(result.totalItems).toBe(2);
-      expect(result.totalPages).toBe(1);
-
-      expect(result.data[0].id).toBe(2);
-      expect(result.data[1].id).toBe(1);
-
-      expect(result.data[0].hasReplies).toBe(false);
-      expect(result.data[1].hasReplies).toBe(true);
-    });
-  });
-
   describe('toggleLike', () => {
+    beforeEach(() => {
+      jest
+        .spyOn(commentRepository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      mockQueryBuilder.update.mockClear();
+      mockQueryBuilder.set.mockClear();
+      mockQueryBuilder.where.mockClear();
+      mockQueryBuilder.execute.mockClear();
+    });
+
     const mockUser = createUserEntity();
     const mockComment = createComment({ id: 1, likes: 0 });
 
     it('should add like to comment', async () => {
-      jest.spyOn(commentRepository, 'findOne').mockResolvedValue(mockComment);
+      const commentWithLike = { ...mockComment, likes: 1 };
+      jest
+        .spyOn(commentRepository, 'findOne')
+        .mockResolvedValueOnce(mockComment as any)
+        .mockResolvedValue(commentWithLike as any);
       jest.spyOn(commentLikeRepository, 'findOne').mockResolvedValue(null);
       jest.spyOn(commentLikeRepository, 'save').mockResolvedValue({} as any);
-      jest
-        .spyOn(commentRepository, 'save')
-        .mockResolvedValue({ ...mockComment, likes: 1 } as any);
+
+      mockQueryBuilder.execute.mockResolvedValue({} as any);
 
       const result = await service.toggleLike(mockComment.id, mockUser);
 
@@ -586,27 +293,34 @@ describe('CommentsService', () => {
         userId: mockUser.id,
         commentId: mockComment.id,
       });
-      expect(commentRepository.save).toHaveBeenCalledWith({
-        ...mockComment,
-        likes: 1,
+
+      expect(commentRepository.createQueryBuilder).toHaveBeenCalled();
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(Comment);
+      expect(mockQueryBuilder.set).toHaveBeenCalledWith({
+        likes: expect.any(Function),
       });
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('id = :id', {
+        id: mockComment.id,
+      });
+      expect(mockQueryBuilder.execute).toHaveBeenCalled();
+
+      expect(commentRepository.findOne).toHaveBeenCalledTimes(2);
       expect(result).toEqual({ likes: 1 });
     });
 
     it('should remove like from comment', async () => {
       const existingLike = { userId: mockUser.id, commentId: mockComment.id };
       const commentWithLike = { ...mockComment, likes: 1 };
-
       jest
         .spyOn(commentRepository, 'findOne')
-        .mockResolvedValue(commentWithLike as any);
+        .mockResolvedValueOnce(commentWithLike as any)
+        .mockResolvedValue(mockComment as any);
       jest
         .spyOn(commentLikeRepository, 'findOne')
         .mockResolvedValue(existingLike as any);
       jest.spyOn(commentLikeRepository, 'delete').mockResolvedValue({} as any);
-      jest
-        .spyOn(commentRepository, 'save')
-        .mockResolvedValue(mockComment as any);
+
+      mockQueryBuilder.execute.mockResolvedValue({} as any);
 
       const result = await service.toggleLike(mockComment.id, mockUser);
 
@@ -620,10 +334,18 @@ describe('CommentsService', () => {
         userId: mockUser.id,
         commentId: mockComment.id,
       });
-      expect(commentRepository.save).toHaveBeenCalledWith({
-        ...commentWithLike,
-        likes: 0,
+
+      expect(commentRepository.createQueryBuilder).toHaveBeenCalled();
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(Comment);
+      expect(mockQueryBuilder.set).toHaveBeenCalledWith({
+        likes: expect.any(Function),
       });
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('id = :id', {
+        id: mockComment.id,
+      });
+      expect(mockQueryBuilder.execute).toHaveBeenCalled();
+
+      expect(commentRepository.findOne).toHaveBeenCalledTimes(2);
       expect(result).toEqual({ likes: 0 });
     });
 
@@ -641,23 +363,27 @@ describe('CommentsService', () => {
 
     it('should handle like count correctly when decrementing from 1', async () => {
       const commentWithOneLike = { ...mockComment, likes: 1 };
-
       jest
         .spyOn(commentRepository, 'findOne')
-        .mockResolvedValue(commentWithOneLike as any);
+        .mockResolvedValueOnce(commentWithOneLike as any)
+        .mockResolvedValue({ ...mockComment, likes: 0 } as any);
       jest.spyOn(commentLikeRepository, 'findOne').mockResolvedValue({} as any);
       jest.spyOn(commentLikeRepository, 'delete').mockResolvedValue({} as any);
-      jest
-        .spyOn(commentRepository, 'save')
-        .mockResolvedValue({ ...commentWithOneLike, likes: 0 } as any);
+      mockQueryBuilder.execute.mockResolvedValue({} as any);
 
       const result = await service.toggleLike(mockComment.id, mockUser);
 
-      expect(result).toEqual({ likes: 0 });
-      expect(commentRepository.save).toHaveBeenCalledWith({
-        ...commentWithOneLike,
-        likes: 0,
+      expect(commentRepository.createQueryBuilder).toHaveBeenCalled();
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(Comment);
+      expect(mockQueryBuilder.set).toHaveBeenCalledWith({
+        likes: expect.any(Function),
       });
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('id = :id', {
+        id: mockComment.id,
+      });
+      expect(mockQueryBuilder.execute).toHaveBeenCalled();
+
+      expect(result).toEqual({ likes: 0 });
     });
 
     it('should not allow negative like count', async () => {
@@ -675,6 +401,451 @@ describe('CommentsService', () => {
       const result = await service.toggleLike(mockComment.id, mockUser);
 
       expect(result.likes).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  describe('getPagedCommentsFlat', () => {
+    const postId = 1;
+    const mockUser = createUserEntity({ id: 1, nickname: 'testUser' });
+    const mockPost = createPost({ id: postId });
+    const threadsPerPage = 10;
+
+    beforeEach(() => {
+      jest.spyOn(commentRepository, 'findAndCount').mockClear();
+    });
+
+    it('should return paginated comments with replies', async () => {
+      const topLevelComments = [
+        createComment({
+          id: 1,
+          content: 'Top comment 1',
+          createdBy: mockUser,
+          post: mockPost,
+          children: [
+            createComment({
+              id: 2,
+              content: 'Reply 1',
+              createdBy: mockUser,
+              post: mockPost,
+              parent: { id: 1 } as any,
+            }),
+            createComment({
+              id: 3,
+              content: 'Reply 2',
+              createdBy: mockUser,
+              post: mockPost,
+              parent: { id: 1 } as any,
+            }),
+          ],
+        }),
+        createComment({
+          id: 4,
+          content: 'Top comment 2',
+          createdBy: mockUser,
+          post: mockPost,
+          children: [],
+        }),
+      ];
+
+      const totalTopLevelCount = 10;
+
+      jest
+        .spyOn(commentRepository, 'findAndCount')
+        .mockResolvedValue([topLevelComments, totalTopLevelCount]);
+
+      const result = await service.getPagedCommentsFlat(postId, 1);
+
+      expect(commentRepository.findAndCount).toHaveBeenCalledWith({
+        where: { post: { id: postId }, parent: null },
+        order: { createdAt: 'DESC' },
+        skip: 0,
+        take: threadsPerPage,
+        relations: {
+          createdBy: true,
+          children: {
+            createdBy: true,
+          },
+        },
+      });
+
+      expect(result.data).toHaveLength(4);
+
+      expect(result.data[0].id).toBe(1);
+      expect(result.data[0].content).toBe('Top comment 1');
+      expect(result.data[0].parentId).toBeNull();
+      expect(result.data[0].hasReplies).toBeTruthy();
+
+      expect(result.data[1].id).toBe(2);
+      expect(result.data[1].content).toBe('Reply 1');
+      expect(result.data[1].parentId).toBe(1);
+      expect(result.data[1].hasReplies).toBeFalsy();
+
+      expect(result.data[2].id).toBe(3);
+      expect(result.data[2].content).toBe('Reply 2');
+      expect(result.data[2].parentId).toBe(1);
+      expect(result.data[2].hasReplies).toBeFalsy();
+
+      expect(result.data[3].id).toBe(4);
+      expect(result.data[3].content).toBe('Top comment 2');
+      expect(result.data[3].parentId).toBeNull();
+      expect(result.data[3].hasReplies).toBeFalsy();
+
+      expect(result.currentPage).toBe(1);
+      expect(result.totalItems).toBe(totalTopLevelCount);
+      expect(result.totalPages).toBe(
+        Math.ceil(totalTopLevelCount / threadsPerPage),
+      );
+    });
+
+    it('should sort children comments by createdAt in ascending order', async () => {
+      const olderDate = new Date(Date.now() - 1000);
+      const newerDate = new Date();
+
+      const topLevelComment = createComment({
+        id: 1,
+        content: 'Top comment',
+        createdBy: mockUser,
+        post: mockPost,
+        children: [
+          createComment({
+            id: 2,
+            content: 'Newer reply',
+            createdBy: mockUser,
+            post: mockPost,
+            parent: { id: 1 } as any,
+            createdAt: newerDate,
+          }),
+          createComment({
+            id: 3,
+            content: 'Older reply',
+            createdBy: mockUser,
+            post: mockPost,
+            parent: { id: 1 } as any,
+            createdAt: olderDate,
+          }),
+        ],
+      });
+
+      jest
+        .spyOn(commentRepository, 'findAndCount')
+        .mockResolvedValue([[topLevelComment], 1]);
+
+      const result = await service.getPagedCommentsFlat(postId, 1);
+
+      expect(result.data).toHaveLength(3);
+
+      expect(result.data[0].id).toBe(1);
+
+      expect(result.data[1].id).toBe(3);
+      expect(result.data[2].id).toBe(2);
+    });
+
+    it('should handle pagination correctly', async () => {
+      const page = 2;
+      const skip = (page - 1) * threadsPerPage;
+
+      const topLevelComments = [
+        createComment({ id: 11, createdBy: mockUser, post: mockPost }),
+      ];
+      const totalTopLevelCount = 15;
+
+      jest
+        .spyOn(commentRepository, 'findAndCount')
+        .mockResolvedValue([topLevelComments, totalTopLevelCount]);
+
+      const result = await service.getPagedCommentsFlat(postId, page);
+
+      expect(commentRepository.findAndCount).toHaveBeenCalledWith({
+        where: { post: { id: postId }, parent: null },
+        order: { createdAt: 'DESC' },
+        skip,
+        take: threadsPerPage,
+        relations: {
+          createdBy: true,
+          children: {
+            createdBy: true,
+          },
+        },
+      });
+
+      expect(result.currentPage).toBe(page);
+      expect(result.totalItems).toBe(totalTopLevelCount);
+      expect(result.totalPages).toBe(
+        Math.ceil(totalTopLevelCount / threadsPerPage),
+      );
+      expect(result.data).toHaveLength(1);
+    });
+
+    it('should return empty array when there are no comments', async () => {
+      jest.spyOn(commentRepository, 'findAndCount').mockResolvedValue([[], 0]);
+
+      const result = await service.getPagedCommentsFlat(postId, 1);
+
+      expect(result.data).toHaveLength(0);
+      expect(result.currentPage).toBe(1);
+      expect(result.totalItems).toBe(0);
+      expect(result.totalPages).toBe(0);
+    });
+
+    it('should correctly set hasReplies property', async () => {
+      const topLevelCommentWithReplies = createComment({
+        id: 1,
+        content: 'Has replies',
+        createdBy: mockUser,
+        post: mockPost,
+        children: [
+          createComment({
+            id: 2,
+            createdBy: mockUser,
+            post: mockPost,
+            parent: { id: 1 } as any,
+          }),
+        ],
+      });
+
+      const topLevelCommentWithoutReplies = createComment({
+        id: 3,
+        content: 'No replies',
+        createdBy: mockUser,
+        post: mockPost,
+        children: [],
+      });
+
+      jest
+        .spyOn(commentRepository, 'findAndCount')
+        .mockResolvedValue([
+          [topLevelCommentWithReplies, topLevelCommentWithoutReplies],
+          2,
+        ]);
+
+      const result = await service.getPagedCommentsFlat(postId, 1);
+
+      expect(result.data).toHaveLength(3);
+      expect(result.data[0].hasReplies).toBeTruthy();
+      expect(result.data[1].hasReplies).toBeFalsy();
+      expect(result.data[2].hasReplies).toBeFalsy();
+    });
+  });
+
+  describe('remove', () => {
+    const mockPost = createPost({ id: 1 });
+    const mockUser = createUserEntity({ id: 1 });
+    const mockOtherUser = createUserEntity({ id: 2 });
+    const mockAdminUser = createUserEntity({ id: 3, role: UserRole.ADMIN });
+    let mockParentComment: Comment;
+    let mockChildComment1: Comment;
+    let mockChildComment2: Comment;
+
+    const parentId = 1;
+    const childId1 = 2;
+    const childId2 = 3;
+
+    beforeEach(() => {
+      mockParentComment = createComment({
+        id: parentId,
+        content: 'Parent Comment',
+        post: mockPost,
+        createdBy: mockUser,
+        children: [],
+      });
+
+      mockChildComment1 = createComment({
+        id: childId1,
+        content: 'Child Comment 1',
+        post: mockPost,
+        createdBy: mockUser,
+        parent: mockParentComment,
+      });
+
+      mockChildComment2 = createComment({
+        id: childId2,
+        content: 'Child Comment 2',
+        post: mockPost,
+        createdBy: mockUser,
+        parent: mockParentComment,
+      });
+
+      mockParentComment.children = [mockChildComment1, mockChildComment2];
+
+      jest.spyOn(commentRepository, 'findOne').mockClear();
+      jest.spyOn(commentRepository, 'softDelete').mockClear();
+      jest.spyOn(postsService, 'decrementCommentCountBulk').mockClear();
+    });
+
+    describe('정상적인 댓글 삭제 시나리오', () => {
+      it('소유자가 자신의 댓글(자식 없음)을 성공적으로 삭제해야 함', async () => {
+        const mockCommentNoChildren = { ...mockParentComment, children: [] };
+        jest
+          .spyOn(commentRepository, 'findOne')
+          .mockResolvedValue(mockCommentNoChildren as Comment);
+        jest
+          .spyOn(commentRepository, 'softDelete')
+          .mockResolvedValue({ affected: 1 } as any);
+
+        const result = await service.remove(parentId, mockUser);
+
+        expect(commentRepository.findOne).toHaveBeenCalledWith({
+          where: { id: parentId },
+          relations: ['post', 'createdBy', 'children'],
+        });
+
+        expect(postsService.decrementCommentCountBulk).toHaveBeenCalledWith(
+          mockPost.id,
+          1,
+        );
+
+        expect(commentRepository.softDelete).toHaveBeenCalledWith({
+          id: In([parentId]),
+        });
+
+        expect(result).toEqual({
+          message: COMMENT_MESSAGES.DELETED,
+          id: parentId,
+        });
+      });
+
+      it('소유자가 자신의 댓글(자식 있음)을 성공적으로 삭제해야 함 (부모+자식 모두 삭제)', async () => {
+        jest
+          .spyOn(commentRepository, 'findOne')
+          .mockResolvedValue(mockParentComment);
+
+        jest
+          .spyOn(commentRepository, 'softDelete')
+          .mockResolvedValue({ affected: 3 } as any);
+
+        const result = await service.remove(parentId, mockUser);
+
+        expect(commentRepository.findOne).toHaveBeenCalledWith({
+          where: { id: parentId },
+          relations: ['post', 'createdBy', 'children'],
+        });
+
+        expect(postsService.decrementCommentCountBulk).toHaveBeenCalledWith(
+          mockPost.id,
+          3,
+        );
+
+        expect(commentRepository.softDelete).toHaveBeenCalledWith({
+          id: In([parentId, childId1, childId2]),
+        });
+
+        expect(result).toEqual({
+          message: COMMENT_MESSAGES.DELETED,
+          id: parentId,
+        });
+      });
+
+      it('관리자는 다른 사용자의 댓글(자식 있음)을 성공적으로 삭제해야 함', async () => {
+        jest
+          .spyOn(commentRepository, 'findOne')
+          .mockResolvedValue(mockParentComment);
+
+        jest
+          .spyOn(commentRepository, 'softDelete')
+          .mockResolvedValue({ affected: 3 } as any);
+
+        const result = await service.remove(parentId, mockAdminUser);
+
+        expect(commentRepository.findOne).toHaveBeenCalledWith({
+          where: { id: parentId },
+          relations: ['post', 'createdBy', 'children'],
+        });
+
+        expect(postsService.decrementCommentCountBulk).toHaveBeenCalledWith(
+          mockPost.id,
+          3,
+        );
+
+        expect(commentRepository.softDelete).toHaveBeenCalledWith({
+          id: In([parentId, childId1, childId2]),
+        });
+
+        expect(result).toEqual({
+          message: COMMENT_MESSAGES.DELETED,
+          id: parentId,
+        });
+      });
+    });
+
+    describe('예외 처리 시나리오', () => {
+      it('존재하지 않는 댓글을 삭제하려고 하면 NotFoundException이 발생해야 함', async () => {
+        jest.spyOn(commentRepository, 'findOne').mockResolvedValue(null);
+        await expect(service.remove(999, mockUser)).rejects.toThrow(
+          new NotFoundException(COMMENT_ERRORS.NOT_FOUND),
+        );
+
+        expect(commentRepository.findOne).toHaveBeenCalledWith({
+          where: { id: 999 },
+          relations: ['post', 'createdBy', 'children'],
+        });
+        expect(postsService.decrementCommentCountBulk).not.toHaveBeenCalled();
+        expect(commentRepository.softDelete).not.toHaveBeenCalled();
+      });
+
+      it('일반 사용자가 다른 사용자의 댓글을 삭제하려고 하면 ForbiddenException이 발생해야 함', async () => {
+        const otherUserParentComment = createComment({
+          id: 4,
+          content: 'Other User Comment',
+          post: mockPost,
+          createdBy: mockOtherUser,
+          children: [],
+        });
+        jest
+          .spyOn(commentRepository, 'findOne')
+          .mockResolvedValue(otherUserParentComment);
+        await expect(
+          service.remove(otherUserParentComment.id, mockUser),
+        ).rejects.toThrow(new ForbiddenException(COMMENT_ERRORS.NO_PERMISSION));
+
+        expect(commentRepository.findOne).toHaveBeenCalledWith({
+          where: { id: otherUserParentComment.id },
+          relations: ['post', 'createdBy', 'children'],
+        });
+        expect(postsService.decrementCommentCountBulk).not.toHaveBeenCalled();
+        expect(commentRepository.softDelete).not.toHaveBeenCalled();
+      });
+
+      it('데이터베이스에서 댓글 삭제에 실패하면(affected != expected) InternalServerErrorException이 발생해야 함', async () => {
+        jest
+          .spyOn(commentRepository, 'findOne')
+          .mockResolvedValue(mockParentComment);
+        jest
+          .spyOn(commentRepository, 'softDelete')
+          .mockResolvedValue({ affected: 2 } as any);
+
+        await expect(service.remove(parentId, mockUser)).rejects.toThrow(
+          new InternalServerErrorException(
+            `댓글 삭제 중 문제가 발생했습니다. 예상 삭제 수: 3, 실제 삭제 수: 2`,
+          ),
+        );
+
+        expect(commentRepository.findOne).toHaveBeenCalledWith({
+          where: { id: parentId },
+          relations: ['post', 'createdBy', 'children'],
+        });
+
+        expect(postsService.decrementCommentCountBulk).toHaveBeenCalledWith(
+          mockPost.id,
+          3,
+        );
+        expect(commentRepository.softDelete).toHaveBeenCalledWith({
+          id: In([parentId, childId1, childId2]),
+        });
+      });
+    });
+
+    describe('에지 케이스 시나리오', () => {
+      it('관리자가 존재하지 않는 댓글을 삭제하려고 해도 NotFoundException이 발생해야 함', async () => {
+        jest.spyOn(commentRepository, 'findOne').mockResolvedValue(null);
+        await expect(service.remove(999, mockAdminUser)).rejects.toThrow(
+          new NotFoundException(COMMENT_ERRORS.NOT_FOUND),
+        );
+
+        expect(commentRepository.findOne).toHaveBeenCalledWith({
+          where: { id: 999 },
+          relations: ['post', 'createdBy', 'children'],
+        });
+      });
     });
   });
 });

@@ -20,7 +20,7 @@ import {
   COMMENT_ERRORS,
   COMMENT_MESSAGES,
 } from './constants/comment.constants';
-import { CommentFlatDto } from './dto/comment-flat.dto';
+import { CommentListItemDto } from './dto/comment-list-item.dto';
 import { PostsService } from '@/posts/posts.service';
 
 @Injectable()
@@ -78,12 +78,16 @@ export class CommentsService {
     user: User,
   ): Promise<CommentResponseDto> {
     const comment = await this.commentRepository.findOne({
-      where: { id, createdBy: { id: user.id } },
-      relations: ['post'],
+      where: { id },
+      relations: ['createdBy'],
     });
 
     if (!comment) {
       throw new NotFoundException(COMMENT_ERRORS.NOT_FOUND);
+    }
+
+    if (comment.createdBy.id !== user.id) {
+      throw new ForbiddenException(COMMENT_ERRORS.NO_PERMISSION);
     }
 
     comment.content = updateCommentDto.content;
@@ -95,7 +99,7 @@ export class CommentsService {
   async remove(id: number, user: User): Promise<CommentResponseDto> {
     const comment = await this.commentRepository.findOne({
       where: { id },
-      relations: ['post', 'createdBy'],
+      relations: ['post', 'createdBy', 'children'],
     });
 
     if (!comment) {
@@ -106,86 +110,76 @@ export class CommentsService {
       throw new ForbiddenException(COMMENT_ERRORS.NO_PERMISSION);
     }
 
-    await this.postsService.decrementCommentCount(comment.post.id);
-    const result = await this.commentRepository.softDelete(id);
-    if (result.affected !== 1) {
+    const commentIdsToDelete: number[] = [comment.id];
+    if (comment.children && comment.children.length > 0) {
+      commentIdsToDelete.push(...comment.children.map((child) => child.id));
+    }
+
+    await this.postsService.decrementCommentCountBulk(
+      comment.post.id,
+      commentIdsToDelete.length,
+    );
+    const result = await this.commentRepository.softDelete({
+      id: In(commentIdsToDelete),
+    });
+
+    if (result.affected !== commentIdsToDelete.length) {
       throw new InternalServerErrorException(
-        '댓글 삭제 중 문제가 발생했습니다.',
+        `댓글 삭제 중 문제가 발생했습니다. 예상 삭제 수: ${commentIdsToDelete.length}, 실제 삭제 수: ${result.affected}`,
       );
     }
+
     return { message: COMMENT_MESSAGES.DELETED, id };
   }
 
   async getPagedCommentsFlat(
     postId: number,
     page: number = 1,
-  ): Promise<PaginatedResponseDto<CommentFlatDto>> {
-    const limit = 20;
-    const skip = (page - 1) * limit;
+  ): Promise<PaginatedResponseDto<CommentListItemDto>> {
+    const threadsPerPage = 10;
+    const validPage = Math.max(1, page);
+    const skip = (validPage - 1) * threadsPerPage;
 
-    const [allComments, totalItems] = await this.commentRepository.findAndCount(
-      {
-        where: { post: { id: postId } },
-        relations: ['createdBy', 'parent', 'children'],
+    const [topLevelComments, totalTopLevelCount] =
+      await this.commentRepository.findAndCount({
+        where: { post: { id: postId }, parent: null },
+        order: { createdAt: 'DESC' },
         skip,
-        take: limit,
-      },
-    );
+        take: threadsPerPage,
+        relations: {
+          createdBy: true,
+          children: {
+            createdBy: true,
+          },
+        },
+      });
 
-    const currentPageCommentIds = new Set(
-      allComments.map((comment) => comment.id),
-    );
-    const missingParentComments: Comment[] = [];
-    const missingParentIds = new Set<number>();
+    const allComments: CommentListItemDto[] = [];
+    for (const comment of topLevelComments) {
+      allComments.push(CommentListItemDto.fromEntity(comment));
 
-    for (const comment of allComments) {
-      if (
-        comment.parent &&
-        !currentPageCommentIds.has(comment.parent.id) &&
-        !missingParentIds.has(comment.parent.id)
-      ) {
-        missingParentIds.add(comment.parent.id);
+      if (comment.children && comment.children.length > 0) {
+        const sortedChildren = [...comment.children].sort(
+          (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+        );
+
+        for (const child of sortedChildren) {
+          allComments.push(CommentListItemDto.fromEntity(child));
+        }
       }
     }
 
-    if (missingParentIds.size > 0) {
-      const additionalParents = await this.commentRepository.find({
-        where: {
-          id: In([...missingParentIds]),
-        },
-        relations: ['createdBy', 'children'],
-      });
-      missingParentComments.push(...additionalParents);
-    }
-
-    const responseData = [...allComments, ...missingParentComments].map(
-      (comment) => {
-        const dto = new CommentFlatDto();
-        dto.id = comment.id;
-        dto.content = comment.content;
-        dto.likes = comment.likes;
-        dto.createdAt = comment.createdAt;
-        dto.updatedAt = comment.updatedAt;
-        dto.nickname = comment.nickname;
-        dto.parentId = comment.parent ? comment.parent.id : null;
-        dto.hasReplies = comment.children && comment.children.length > 0;
-        return dto;
-      },
-    );
-
-    responseData.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
     return {
-      data: responseData,
-      currentPage: page,
-      totalItems,
-      totalPages: Math.ceil(totalItems / limit),
+      data: allComments,
+      currentPage: validPage,
+      totalItems: totalTopLevelCount,
+      totalPages: Math.ceil(totalTopLevelCount / threadsPerPage),
     };
   }
 
   @Transactional()
   async toggleLike(commentId: number, user: User): Promise<{ likes: number }> {
-    const comment = await this.commentRepository.findOne({
+    let comment = await this.commentRepository.findOne({
       where: { id: commentId },
     });
 
@@ -205,16 +199,32 @@ export class CommentsService {
         userId: user.id,
         commentId,
       });
-      comment.likes = Math.max(0, comment.likes - 1);
+
+      await this.commentRepository
+        .createQueryBuilder()
+        .update(Comment)
+        .set({ likes: () => 'GREATEST(likes - 1, 0)' })
+        .where('id = :id', { id: commentId })
+        .execute();
     } else {
       await this.commentLikeRepository.save({
         userId: user.id,
         commentId,
       });
-      comment.likes += 1;
+
+      await this.commentRepository
+        .createQueryBuilder()
+        .update(Comment)
+        .set({ likes: () => 'likes + 1' })
+        .where('id = :id', { id: commentId })
+        .execute();
     }
 
-    await this.commentRepository.save(comment);
+    comment = await this.commentRepository.findOne({
+      where: { id: commentId },
+      select: ['likes'],
+    });
+
     return { likes: comment.likes };
   }
 }

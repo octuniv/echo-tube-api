@@ -20,7 +20,7 @@ import {
   COMMENT_ERRORS,
   COMMENT_MESSAGES,
 } from './constants/comment.constants';
-import { CommentFlatDto } from './dto/comment-flat.dto';
+import { CommentListItemDto } from './dto/comment-list-item.dto';
 import { UserRole } from '@/users/entities/user-role.enum';
 
 describe('CommentsController', () => {
@@ -228,7 +228,7 @@ describe('CommentsController', () => {
         },
       ];
 
-      const expectedResult: PaginatedResponseDto<CommentFlatDto> = {
+      const expectedResult: PaginatedResponseDto<CommentListItemDto> = {
         data: mockComments,
         currentPage: 1,
         totalItems: 2,
@@ -273,7 +273,7 @@ describe('CommentsController', () => {
         },
       ];
 
-      const expectedResult: PaginatedResponseDto<CommentFlatDto> = {
+      const expectedResult: PaginatedResponseDto<CommentListItemDto> = {
         data: mockComments,
         currentPage: 1,
         totalItems: 1,
@@ -327,7 +327,7 @@ describe('CommentsController', () => {
         },
       ];
 
-      const expectedResult: PaginatedResponseDto<CommentFlatDto> = {
+      const expectedResult: PaginatedResponseDto<CommentListItemDto> = {
         data: mockComments,
         currentPage: 2,
         totalItems: 4,

@@ -31,7 +31,7 @@ import {
   COMMENT_MESSAGES,
 } from './constants/comment.constants';
 import { CommentResponseDto } from './dto/comment-response.dto';
-import { CommentFlatDto } from './dto/comment-flat.dto';
+import { CommentListItemDto } from './dto/comment-list-item.dto';
 
 @ApiTags('comments')
 @Controller('comments')
@@ -98,12 +98,12 @@ export class CommentsController {
   @ApiResponse({
     status: 200,
     description: '댓글 목록이 성공적으로 조회되었습니다.',
-    type: PaginatedResponseDto<CommentFlatDto>,
+    type: PaginatedResponseDto<CommentListItemDto>,
   })
   getComments(
     @Param('postId', ParseIntPipe) postId: number,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
-  ): Promise<PaginatedResponseDto<CommentFlatDto>> {
+  ): Promise<PaginatedResponseDto<CommentListItemDto>> {
     return this.commentsService.getPagedCommentsFlat(postId, page);
   }
 

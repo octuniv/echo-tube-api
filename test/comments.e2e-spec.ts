@@ -492,15 +492,6 @@ describe('Comments - /comments (e2e)', () => {
       });
       expect(parent.children).toEqual([]);
 
-      const softRemovedChild = await commentRepository.findOne({
-        where: { id: childrenId },
-        withDeleted: true,
-        relations: ['parent'],
-      });
-      expect(softRemovedChild.parent).toMatchObject({
-        id: commentId,
-      });
-
       response = await request(app.getHttpServer())
         .post('/comments')
         .set('Authorization', `Bearer ${accessTokens[0]}`)
@@ -532,12 +523,12 @@ describe('Comments - /comments (e2e)', () => {
         where: { id: anotherChildId },
         relations: { createdBy: true, parent: true, children: true },
       });
-      expect(anotherChild).toBeNull();
+      expect(anotherChild).toMatchObject({ id: anotherChildId });
 
       const presentPost = await postRepository.findOne({
         where: { id: testPost.id },
       });
-      expect(presentPost).toMatchObject({ commentsCount: 0 });
+      expect(presentPost).toMatchObject({ commentsCount: 1 });
     });
   });
 

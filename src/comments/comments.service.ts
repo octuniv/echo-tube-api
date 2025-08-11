@@ -8,7 +8,7 @@ import {
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
 import { Comment } from './entities/comment.entity';
 import { CommentLike } from './entities/commentLike.entity';
@@ -99,7 +99,7 @@ export class CommentsService {
   async remove(id: number, user: User): Promise<CommentResponseDto> {
     const comment = await this.commentRepository.findOne({
       where: { id },
-      relations: ['post', 'createdBy', 'children'],
+      relations: ['post', 'createdBy'],
     });
 
     if (!comment) {
@@ -110,22 +110,14 @@ export class CommentsService {
       throw new ForbiddenException(COMMENT_ERRORS.NO_PERMISSION);
     }
 
-    const commentIdsToDelete: number[] = [comment.id];
-    if (comment.children && comment.children.length > 0) {
-      commentIdsToDelete.push(...comment.children.map((child) => child.id));
-    }
-
-    await this.postsService.decrementCommentCountBulk(
-      comment.post.id,
-      commentIdsToDelete.length,
-    );
+    await this.postsService.decrementCommentCountBulk(comment.post.id, 1);
     const result = await this.commentRepository.softDelete({
-      id: In(commentIdsToDelete),
+      id,
     });
 
-    if (result.affected !== commentIdsToDelete.length) {
+    if (result.affected !== 1) {
       throw new InternalServerErrorException(
-        `댓글 삭제 중 문제가 발생했습니다. 예상 삭제 수: ${commentIdsToDelete.length}, 실제 삭제 수: ${result.affected}`,
+        `댓글 삭제 중 문제가 발생했습니다.`,
       );
     }
 
@@ -142,6 +134,7 @@ export class CommentsService {
 
     const [topLevelComments, totalTopLevelCount] =
       await this.commentRepository.findAndCount({
+        withDeleted: true,
         where: { post: { id: postId }, parent: null },
         order: { createdAt: 'DESC' },
         skip,

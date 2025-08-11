@@ -36,11 +36,11 @@ export class CommentListItemDto {
   static fromEntity(comment: Comment): CommentListItemDto {
     const dto = new CommentListItemDto();
     dto.id = comment.id;
-    dto.content = comment.content;
+    dto.content = comment.deletedAt ? '[삭제된 댓글]' : comment.content;
     dto.likes = comment.likes;
     dto.createdAt = comment.createdAt;
     dto.updatedAt = comment.updatedAt;
-    dto.nickname = comment.nickname;
+    dto.nickname = comment.deletedAt ? '알 수 없음' : comment.nickname;
     dto.parentId = comment.parent ? comment.parent.id : null;
     dto.hasReplies = dto.hasReplies = comment.children
       ? comment.children.length > 0

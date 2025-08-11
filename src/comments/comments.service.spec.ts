@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CommentsService } from './comments.service';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Comment } from './entities/comment.entity';
 import { CommentLike } from './entities/commentLike.entity';
@@ -456,6 +456,7 @@ describe('CommentsService', () => {
       const result = await service.getPagedCommentsFlat(postId, 1);
 
       expect(commentRepository.findAndCount).toHaveBeenCalledWith({
+        withDeleted: true,
         where: { post: { id: postId }, parent: null },
         order: { createdAt: 'DESC' },
         skip: 0,
@@ -556,6 +557,7 @@ describe('CommentsService', () => {
       const result = await service.getPagedCommentsFlat(postId, page);
 
       expect(commentRepository.findAndCount).toHaveBeenCalledWith({
+        withDeleted: true,
         where: { post: { id: postId }, parent: null },
         order: { createdAt: 'DESC' },
         skip,
@@ -673,7 +675,7 @@ describe('CommentsService', () => {
     });
 
     describe('정상적인 댓글 삭제 시나리오', () => {
-      it('소유자가 자신의 댓글(자식 없음)을 성공적으로 삭제해야 함', async () => {
+      it('소유자가 자신의 댓글을 성공적으로 삭제해야 함', async () => {
         const mockCommentNoChildren = { ...mockParentComment, children: [] };
         jest
           .spyOn(commentRepository, 'findOne')
@@ -686,7 +688,7 @@ describe('CommentsService', () => {
 
         expect(commentRepository.findOne).toHaveBeenCalledWith({
           where: { id: parentId },
-          relations: ['post', 'createdBy', 'children'],
+          relations: ['post', 'createdBy'],
         });
 
         expect(postsService.decrementCommentCountBulk).toHaveBeenCalledWith(
@@ -695,7 +697,7 @@ describe('CommentsService', () => {
         );
 
         expect(commentRepository.softDelete).toHaveBeenCalledWith({
-          id: In([parentId]),
+          id: parentId,
         });
 
         expect(result).toEqual({
@@ -704,60 +706,29 @@ describe('CommentsService', () => {
         });
       });
 
-      it('소유자가 자신의 댓글(자식 있음)을 성공적으로 삭제해야 함 (부모+자식 모두 삭제)', async () => {
+      it('관리자는 다른 사용자의 댓글을 성공적으로 삭제해야 함', async () => {
         jest
           .spyOn(commentRepository, 'findOne')
           .mockResolvedValue(mockParentComment);
 
         jest
           .spyOn(commentRepository, 'softDelete')
-          .mockResolvedValue({ affected: 3 } as any);
-
-        const result = await service.remove(parentId, mockUser);
-
-        expect(commentRepository.findOne).toHaveBeenCalledWith({
-          where: { id: parentId },
-          relations: ['post', 'createdBy', 'children'],
-        });
-
-        expect(postsService.decrementCommentCountBulk).toHaveBeenCalledWith(
-          mockPost.id,
-          3,
-        );
-
-        expect(commentRepository.softDelete).toHaveBeenCalledWith({
-          id: In([parentId, childId1, childId2]),
-        });
-
-        expect(result).toEqual({
-          message: COMMENT_MESSAGES.DELETED,
-          id: parentId,
-        });
-      });
-
-      it('관리자는 다른 사용자의 댓글(자식 있음)을 성공적으로 삭제해야 함', async () => {
-        jest
-          .spyOn(commentRepository, 'findOne')
-          .mockResolvedValue(mockParentComment);
-
-        jest
-          .spyOn(commentRepository, 'softDelete')
-          .mockResolvedValue({ affected: 3 } as any);
+          .mockResolvedValue({ affected: 1 } as any);
 
         const result = await service.remove(parentId, mockAdminUser);
 
         expect(commentRepository.findOne).toHaveBeenCalledWith({
           where: { id: parentId },
-          relations: ['post', 'createdBy', 'children'],
+          relations: ['post', 'createdBy'],
         });
 
         expect(postsService.decrementCommentCountBulk).toHaveBeenCalledWith(
           mockPost.id,
-          3,
+          1,
         );
 
         expect(commentRepository.softDelete).toHaveBeenCalledWith({
-          id: In([parentId, childId1, childId2]),
+          id: parentId,
         });
 
         expect(result).toEqual({
@@ -776,7 +747,7 @@ describe('CommentsService', () => {
 
         expect(commentRepository.findOne).toHaveBeenCalledWith({
           where: { id: 999 },
-          relations: ['post', 'createdBy', 'children'],
+          relations: ['post', 'createdBy'],
         });
         expect(postsService.decrementCommentCountBulk).not.toHaveBeenCalled();
         expect(commentRepository.softDelete).not.toHaveBeenCalled();
@@ -799,7 +770,7 @@ describe('CommentsService', () => {
 
         expect(commentRepository.findOne).toHaveBeenCalledWith({
           where: { id: otherUserParentComment.id },
-          relations: ['post', 'createdBy', 'children'],
+          relations: ['post', 'createdBy'],
         });
         expect(postsService.decrementCommentCountBulk).not.toHaveBeenCalled();
         expect(commentRepository.softDelete).not.toHaveBeenCalled();
@@ -811,25 +782,23 @@ describe('CommentsService', () => {
           .mockResolvedValue(mockParentComment);
         jest
           .spyOn(commentRepository, 'softDelete')
-          .mockResolvedValue({ affected: 2 } as any);
+          .mockResolvedValue({ affected: 0 } as any);
 
         await expect(service.remove(parentId, mockUser)).rejects.toThrow(
-          new InternalServerErrorException(
-            `댓글 삭제 중 문제가 발생했습니다. 예상 삭제 수: 3, 실제 삭제 수: 2`,
-          ),
+          new InternalServerErrorException(`댓글 삭제 중 문제가 발생했습니다.`),
         );
 
         expect(commentRepository.findOne).toHaveBeenCalledWith({
           where: { id: parentId },
-          relations: ['post', 'createdBy', 'children'],
+          relations: ['post', 'createdBy'],
         });
 
         expect(postsService.decrementCommentCountBulk).toHaveBeenCalledWith(
           mockPost.id,
-          3,
+          1,
         );
         expect(commentRepository.softDelete).toHaveBeenCalledWith({
-          id: In([parentId, childId1, childId2]),
+          id: parentId,
         });
       });
     });
@@ -843,7 +812,7 @@ describe('CommentsService', () => {
 
         expect(commentRepository.findOne).toHaveBeenCalledWith({
           where: { id: 999 },
-          relations: ['post', 'createdBy', 'children'],
+          relations: ['post', 'createdBy'],
         });
       });
     });

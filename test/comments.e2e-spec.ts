@@ -645,5 +645,103 @@ describe('Comments - /comments (e2e)', () => {
         totalPages: 0,
       });
     });
+
+    it('부모 댓글이 삭제된 경우에도 자식 댓글은 보여야 함.', async () => {
+      const parentIds = [];
+
+      // 부모 생성
+      let response = await request(app.getHttpServer())
+        .post('/comments')
+        .set('Authorization', `Bearer ${accessTokens[0]}`)
+        .send({
+          content: 'no deleted parent',
+          postId: testPost.id,
+        } satisfies CreateCommentDto)
+        .expect(201);
+
+      expect(response.body).toMatchObject({
+        message: COMMENT_MESSAGES.CREATED,
+        id: expect.any(Number),
+      });
+      parentIds.push(response.body.id);
+
+      response = await request(app.getHttpServer())
+        .post('/comments')
+        .set('Authorization', `Bearer ${accessTokens[0]}`)
+        .send({
+          content: 'deleted parent',
+          postId: testPost.id,
+        } satisfies CreateCommentDto)
+        .expect(201);
+
+      expect(response.body).toMatchObject({
+        message: COMMENT_MESSAGES.CREATED,
+        id: expect.any(Number),
+      });
+      parentIds.push(response.body.id);
+
+      // 자식 생성
+      await Promise.all(
+        parentIds.map(async (parentId) => {
+          await request(app.getHttpServer())
+            .post('/comments')
+            .set('Authorization', `Bearer ${accessTokens[1]}`)
+            .send({
+              content: `child of ${parentId}`,
+              postId: testPost.id,
+              parentId,
+            } satisfies CreateCommentDto)
+            .expect(201);
+        }),
+      );
+
+      // 부모 삭제
+      response = await request(app.getHttpServer())
+        .delete(`/comments/${parentIds[1]}`)
+        .set('Authorization', `Bearer ${accessTokens[0]}`)
+        .expect(200);
+
+      // 쿼리 확인
+      response = await request(app.getHttpServer())
+        .get(`/comments/post/${testPost.id}`)
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        currentPage: 1,
+        totalItems: 2,
+        totalPages: 1,
+      });
+
+      expect(response.body.data).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            content: '[삭제된 댓글]',
+            nickname: '알 수 없음',
+            hasReplies: true,
+            parentId: null,
+          }),
+          expect.objectContaining({
+            content: 'no deleted parent',
+            nickname: users[0].nickname,
+            hasReplies: true,
+            parentId: null,
+          }),
+          expect.objectContaining({
+            content: `child of ${parentIds[0]}`,
+            nickname: users[1].nickname,
+            hasReplies: false,
+            parentId: parentIds[0],
+          }),
+          expect.objectContaining({
+            content: `child of ${parentIds[1]}`,
+            nickname: users[1].nickname,
+            hasReplies: false,
+            parentId: parentIds[1],
+          }),
+        ]),
+      );
+
+      expect(response.body.data).toHaveLength(4);
+    });
   });
 });

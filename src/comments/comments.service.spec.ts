@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CommentsService } from './comments.service';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Comment } from './entities/comment.entity';
 import { CommentLike } from './entities/commentLike.entity';
@@ -457,13 +457,14 @@ describe('CommentsService', () => {
 
       expect(commentRepository.findAndCount).toHaveBeenCalledWith({
         withDeleted: true,
-        where: { post: { id: postId }, parent: null },
+        where: { post: { id: postId }, parent: IsNull() },
         order: { createdAt: 'DESC' },
         skip: 0,
         take: threadsPerPage,
         relations: {
           createdBy: true,
           children: {
+            parent: true,
             createdBy: true,
           },
         },
@@ -558,13 +559,14 @@ describe('CommentsService', () => {
 
       expect(commentRepository.findAndCount).toHaveBeenCalledWith({
         withDeleted: true,
-        where: { post: { id: postId }, parent: null },
+        where: { post: { id: postId }, parent: IsNull() },
         order: { createdAt: 'DESC' },
         skip,
         take: threadsPerPage,
         relations: {
           createdBy: true,
           children: {
+            parent: true,
             createdBy: true,
           },
         },

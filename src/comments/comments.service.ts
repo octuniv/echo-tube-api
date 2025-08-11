@@ -8,7 +8,7 @@ import {
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
 import { Comment } from './entities/comment.entity';
 import { CommentLike } from './entities/commentLike.entity';
@@ -135,13 +135,14 @@ export class CommentsService {
     const [topLevelComments, totalTopLevelCount] =
       await this.commentRepository.findAndCount({
         withDeleted: true,
-        where: { post: { id: postId }, parent: null },
+        where: { post: { id: postId }, parent: IsNull() },
         order: { createdAt: 'DESC' },
         skip,
         take: threadsPerPage,
         relations: {
           createdBy: true,
           children: {
+            parent: true,
             createdBy: true,
           },
         },

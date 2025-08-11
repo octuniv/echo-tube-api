@@ -22,6 +22,7 @@ import {
 } from '@/comments/constants/comment.constants';
 import { UpdateCommentDto } from '@/comments/dto/update-comment.dto';
 import { CommentLike } from '@/comments/entities/commentLike.entity';
+import { CommentListItemDto } from '@/comments/dto/comment-list-item.dto';
 
 const userInfos = Array(2)
   .fill('')
@@ -646,102 +647,229 @@ describe('Comments - /comments (e2e)', () => {
       });
     });
 
-    it('부모 댓글이 삭제된 경우에도 자식 댓글은 보여야 함.', async () => {
+    it('소프트 삭제된 댓글 포함 페이징 검증: 삭제된 댓글이 페이징에 포함되고 올바르게 표시되는지 확인', async () => {
       const parentIds = [];
+      for (let i = 0; i < 15; i++) {
+        const response = await request(app.getHttpServer())
+          .post('/comments')
+          .set('Authorization', `Bearer ${accessTokens[0]}`)
+          .send({
+            content: `부모 댓글 ${i + 1}`,
+            postId: testPost.id,
+          });
+        parentIds.push(response.body.id);
 
-      // 부모 생성
-      let response = await request(app.getHttpServer())
-        .post('/comments')
-        .set('Authorization', `Bearer ${accessTokens[0]}`)
-        .send({
-          content: 'no deleted parent',
-          postId: testPost.id,
-        } satisfies CreateCommentDto)
-        .expect(201);
-
-      expect(response.body).toMatchObject({
-        message: COMMENT_MESSAGES.CREATED,
-        id: expect.any(Number),
-      });
-      parentIds.push(response.body.id);
-
-      response = await request(app.getHttpServer())
-        .post('/comments')
-        .set('Authorization', `Bearer ${accessTokens[0]}`)
-        .send({
-          content: 'deleted parent',
-          postId: testPost.id,
-        } satisfies CreateCommentDto)
-        .expect(201);
-
-      expect(response.body).toMatchObject({
-        message: COMMENT_MESSAGES.CREATED,
-        id: expect.any(Number),
-      });
-      parentIds.push(response.body.id);
-
-      // 자식 생성
-      await Promise.all(
-        parentIds.map(async (parentId) => {
+        if (i % 2 === 0) {
           await request(app.getHttpServer())
             .post('/comments')
             .set('Authorization', `Bearer ${accessTokens[1]}`)
             .send({
-              content: `child of ${parentId}`,
+              content: `대댓글 ${i + 1}-1`,
               postId: testPost.id,
-              parentId,
-            } satisfies CreateCommentDto)
-            .expect(201);
-        }),
-      );
+              parentId: response.body.id,
+            });
+        }
+      }
 
-      // 부모 삭제
-      response = await request(app.getHttpServer())
-        .delete(`/comments/${parentIds[1]}`)
-        .set('Authorization', `Bearer ${accessTokens[0]}`)
+      for (let i = 0; i < parentIds.length; i += 2) {
+        await request(app.getHttpServer())
+          .delete(`/comments/${parentIds[i]}`)
+          .set('Authorization', `Bearer ${accessTokens[0]}`)
+          .expect(200);
+      }
+
+      const response = await request(app.getHttpServer())
+        .get(`/comments/post/${testPost.id}?page=1`)
         .expect(200);
 
-      // 쿼리 확인
-      response = await request(app.getHttpServer())
+      const deletedComments = response.body.data.filter(
+        (comment: CommentListItemDto) =>
+          comment.content === '[삭제된 댓글]' &&
+          comment.nickname === '알 수 없음',
+      );
+      expect(deletedComments.length).toBe(5);
+
+      const repliesToDeleted = response.body.data.filter(
+        (comment: CommentListItemDto) =>
+          comment.parentId && comment.content.includes('대댓글'),
+      );
+      expect(repliesToDeleted.length).toBe(5);
+    });
+
+    it('다중 페이지 테스트: 15개의 부모 댓글 생성 시 페이지 1과 2의 결과가 올바른지 확인', async () => {
+      const parentIds = [];
+      for (let i = 0; i < 15; i++) {
+        const response = await request(app.getHttpServer())
+          .post('/comments')
+          .set('Authorization', `Bearer ${accessTokens[0]}`)
+          .send({
+            content: `부모 댓글 ${i + 1}`,
+            postId: testPost.id,
+          });
+        parentIds.push(response.body.id);
+
+        const replyCount = i % 2 === 0 ? 1 : 2;
+        for (let j = 0; j < replyCount; j++) {
+          await request(app.getHttpServer())
+            .post('/comments')
+            .set('Authorization', `Bearer ${accessTokens[1]}`)
+            .send({
+              content: `대댓글 ${i + 1}-${j + 1}`,
+              postId: testPost.id,
+              parentId: response.body.id,
+            });
+        }
+      }
+
+      const page1Response = await request(app.getHttpServer())
+        .get(`/comments/post/${testPost.id}?page=1`)
+        .expect(200);
+
+      expect(page1Response.body.currentPage).toBe(1);
+      expect(page1Response.body.totalItems).toBe(15);
+      expect(page1Response.body.totalPages).toBe(2);
+      expect(page1Response.body.data.length).toBe(25);
+
+      const page2Response = await request(app.getHttpServer())
+        .get(`/comments/post/${testPost.id}?page=2`)
+        .expect(200);
+
+      expect(page2Response.body.currentPage).toBe(2);
+      expect(page2Response.body.totalItems).toBe(15);
+      expect(page2Response.body.totalPages).toBe(2);
+      expect(page2Response.body.data.length).toBe(12);
+
+      const page3Response = await request(app.getHttpServer())
+        .get(`/comments/post/${testPost.id}?page=3`)
+        .expect(200);
+
+      expect(page3Response.body.currentPage).toBe(3);
+      expect(page3Response.body.data.length).toBe(0);
+    });
+
+    it('경계값 테스트: 페이지네이션 경계 조건 검증', async () => {
+      for (let i = 0; i < 10; i++) {
+        await request(app.getHttpServer())
+          .post('/comments')
+          .set('Authorization', `Bearer ${accessTokens[0]}`)
+          .send({
+            content: `부모 댓글 ${i + 1}`,
+            postId: testPost.id,
+          });
+      }
+
+      const page1Response = await request(app.getHttpServer())
+        .get(`/comments/post/${testPost.id}?page=1`)
+        .expect(200);
+      expect(page1Response.body.data.length).toBe(10);
+      expect(page1Response.body.totalPages).toBe(1);
+
+      const page2Response = await request(app.getHttpServer())
+        .get(`/comments/post/${testPost.id}?page=2`)
+        .expect(200);
+      expect(page2Response.body.data.length).toBe(0);
+      expect(page2Response.body.totalPages).toBe(1);
+
+      const page0Response = await request(app.getHttpServer())
+        .get(`/comments/post/${testPost.id}?page=0`)
+        .expect(200);
+      expect(page0Response.body.currentPage).toBe(1);
+
+      const negativePageResponse = await request(app.getHttpServer())
+        .get(`/comments/post/${testPost.id}?page=-5`)
+        .expect(200);
+      expect(negativePageResponse.body.currentPage).toBe(1);
+    });
+
+    it('대댓글이 많은 경우 페이징 검증: 대댓글 수가 많아도 부모 댓글 기준 페이징이 동작하는지 확인', async () => {
+      const parentIds = [];
+      for (let i = 0; i < 10; i++) {
+        const response = await request(app.getHttpServer())
+          .post('/comments')
+          .set('Authorization', `Bearer ${accessTokens[0]}`)
+          .send({
+            content: `부모 댓글 ${i + 1}`,
+            postId: testPost.id,
+          });
+        parentIds.push(response.body.id);
+
+        for (let j = 0; j < 5; j++) {
+          await request(app.getHttpServer())
+            .post('/comments')
+            .set('Authorization', `Bearer ${accessTokens[1]}`)
+            .send({
+              content: `대댓글 ${i + 1}-${j + 1}`,
+              postId: testPost.id,
+              parentId: response.body.id,
+            });
+        }
+      }
+
+      const response = await request(app.getHttpServer())
+        .get(`/comments/post/${testPost.id}?page=1`)
+        .expect(200);
+
+      expect(response.body.data.length).toBe(60);
+      expect(response.body.totalItems).toBe(10);
+      expect(response.body.totalPages).toBe(1);
+    });
+
+    it('정렬 순서 검증: 부모 댓글은 최신순, 대댓글은 작성순으로 정렬되는지 확인', async () => {
+      const timestamps = [];
+      const parentIds = [];
+
+      for (let i = 0; i < 3; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        const response = await request(app.getHttpServer())
+          .post('/comments')
+          .set('Authorization', `Bearer ${accessTokens[0]}`)
+          .send({
+            content: `부모 댓글 ${i + 1}`,
+            postId: testPost.id,
+          });
+        parentIds.push(response.body.id);
+        timestamps.push(new Date().toISOString());
+      }
+
+      for (let i = parentIds.length - 1; i >= 0; i--) {
+        await request(app.getHttpServer())
+          .post('/comments')
+          .set('Authorization', `Bearer ${accessTokens[1]}`)
+          .send({
+            content: `대댓글 ${i + 1}-1`,
+            postId: testPost.id,
+            parentId: parentIds[i],
+          });
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        await request(app.getHttpServer())
+          .post('/comments')
+          .set('Authorization', `Bearer ${accessTokens[1]}`)
+          .send({
+            content: `대댓글 ${i + 1}-2`,
+            postId: testPost.id,
+            parentId: parentIds[i],
+          });
+      }
+
+      const response = await request(app.getHttpServer())
         .get(`/comments/post/${testPost.id}`)
         .expect(200);
 
-      expect(response.body).toMatchObject({
-        currentPage: 1,
-        totalItems: 2,
-        totalPages: 1,
-      });
+      for (let i = 0; i < 3; i++) {
+        expect(response.body.data[i * 3].content).toBe(`부모 댓글 ${3 - i}`);
+      }
 
-      expect(response.body.data).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            content: '[삭제된 댓글]',
-            nickname: '알 수 없음',
-            hasReplies: true,
-            parentId: null,
-          }),
-          expect.objectContaining({
-            content: 'no deleted parent',
-            nickname: users[0].nickname,
-            hasReplies: true,
-            parentId: null,
-          }),
-          expect.objectContaining({
-            content: `child of ${parentIds[0]}`,
-            nickname: users[1].nickname,
-            hasReplies: false,
-            parentId: parentIds[0],
-          }),
-          expect.objectContaining({
-            content: `child of ${parentIds[1]}`,
-            nickname: users[1].nickname,
-            hasReplies: false,
-            parentId: parentIds[1],
-          }),
-        ]),
-      );
-
-      expect(response.body.data).toHaveLength(4);
+      for (let i = 0; i < 3; i++) {
+        const parentIndex = i * 3;
+        expect(response.body.data[parentIndex + 1].content).toBe(
+          `대댓글 ${3 - i}-1`,
+        );
+        expect(response.body.data[parentIndex + 2].content).toBe(
+          `대댓글 ${3 - i}-2`,
+        );
+      }
     });
   });
 });

@@ -2,7 +2,6 @@ export const COMMENT_MESSAGES = {
   CREATED: '댓글이 성공적으로 생성되었습니다.',
   UPDATED: '댓글이 성공적으로 수정되었습니다.',
   DELETED: '댓글이 성공적으로 삭제되었습니다.',
-  LIKE_TOGGLED: '좋아요 상태가 변경되었습니다.',
 } as const;
 
 export const COMMENT_ERRORS = {

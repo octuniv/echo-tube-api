@@ -111,17 +111,17 @@ export class CommentsController {
   @UseGuards(JwtAuthGuard)
   @Post('like/:id')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: '댓글 좋아요 토글' })
+  @ApiOperation({ summary: '댓글 좋아요 (한 번만 가능, 중복 요청 무시)' })
   @ApiResponse({
     status: 200,
-    description: COMMENT_MESSAGES.LIKE_TOGGLED,
+    description: '좋아요 반영 또는 이미 좋아요한 상태',
     schema: { example: { likes: 5 } },
   })
   @ApiResponse({ status: 404, description: COMMENT_ERRORS.NOT_FOUND })
-  toggleLike(
+  likeComment(
     @Param('id', ParseIntPipe) id: number,
     @Req() req: RequestWithUser,
   ) {
-    return this.commentsService.toggleLike(id, req.user);
+    return this.commentsService.likeComment(id, req.user);
   }
 }

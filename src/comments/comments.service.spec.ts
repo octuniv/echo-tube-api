@@ -255,7 +255,7 @@ describe('CommentsService', () => {
     });
   });
 
-  describe('toggleLike', () => {
+  describe('likeComment', () => {
     beforeEach(() => {
       jest
         .spyOn(commentRepository, 'createQueryBuilder')
@@ -281,7 +281,7 @@ describe('CommentsService', () => {
 
       mockQueryBuilder.execute.mockResolvedValue({} as any);
 
-      const result = await service.toggleLike(mockComment.id, mockUser);
+      const result = await service.likeComment(mockComment.id, mockUser);
 
       expect(commentRepository.findOne).toHaveBeenCalledWith({
         where: { id: mockComment.id },
@@ -308,99 +308,54 @@ describe('CommentsService', () => {
       expect(result).toEqual({ likes: 1 });
     });
 
-    it('should remove like from comment', async () => {
+    it('should ignore duplicate like request', async () => {
       const existingLike = { userId: mockUser.id, commentId: mockComment.id };
       const commentWithLike = { ...mockComment, likes: 1 };
+
       jest
         .spyOn(commentRepository, 'findOne')
-        .mockResolvedValueOnce(commentWithLike as any)
-        .mockResolvedValue(mockComment as any);
+        .mockResolvedValueOnce(mockComment as any)
+        .mockResolvedValue(commentWithLike as any);
+      jest
+        .spyOn(commentLikeRepository, 'findOne')
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue(existingLike as any);
+      jest.spyOn(commentLikeRepository, 'save').mockResolvedValue({} as any);
+      mockQueryBuilder.execute.mockResolvedValue({} as any);
+
+      await service.likeComment(mockComment.id, mockUser);
+
+      jest.spyOn(commentRepository, 'findOne').mockClear();
+      jest.spyOn(commentLikeRepository, 'findOne').mockClear();
+      jest.spyOn(commentLikeRepository, 'save').mockClear();
+      jest.spyOn(commentRepository, 'createQueryBuilder').mockClear();
+
+      jest
+        .spyOn(commentRepository, 'findOne')
+        .mockResolvedValue(commentWithLike as any);
       jest
         .spyOn(commentLikeRepository, 'findOne')
         .mockResolvedValue(existingLike as any);
-      jest.spyOn(commentLikeRepository, 'delete').mockResolvedValue({} as any);
 
-      mockQueryBuilder.execute.mockResolvedValue({} as any);
+      const result = await service.likeComment(mockComment.id, mockUser);
 
-      const result = await service.toggleLike(mockComment.id, mockUser);
+      expect(commentLikeRepository.save).not.toHaveBeenCalled();
 
-      expect(commentRepository.findOne).toHaveBeenCalledWith({
-        where: { id: mockComment.id },
-      });
-      expect(commentLikeRepository.findOne).toHaveBeenCalledWith({
-        where: { userId: mockUser.id, commentId: mockComment.id },
-      });
-      expect(commentLikeRepository.delete).toHaveBeenCalledWith({
-        userId: mockUser.id,
-        commentId: mockComment.id,
-      });
+      expect(commentRepository.createQueryBuilder).not.toHaveBeenCalled();
 
-      expect(commentRepository.createQueryBuilder).toHaveBeenCalled();
-      expect(mockQueryBuilder.update).toHaveBeenCalledWith(Comment);
-      expect(mockQueryBuilder.set).toHaveBeenCalledWith({
-        likes: expect.any(Function),
-      });
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith('id = :id', {
-        id: mockComment.id,
-      });
-      expect(mockQueryBuilder.execute).toHaveBeenCalled();
-
-      expect(commentRepository.findOne).toHaveBeenCalledTimes(2);
-      expect(result).toEqual({ likes: 0 });
+      expect(result).toEqual({ likes: 1 });
     });
 
     it('should throw NotFoundException when comment does not exist', async () => {
       jest.spyOn(commentRepository, 'findOne').mockResolvedValue(null);
 
       await expect(
-        service.toggleLike(mockComment.id, mockUser),
+        service.likeComment(mockComment.id, mockUser),
       ).rejects.toThrow(NotFoundException);
 
       expect(commentRepository.findOne).toHaveBeenCalledWith({
         where: { id: mockComment.id },
       });
-    });
-
-    it('should handle like count correctly when decrementing from 1', async () => {
-      const commentWithOneLike = { ...mockComment, likes: 1 };
-      jest
-        .spyOn(commentRepository, 'findOne')
-        .mockResolvedValueOnce(commentWithOneLike as any)
-        .mockResolvedValue({ ...mockComment, likes: 0 } as any);
-      jest.spyOn(commentLikeRepository, 'findOne').mockResolvedValue({} as any);
-      jest.spyOn(commentLikeRepository, 'delete').mockResolvedValue({} as any);
-      mockQueryBuilder.execute.mockResolvedValue({} as any);
-
-      const result = await service.toggleLike(mockComment.id, mockUser);
-
-      expect(commentRepository.createQueryBuilder).toHaveBeenCalled();
-      expect(mockQueryBuilder.update).toHaveBeenCalledWith(Comment);
-      expect(mockQueryBuilder.set).toHaveBeenCalledWith({
-        likes: expect.any(Function),
-      });
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith('id = :id', {
-        id: mockComment.id,
-      });
-      expect(mockQueryBuilder.execute).toHaveBeenCalled();
-
-      expect(result).toEqual({ likes: 0 });
-    });
-
-    it('should not allow negative like count', async () => {
-      const commentWithZeroLikes = { ...mockComment, likes: 0 };
-
-      jest
-        .spyOn(commentRepository, 'findOne')
-        .mockResolvedValue(commentWithZeroLikes as any);
-      jest.spyOn(commentLikeRepository, 'findOne').mockResolvedValue({} as any);
-      jest.spyOn(commentLikeRepository, 'delete').mockResolvedValue({} as any);
-      jest
-        .spyOn(commentRepository, 'save')
-        .mockResolvedValue(commentWithZeroLikes as any);
-
-      const result = await service.toggleLike(mockComment.id, mockUser);
-
-      expect(result.likes).toBeGreaterThanOrEqual(0);
     });
   });
 

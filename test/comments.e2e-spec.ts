@@ -567,7 +567,7 @@ describe('Comments - /comments (e2e)', () => {
         .expect(404);
     });
 
-    it('좋아요 추가/취소 검증', async () => {
+    it('좋아요 추가 / 중복 추가 방지 검증', async () => {
       let response = await request(app.getHttpServer())
         .post(`/comments/like/${commentId}`)
         .set('Authorization', `Bearer ${accessTokens[0]}`)
@@ -588,15 +588,15 @@ describe('Comments - /comments (e2e)', () => {
         .set('Authorization', `Bearer ${accessTokens[0]}`)
         .expect(200);
 
-      expect(response.body).toEqual({ likes: 0 });
+      expect(response.body).toEqual({ likes: 1 });
 
       presentComment = await commentRepository.findOne({
         where: { id: commentId },
       });
-      expect(presentComment.likes).toEqual(0);
+      expect(presentComment.likes).toEqual(1);
 
       presentCommendLikes = await commentLikeRepository.find();
-      expect(presentCommendLikes.length).toBe(0);
+      expect(presentCommendLikes.length).toBe(1);
     });
 
     it('다중 사용자 검증', async () => {
@@ -615,7 +615,9 @@ describe('Comments - /comments (e2e)', () => {
       });
       expect(presentComment.likes).toEqual(multiUsersToken.length);
 
-      const presentCommentLikes = await commentLikeRepository.find();
+      const presentCommentLikes = await commentLikeRepository.find({
+        where: { commentId },
+      });
       expect(presentCommentLikes.length).toBe(multiUsersToken.length);
     });
   });

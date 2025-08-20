@@ -172,7 +172,7 @@ export class CommentsService {
   }
 
   @Transactional()
-  async toggleLike(commentId: number, user: User): Promise<{ likes: number }> {
+  async likeComment(commentId: number, user: User): Promise<{ likes: number }> {
     let comment = await this.commentRepository.findOne({
       where: { id: commentId },
     });
@@ -189,17 +189,7 @@ export class CommentsService {
     });
 
     if (existingLike) {
-      await this.commentLikeRepository.delete({
-        userId: user.id,
-        commentId,
-      });
-
-      await this.commentRepository
-        .createQueryBuilder()
-        .update(Comment)
-        .set({ likes: () => 'GREATEST(likes - 1, 0)' })
-        .where('id = :id', { id: commentId })
-        .execute();
+      return { likes: comment.likes };
     } else {
       await this.commentLikeRepository.save({
         userId: user.id,

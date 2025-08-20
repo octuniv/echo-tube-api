@@ -357,34 +357,34 @@ describe('CommentsController', () => {
     });
   });
 
-  describe('toggleLike', () => {
+  describe('likeComment', () => {
     it('should toggle like on a comment successfully', async () => {
       const id = 1;
       const expectedResult = {
         likes: 1,
       };
 
-      jest.spyOn(service, 'toggleLike').mockResolvedValue(expectedResult);
+      jest.spyOn(service, 'likeComment').mockResolvedValue(expectedResult);
 
       const result = await request(app.getHttpServer())
         .post(`/comments/like/${id}`)
         .expect(200);
 
-      expect(service.toggleLike).toHaveBeenCalledWith(1, mockUser);
+      expect(service.likeComment).toHaveBeenCalledWith(1, mockUser);
       expect(result.body).toEqual(expectedResult);
     });
 
     it('should throw NotFoundException when comment does not exist', async () => {
       const id = 999;
 
-      jest.spyOn(service, 'toggleLike').mockImplementation(() => {
+      jest.spyOn(service, 'likeComment').mockImplementation(() => {
         throw new NotFoundException(COMMENT_ERRORS.NOT_FOUND);
       });
 
       await request(app.getHttpServer())
         .post(`/comments/like/${id}`)
         .expect(404);
-      expect(service.toggleLike).toHaveBeenCalledWith(999, mockUser);
+      expect(service.likeComment).toHaveBeenCalledWith(999, mockUser);
     });
   });
 });

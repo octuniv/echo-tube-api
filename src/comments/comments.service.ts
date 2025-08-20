@@ -172,7 +172,10 @@ export class CommentsService {
   }
 
   @Transactional()
-  async likeComment(commentId: number, user: User): Promise<{ likes: number }> {
+  async likeComment(
+    commentId: number,
+    user: User,
+  ): Promise<{ likes: number; isAdded: boolean }> {
     let comment = await this.commentRepository.findOne({
       where: { id: commentId },
     });
@@ -189,7 +192,7 @@ export class CommentsService {
     });
 
     if (existingLike) {
-      return { likes: comment.likes };
+      return { likes: comment.likes, isAdded: false };
     } else {
       await this.commentLikeRepository.save({
         userId: user.id,
@@ -209,6 +212,6 @@ export class CommentsService {
       select: ['likes'],
     });
 
-    return { likes: comment.likes };
+    return { likes: comment.likes, isAdded: true };
   }
 }

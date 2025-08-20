@@ -573,7 +573,7 @@ describe('Comments - /comments (e2e)', () => {
         .set('Authorization', `Bearer ${accessTokens[0]}`)
         .expect(200);
 
-      expect(response.body).toEqual({ likes: 1 });
+      expect(response.body).toEqual({ likes: 1, isAdded: true });
 
       let presentComment = await commentRepository.findOne({
         where: { id: commentId },
@@ -588,7 +588,7 @@ describe('Comments - /comments (e2e)', () => {
         .set('Authorization', `Bearer ${accessTokens[0]}`)
         .expect(200);
 
-      expect(response.body).toEqual({ likes: 1 });
+      expect(response.body).toEqual({ likes: 1, isAdded: false });
 
       presentComment = await commentRepository.findOne({
         where: { id: commentId },

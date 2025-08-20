@@ -115,7 +115,10 @@ export class CommentsController {
   @ApiResponse({
     status: 200,
     description: '좋아요 반영 또는 이미 좋아요한 상태',
-    schema: { example: { likes: 5 } },
+    example: {
+      likes: 5,
+      isAdded: true,
+    },
   })
   @ApiResponse({ status: 404, description: COMMENT_ERRORS.NOT_FOUND })
   likeComment(

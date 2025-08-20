@@ -362,6 +362,7 @@ describe('CommentsController', () => {
       const id = 1;
       const expectedResult = {
         likes: 1,
+        isAdded: true,
       };
 
       jest.spyOn(service, 'likeComment').mockResolvedValue(expectedResult);

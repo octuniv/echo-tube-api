@@ -305,7 +305,7 @@ describe('CommentsService', () => {
       expect(mockQueryBuilder.execute).toHaveBeenCalled();
 
       expect(commentRepository.findOne).toHaveBeenCalledTimes(2);
-      expect(result).toEqual({ likes: 1 });
+      expect(result).toEqual({ likes: 1, isAdded: true });
     });
 
     it('should ignore duplicate like request', async () => {
@@ -343,7 +343,7 @@ describe('CommentsService', () => {
 
       expect(commentRepository.createQueryBuilder).not.toHaveBeenCalled();
 
-      expect(result).toEqual({ likes: 1 });
+      expect(result).toEqual({ likes: 1, isAdded: false });
     });
 
     it('should throw NotFoundException when comment does not exist', async () => {

@@ -40,11 +40,9 @@ export class CommentListItemDto {
     dto.likes = comment.likes;
     dto.createdAt = comment.createdAt;
     dto.updatedAt = comment.updatedAt;
-    dto.nickname = comment.deletedAt ? '알 수 없음' : comment.nickname;
-    dto.parentId = comment.parent ? comment.parent.id : null;
-    dto.hasReplies = dto.hasReplies = comment.children
-      ? comment.children.length > 0
-      : false;
+    dto.nickname = comment.nickname;
+    dto.parentId = comment.parentId;
+    dto.hasReplies = comment.children ? comment.children.length > 0 : false;
     return dto;
   }
 

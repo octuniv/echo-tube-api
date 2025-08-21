@@ -649,7 +649,7 @@ describe('Comments - /comments (e2e)', () => {
       });
     });
 
-    it('소프트 삭제된 댓글 포함 페이징 검증: 삭제된 댓글이 페이징에 포함되고 올바르게 표시되는지 확인', async () => {
+    it('삭제된 부모 댓글 + 자식 댓글 표시 검증: 부모 댓글이 삭제되었으나 자식 댓글이 있는 경우, 부모 댓글은 [삭제된 댓글]로 표시되고 자식 댓글은 정상 표시되어야 함', async () => {
       const parentIds = [];
       for (let i = 0; i < 15; i++) {
         const response = await request(app.getHttpServer())
@@ -872,6 +872,94 @@ describe('Comments - /comments (e2e)', () => {
           `대댓글 ${3 - i}-2`,
         );
       }
+    });
+
+    it('부모 댓글 삭제 시 자식 댓글이 없으면 표시되지 않음 검증: 삭제된 부모 댓글이 자식이 없을 경우 응답에 포함되지 않는지 확인', async () => {
+      // 1. 부모 댓글 생성 (자식 없음)
+      const response = await request(app.getHttpServer())
+        .post('/comments')
+        .set('Authorization', `Bearer ${accessTokens[0]}`)
+        .send({
+          content: '삭제될 부모 댓글 (자식 없음)',
+          postId: testPost.id,
+        } as CreateCommentDto)
+        .expect(201);
+
+      const parentId = response.body.id;
+
+      // 2. 부모 댓글 삭제
+      await request(app.getHttpServer())
+        .delete(`/comments/${parentId}`)
+        .set('Authorization', `Bearer ${accessTokens[0]}`)
+        .expect(200);
+
+      // 3. 댓글 조회
+      const getResponse = await request(app.getHttpServer())
+        .get(`/comments/post/${testPost.id}?page=1`)
+        .expect(200);
+
+      // 4. 검증
+      // 삭제된 부모 댓글이 응답에 포함되지 않아야 함
+      const deletedParent = getResponse.body.data.find(
+        (comment: CommentListItemDto) => comment.id === parentId,
+      );
+      expect(deletedParent).toBeUndefined();
+
+      // 전체 아이템 수도 0이어야 함 (다른 댓글이 없을 경우)
+      expect(getResponse.body.totalItems).toBe(0);
+    });
+
+    it('대댓글 삭제 시 표시되지 않음 검증: 삭제된 대댓글이 응답에 포함되지 않는지 확인', async () => {
+      // 1. 부모 댓글 생성
+      const parentResponse = await request(app.getHttpServer())
+        .post('/comments')
+        .set('Authorization', `Bearer ${accessTokens[0]}`)
+        .send({
+          content: '부모 댓글',
+          postId: testPost.id,
+        } as CreateCommentDto)
+        .expect(201);
+
+      const parentId = parentResponse.body.id;
+
+      // 2. 대댓글 생성
+      const replyResponse = await request(app.getHttpServer())
+        .post('/comments')
+        .set('Authorization', `Bearer ${accessTokens[1]}`)
+        .send({
+          content: '삭제될 대댓글',
+          postId: testPost.id,
+          parentId: parentId,
+        } as CreateCommentDto)
+        .expect(201);
+
+      const replyId = replyResponse.body.id;
+
+      // 3. 대댓글 삭제
+      await request(app.getHttpServer())
+        .delete(`/comments/${replyId}`)
+        .set('Authorization', `Bearer ${accessTokens[1]}`)
+        .expect(200);
+
+      // 4. 댓글 조회
+      const getResponse = await request(app.getHttpServer())
+        .get(`/comments/post/${testPost.id}?page=1`)
+        .expect(200);
+
+      // 5. 검증
+      // 삭제된 대댓글이 응답에 포함되지 않아야 함
+      const deletedReply = getResponse.body.data.find(
+        (comment: CommentListItemDto) => comment.id === replyId,
+      );
+      expect(deletedReply).toBeUndefined();
+
+      // 부모 댓글은 여전히 표시되어야 함
+      const parentComment = getResponse.body.data.find(
+        (comment: CommentListItemDto) => comment.id === parentId,
+      );
+      expect(parentComment).toBeDefined();
+      expect(parentComment.content).toBe('부모 댓글');
+      expect(parentComment.hasReplies).toBe(false); // 더 이상 대댓글이 없음
     });
   });
 });

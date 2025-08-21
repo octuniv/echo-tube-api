@@ -7,6 +7,8 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  Index,
+  JoinColumn,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -15,6 +17,9 @@ import {
 import { Expose } from 'class-transformer';
 
 @Entity()
+@Index(['parent'])
+@Index(['post', 'parent'])
+@Index(['deletedAt'])
 export class Comment {
   @ApiProperty({ example: 1 })
   @PrimaryGeneratedColumn()
@@ -56,12 +61,11 @@ export class Comment {
   })
   createdBy: User;
 
-  // 대댓글 구현을 위한 자기 참조 관계
-  @ApiProperty({ description: '부모 댓글 (대댓글인 경우)', nullable: true })
-  @ManyToOne(() => Comment, (comment) => comment.children, {
-    nullable: true,
-    onDelete: 'CASCADE',
-  })
+  @Column({ name: 'parent_id', nullable: true })
+  parentId: number | null;
+
+  @ManyToOne(() => Comment, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'parent_id' })
   parent?: Comment;
 
   @ApiProperty({ description: '자식 댓글 (대댓글)' })
@@ -81,7 +85,7 @@ export class Comment {
 
   @Expose()
   @ApiProperty({ description: '작성자 닉네임', required: false })
-  get nickname(): string | null {
-    return this._nickname;
+  get nickname(): string {
+    return this.deletedAt ? '알 수 없음' : this.createdBy?.nickname || '익명';
   }
 }

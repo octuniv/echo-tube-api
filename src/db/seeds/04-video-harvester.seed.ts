@@ -1,8 +1,7 @@
-// src/db/seeds/01-initial-users.seed.ts
+// src/db/seeds/04-video-harvester.seed.ts
 import { Seeder } from 'typeorm-extension';
 import { DataSource } from 'typeorm';
 import { User } from '@/users/entities/user.entity';
-// import * as bcrypt from 'bcryptjs';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { BaseSeeder } from './base.seeder';
 import { Category } from '@/categories/entities/category.entity';

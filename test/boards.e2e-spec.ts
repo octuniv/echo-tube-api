@@ -23,7 +23,7 @@ describe('Board - /boards (e2e)', () => {
         .get('/boards')
         .expect(200);
 
-      expect(response.body).toHaveLength(4);
+      expect(response.body).toHaveLength(5);
 
       expect(response.body).toContainEqual(
         expect.objectContaining({
@@ -63,6 +63,17 @@ describe('Board - /boards (e2e)', () => {
           id: expect.any(Number),
           slug: 'paginationtest',
           name: 'PAGINATIONTEST',
+          description: null,
+          requiredRole: UserRole.USER,
+          boardType: BoardPurpose.GENERAL,
+        }),
+      );
+
+      expect(response.body).toContainEqual(
+        expect.objectContaining({
+          id: expect.any(Number),
+          slug: 'commenttest',
+          name: 'COMMENTTEST',
           description: null,
           requiredRole: UserRole.USER,
           boardType: BoardPurpose.GENERAL,

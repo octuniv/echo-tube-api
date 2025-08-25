@@ -35,6 +35,6 @@ export const createUserEntity = (options: Partial<User> = {}): User => {
   user.createdAt = options.createdAt ?? new Date();
   user.updatedAt = options.updatedAt ?? new Date();
   user.deletedAt = options.deletedAt ?? null;
-
+  user.comments = options.comments ?? [];
   return user;
 };

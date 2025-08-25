@@ -4,7 +4,7 @@ import { createBoard } from '@/boards/factories/board.factory';
 import { createUserEntity } from '@/users/factory/user.factory';
 
 // 가짜 Post 생성 함수
-export const createPost = (options?: Partial<Post>): Post => {
+export const createPost = (options: Partial<Post> = {}): Post => {
   const post = new Post();
   post.id = options.id ?? faker.number.int({ min: 1, max: 1000 });
   post.title = faker.lorem.sentence();
@@ -25,6 +25,7 @@ export const createPost = (options?: Partial<Post>): Post => {
   post.channelTitle = null;
   post.duration = null;
   post.source = null;
+  post.comments = options.comments ?? [];
 
   post.setNickname();
 

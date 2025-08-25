@@ -327,4 +327,29 @@ export class PostsService {
 
     return this.postRepository.save(newPost);
   }
+
+  // 댓글 수 증가 메서드
+  async incrementCommentCount(postId: number): Promise<void> {
+    await this.postRepository.increment({ id: postId }, 'commentsCount', 1);
+  }
+
+  // 댓글 수 감소 메서드 (0 미만으로 내려가지 않도록 보장)
+  async decrementCommentCountBulk(
+    postId: number,
+    count: number,
+  ): Promise<void> {
+    if (count <= 0) return;
+
+    const post = await this.postRepository.findOne({ where: { id: postId } });
+    if (!post) {
+      throw new NotFoundException(`Post with ID ${postId} not found`);
+    }
+
+    await this.postRepository
+      .createQueryBuilder()
+      .update(Post)
+      .set({ commentsCount: () => `GREATEST(commentsCount - ${count}, 0)` }) // 음수 방지
+      .where('id = :id', { id: postId })
+      .execute();
+  }
 }

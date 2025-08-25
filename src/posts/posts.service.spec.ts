@@ -26,6 +26,13 @@ import { CreateScrapedVideoDto } from '@/video-harvester/dto/create-scraped-vide
 import { VideoFactory } from '@/video-harvester/factory/video.factory';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 
+const mockQueryBuilder = {
+  update: jest.fn().mockReturnThis(),
+  set: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  execute: jest.fn(),
+};
+
 describe('PostsService', () => {
   let service: PostsService;
   let postRepository: Repository<Post>;
@@ -357,7 +364,6 @@ describe('PostsService', () => {
 
   describe('findRecentPosts', () => {
     it('should exclude specified slugs and filter by boardIds', async () => {
-      // given
       const mockPosts = [
         createPost({
           id: 1,
@@ -386,19 +392,16 @@ describe('PostsService', () => {
         getMany: jest.fn().mockResolvedValue(mockPosts),
       };
 
-      // QueryBuilder 모킹 시 mockReturnValue 사용
       jest
         .spyOn(postRepository, 'createQueryBuilder')
         .mockReturnValue(queryBuilderMock as any);
 
-      // when
       const result = await service.findRecentPosts(
         boardIds,
         limit,
         excludedSlugs,
       );
 
-      // then
       expect(postRepository.createQueryBuilder).toHaveBeenCalledWith('post');
       expect(queryBuilderMock.where).toHaveBeenCalledWith(
         'categorySlug.slug NOT IN (:...excludedSlugs)',
@@ -422,7 +425,6 @@ describe('PostsService', () => {
         createPost({ id: 2, title: 'Post 2', board: board }),
       ] satisfies Post[];
 
-      // 페이지네이션 DTO 설정
       const paginationDto: PaginationDto = {
         page: 1,
         limit: 10,
@@ -430,28 +432,23 @@ describe('PostsService', () => {
         order: 'DESC',
       };
 
-      // 총 아이템 수
       const totalItems = mockPosts.length;
 
-      // QueryBuilder 모킹
       const queryBuilderMock = {
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([mockPosts, totalItems]), // getManyAndCount 모킹
+        getManyAndCount: jest.fn().mockResolvedValue([mockPosts, totalItems]),
       };
 
-      // createQueryBuilder 모킹
       jest
         .spyOn(postRepository, 'createQueryBuilder')
         .mockReturnValue(queryBuilderMock as any);
 
-      // Act
-      const result = await service.findPostsByBoardId(boardId, paginationDto); // 페이지네이션 DTO 전달
+      const result = await service.findPostsByBoardId(boardId, paginationDto);
 
-      // Assert
       expect(postRepository.createQueryBuilder).toHaveBeenCalledWith('post');
       expect(queryBuilderMock.where).toHaveBeenCalledWith(
         'post.board.id = :boardId',
@@ -461,11 +458,10 @@ describe('PostsService', () => {
         'post.createdAt',
         'DESC',
       );
-      expect(queryBuilderMock.skip).toHaveBeenCalledWith(0); // (page - 1) * limit = (1 - 1) * 10 = 0
+      expect(queryBuilderMock.skip).toHaveBeenCalledWith(0);
       expect(queryBuilderMock.take).toHaveBeenCalledWith(10);
       expect(queryBuilderMock.getManyAndCount).toHaveBeenCalled();
 
-      // 결과가 PaginatedResponseDto 형식인지 확인
       expect(result).toEqual({
         data: mockPosts.map(PostResponseDto.fromEntity),
         currentPage: paginationDto.page,
@@ -475,28 +471,24 @@ describe('PostsService', () => {
     });
 
     it('should return empty paginated result when board has no posts', async () => {
-      // Arrange
       const boardId = 999;
       const paginationDto: PaginationDto = { page: 1, limit: 10 };
 
-      // QueryBuilder 모킹 (빈 배열 반환)
       const queryBuilderMock = {
         leftJoinAndSelect: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[], 0]), // 빈 배열과 0개의 총 아이템
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
       };
 
       jest
         .spyOn(postRepository, 'createQueryBuilder')
         .mockReturnValue(queryBuilderMock as any);
 
-      // Act
-      const result = await service.findPostsByBoardId(boardId, paginationDto); // 페이지네이션 DTO 전달
+      const result = await service.findPostsByBoardId(boardId, paginationDto);
 
-      // Assert
       expect(postRepository.createQueryBuilder).toHaveBeenCalledWith('post');
       expect(queryBuilderMock.where).toHaveBeenCalledWith(
         'post.board.id = :boardId',
@@ -504,19 +496,17 @@ describe('PostsService', () => {
       );
       expect(queryBuilderMock.getManyAndCount).toHaveBeenCalled();
 
-      // 결과가 빈 PaginatedResponseDto 형식인지 확인
       expect(result).toEqual({
         data: [],
         currentPage: paginationDto.page,
         totalItems: 0,
-        totalPages: 0, // 0 / 10 = 0
+        totalPages: 0,
       });
     });
   });
 
   describe('findPostsByBoardSlug', () => {
     it('should return all posts in the specified board', async () => {
-      // Arrange
       const board = createBoard({
         categorySlug: createCategorySlug({ slug: 'notices' }),
       });
@@ -527,12 +517,10 @@ describe('PostsService', () => {
 
       postRepository.find = jest.fn().mockResolvedValue(mockPosts);
 
-      // Act
       const result = await service.findPostsByBoardSlug(
         board.categorySlug.slug,
       );
 
-      // Assert
       expect(postRepository.find).toHaveBeenCalledWith({
         where: { board: { categorySlug: { slug: board.categorySlug.slug } } },
         relations: {
@@ -554,7 +542,6 @@ describe('PostsService', () => {
 
   describe('updateHotScores', () => {
     it('should update hot scores for all posts based on the formula', async () => {
-      // Arrange
       const mockDate = new Date('2023-10-01T00:00:00Z').getTime();
       jest.spyOn(Date, 'now').mockReturnValue(mockDate);
 
@@ -576,10 +563,8 @@ describe('PostsService', () => {
       postRepository.find = jest.fn().mockResolvedValue(posts);
       postRepository.save = jest.fn().mockImplementation((post) => post);
 
-      // Act
       await service.updateHotScores();
 
-      // Assert
       expect(postRepository.find).toHaveBeenCalled();
 
       posts.forEach((post) => {
@@ -627,7 +612,6 @@ describe('PostsService', () => {
 
   describe('findPopularPosts', () => {
     it('should exclude specified slugs when provided', async () => {
-      // given
       const mockPosts = [
         createPost({
           id: 1,
@@ -652,15 +636,12 @@ describe('PostsService', () => {
         getMany: jest.fn().mockResolvedValue(mockPosts),
       };
 
-      // QueryBuilder 모킹 시 mockReturnValue 사용
       jest
         .spyOn(postRepository, 'createQueryBuilder')
         .mockReturnValue(queryBuilderMock as any);
 
-      // when
       const result = await service.findPopularPosts(excludedSlugs);
 
-      // then
       expect(queryBuilderMock.where).toHaveBeenCalledWith(
         'categorySlug.slug NOT IN (:...excludedSlugs)',
         { excludedSlugs },
@@ -715,6 +696,169 @@ describe('PostsService', () => {
         'video-board',
         BoardPurpose.AI_DIGEST,
       );
+    });
+  });
+
+  describe('incrementCommentCount', () => {
+    it('should increment comment count for existing post', async () => {
+      const postId = 1;
+
+      await service.incrementCommentCount(postId);
+
+      expect(postRepository.increment).toHaveBeenCalledWith(
+        { id: postId },
+        'commentsCount',
+        1,
+      );
+    });
+
+    it('should handle multiple increments correctly', async () => {
+      const postId = 1;
+
+      await service.incrementCommentCount(postId);
+      await service.incrementCommentCount(postId);
+      await service.incrementCommentCount(postId);
+
+      expect(postRepository.increment).toHaveBeenCalledTimes(3);
+      expect(postRepository.increment).toHaveBeenCalledWith(
+        { id: postId },
+        'commentsCount',
+        1,
+      );
+    });
+  });
+
+  describe('decrementCommentCountBulk', () => {
+    beforeEach(() => {
+      jest
+        .spyOn(postRepository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      mockQueryBuilder.update.mockClear();
+      mockQueryBuilder.set.mockClear();
+      mockQueryBuilder.where.mockClear();
+      mockQueryBuilder.execute.mockClear();
+    });
+
+    it('should do nothing if count is less than or equal to zero', async () => {
+      const postId = 1;
+      const count = 0;
+
+      await service.decrementCommentCountBulk(postId, count);
+
+      expect(postRepository.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('should decrement comment count by the specified count for an existing post with sufficient comments', async () => {
+      const postId = 1;
+      const countToDecrement = 3;
+      const initialCommentsCount = 5;
+
+      const mockPost = createPost({
+        id: postId,
+        commentsCount: initialCommentsCount,
+      });
+
+      jest.spyOn(postRepository, 'findOne').mockResolvedValue(mockPost);
+
+      await service.decrementCommentCountBulk(postId, countToDecrement);
+
+      expect(postRepository.createQueryBuilder).toHaveBeenCalledWith();
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(Post);
+
+      expect(mockQueryBuilder.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          commentsCount: expect.any(Function),
+        }),
+      );
+
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('id = :id', {
+        id: postId,
+      });
+
+      expect(mockQueryBuilder.execute).toHaveBeenCalled();
+    });
+
+    it('should decrement comment count to zero if count to decrement exceeds current count', async () => {
+      const postId = 1;
+      const countToDecrement = 3;
+      const initialCommentsCount = 1;
+
+      const mockPost = createPost({
+        id: postId,
+        commentsCount: initialCommentsCount,
+      });
+
+      jest.spyOn(postRepository, 'findOne').mockResolvedValue(mockPost);
+
+      await service.decrementCommentCountBulk(postId, countToDecrement);
+
+      expect(postRepository.createQueryBuilder).toHaveBeenCalledWith();
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(Post);
+
+      expect(mockQueryBuilder.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          commentsCount: expect.any(Function),
+        }),
+      );
+
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('id = :id', {
+        id: postId,
+      });
+      expect(mockQueryBuilder.execute).toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when post does not exist', async () => {
+      const postId = 999;
+      const countToDecrement = 1;
+
+      jest.spyOn(postRepository, 'findOne').mockResolvedValue(null);
+
+      await expect(
+        service.decrementCommentCountBulk(postId, countToDecrement),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(mockQueryBuilder.update).not.toHaveBeenCalled();
+      expect(mockQueryBuilder.set).not.toHaveBeenCalled();
+      expect(mockQueryBuilder.where).not.toHaveBeenCalled();
+      expect(mockQueryBuilder.execute).not.toHaveBeenCalled();
+    });
+
+    it('should handle multiple decrements correctly', async () => {
+      const postId = 1;
+      const initialCount = 5;
+      const firstDecrement = 2;
+      const secondDecrement = 2;
+
+      const mockPost = createPost({ id: postId, commentsCount: initialCount });
+
+      jest.spyOn(postRepository, 'findOne').mockResolvedValue(mockPost);
+
+      await service.decrementCommentCountBulk(postId, firstDecrement);
+
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(Post);
+      expect(mockQueryBuilder.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          commentsCount: expect.any(Function),
+        }),
+      );
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('id = :id', {
+        id: postId,
+      });
+      expect(mockQueryBuilder.execute).toHaveBeenCalled();
+
+      await service.decrementCommentCountBulk(postId, secondDecrement);
+
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(Post);
+      expect(mockQueryBuilder.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          commentsCount: expect.any(Function),
+        }),
+      );
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('id = :id', {
+        id: postId,
+      });
+      expect(mockQueryBuilder.execute).toHaveBeenCalled();
     });
   });
 });

@@ -1,4 +1,4 @@
-// src/db/seeds/03-test-posts.seed.ts
+// src/db/seeds/05-posts-pagination-test.seed.ts
 import { Seeder } from 'typeorm-extension';
 import { DataSource, Like } from 'typeorm';
 import { Post } from '@/posts/entities/post.entity';

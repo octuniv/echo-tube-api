@@ -7,9 +7,10 @@ import {
   OneToMany,
   DeleteDateColumn,
 } from 'typeorm';
+import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from './user-role.enum';
 import { Post } from '@/posts/entities/post.entity';
-import { ApiProperty } from '@nestjs/swagger';
+import { Comment } from '@/comments/entities/comment.entity';
 
 @Entity('users')
 export class User {
@@ -46,6 +47,13 @@ export class User {
     onDelete: 'CASCADE',
   })
   posts: Post[];
+
+  // User 엔티티에 추가
+  @OneToMany(() => Comment, (comment) => comment.createdBy, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  comments: Comment[];
 
   @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   @CreateDateColumn({ name: 'created_at' })

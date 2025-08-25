@@ -8,10 +8,12 @@ import {
   DeleteDateColumn,
   Entity,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Expose } from 'class-transformer';
+import { Comment } from '@/comments/entities/comment.entity';
 
 export enum PostOrigin {
   USER = 'user',
@@ -101,4 +103,11 @@ export class Post {
 
   @Column({ nullable: true })
   source?: string; // "YouTube" 등 출처
+
+  // Post 엔티티에 추가
+  @OneToMany(() => Comment, (comment) => comment.post, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  comments: Comment[];
 }

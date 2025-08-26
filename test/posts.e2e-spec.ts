@@ -18,6 +18,7 @@ import {
   truncateAllTables,
   truncatePostsTable,
 } from './utils/test.util';
+import { Comment } from '@/comments/entities/comment.entity';
 
 const userInfos = Array(2)
   .fill('')
@@ -29,6 +30,7 @@ describe('Posts - /posts (e2e)', () => {
   let dataSource: DataSource;
   let postRepository: Repository<Post>;
   let userRepository: Repository<User>;
+  let commentRepository: Repository<Comment>;
   let accessTokens: string[];
   let users: User[];
   let boardsService: BoardsService;
@@ -41,6 +43,9 @@ describe('Posts - /posts (e2e)', () => {
 
     postRepository = module.get<Repository<Post>>(getRepositoryToken(Post));
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
+    commentRepository = module.get<Repository<Comment>>(
+      getRepositoryToken(Comment),
+    );
     boardsService = module.get<BoardsService>(BoardsService);
 
     const boards = await boardsService.findAll();
@@ -49,7 +54,6 @@ describe('Posts - /posts (e2e)', () => {
   }, 15000);
 
   beforeAll(async () => {
-    // Sign up and login for all users
     accessTokens = await Promise.all(
       userInfos.map(async (userInfo) => {
         const token = await signUpAndLogin(app, userInfo);
@@ -62,7 +66,6 @@ describe('Posts - /posts (e2e)', () => {
       }),
     );
 
-    // Find all users
     users = await Promise.all(
       userInfos.map(async (userInfo) => {
         const user = await userRepository.findOne({
@@ -159,7 +162,7 @@ describe('Posts - /posts (e2e)', () => {
     it('should return 401 if user lacks board role', async () => {
       const response = await request(app.getHttpServer())
         .post('/posts')
-        .set('Authorization', `Bearer ${accessToken}`) // 일반 사용자 토큰
+        .set('Authorization', `Bearer ${accessToken}`)
         .send({
           title: 'Unauthorized Post',
           content: 'Test',
@@ -178,7 +181,6 @@ describe('Posts - /posts (e2e)', () => {
   });
 
   describe('GET /posts', () => {
-    // const user = users[0];
     let user: User;
 
     beforeAll(() => {
@@ -228,7 +230,6 @@ describe('Posts - /posts (e2e)', () => {
   });
 
   describe('GET /posts/user/:userId', () => {
-    // const user = users[0];
     let user: User;
 
     beforeAll(() => {
@@ -277,7 +278,6 @@ describe('Posts - /posts (e2e)', () => {
   });
 
   describe('GET /posts/:id', () => {
-    // const user = users[0];
     let user: User;
 
     beforeAll(() => {
@@ -409,6 +409,7 @@ describe('Posts - /posts (e2e)', () => {
   });
 
   describe('DELETE /posts/:id', () => {
+    let post: Post;
     beforeAll(async () => {
       if (!accessTokens || accessTokens.length === 0) {
         throw new Error('Access tokens are not initialized');
@@ -418,8 +419,8 @@ describe('Posts - /posts (e2e)', () => {
       }
     });
 
-    it('should delete a post by the owner (성공)', async () => {
-      const post = await postRepository.save(
+    beforeEach(async () => {
+      post = await postRepository.save(
         createPost({
           title: 'Test Post',
           content: 'This is a test post',
@@ -428,6 +429,28 @@ describe('Posts - /posts (e2e)', () => {
         }),
       );
 
+      expect(post).toBeDefined();
+      expect(post.id).toBeGreaterThan(0);
+      expect(post.title).toBe('Test Post');
+    });
+
+    afterEach(async () => {
+      const deletePost = await postRepository.findOne({
+        where: { id: post.id },
+        withDeleted: true,
+      });
+
+      if (deletePost) {
+        await postRepository
+          .createQueryBuilder()
+          .delete()
+          .from(Post)
+          .where('id = :id', { id: deletePost.id })
+          .execute();
+      }
+    });
+
+    it('should delete a post by the owner (성공)', async () => {
       const deleteResult = await request(app.getHttpServer())
         .delete(`/posts/${post.id}`)
         .set('Authorization', `Bearer ${accessTokens[0]}`)
@@ -451,33 +474,15 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     it('should return 401 if not authenticated (실패)', async () => {
-      const post = await postRepository.save(
-        createPost({
-          title: 'Test Post',
-          content: 'This is a test post',
-          createdBy: users[1],
-          board: userBoard,
-        }),
-      );
-
       await request(app.getHttpServer())
         .delete(`/posts/${post.id}`)
         .expect(401);
     });
 
     it('should return 401 if user is not the owner or admin (실패)', async () => {
-      const post = await postRepository.save(
-        createPost({
-          title: 'Test Post',
-          content: 'This is a test post',
-          createdBy: users[1],
-          board: userBoard,
-        }),
-      );
-
       await request(app.getHttpServer())
         .delete(`/posts/${post.id}`)
-        .set('Authorization', `Bearer ${accessTokens[0]}`)
+        .set('Authorization', `Bearer ${accessTokens[1]}`)
         .expect(401);
     });
 
@@ -488,8 +493,48 @@ describe('Posts - /posts (e2e)', () => {
         .expect(404);
     });
 
-    afterEach(async () => {
-      await truncatePostsTable(dataSource);
+    it('댓글이 달려있는 post 삭제 시 댓글 도 softdelete 처리 되어야 함', async () => {
+      const comment = await commentRepository.save({
+        content: 'Test comment',
+        post: post,
+        createdBy: users[0],
+      });
+
+      const existingComment = await commentRepository.findOne({
+        where: { id: comment.id },
+      });
+      expect(existingComment).not.toBeNull();
+      expect(existingComment.deletedAt).toBeNull();
+      expect(existingComment.content).toBe('Test comment');
+
+      const deleteResponse = await request(app.getHttpServer())
+        .delete(`/posts/${post.id}`)
+        .set('Authorization', `Bearer ${accessTokens[0]}`)
+        .expect(200);
+
+      expect(deleteResponse.body).toEqual({
+        message: 'Post deleted successfully.',
+      });
+
+      const softDeletedPost = await postRepository.findOne({
+        where: { id: post.id },
+        withDeleted: true,
+      });
+      expect(softDeletedPost).not.toBeNull();
+      expect(softDeletedPost.deletedAt).not.toBeNull();
+
+      const softDeletedComment = await commentRepository.findOne({
+        where: { id: comment.id },
+        withDeleted: true,
+      });
+      expect(softDeletedComment).not.toBeNull();
+      expect(softDeletedComment.deletedAt).not.toBeNull();
+      expect(softDeletedComment.content).toBe('Test comment');
+
+      const normalComment = await commentRepository.findOne({
+        where: { id: comment.id },
+      });
+      expect(normalComment).toBeNull();
     });
   });
 
@@ -532,8 +577,8 @@ describe('Posts - /posts (e2e)', () => {
 
   describe('GET /posts/board/:boardId', () => {
     let user: User;
-    const totalPosts = 15; // 테스트용 게시글 수
-    const defaultLimit = 10; // 컨트롤러/서비스 기본값
+    const totalPosts = 15;
+    const defaultLimit = 10;
 
     beforeAll(() => {
       if (!users || users.length === 0) {
@@ -543,7 +588,6 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     beforeEach(async () => {
-      // 테스트 전에 해당 보드에 여러 게시글 생성
       const postsToCreate = Array.from({ length: totalPosts }, (_, i) =>
         createPost({
           title: `Test Post ${i + 1}`,
@@ -569,10 +613,9 @@ describe('Posts - /posts (e2e)', () => {
         totalPages: Math.ceil(totalPosts / defaultLimit),
       });
 
-      // 기본 limit (10) 확인
       expect(response.body.data).toHaveLength(defaultLimit);
-      // 게시글 내용 확인
-      expect(response.body.data[0].title).toBe('Test Post 1'); // 최신순 (기본 정렬)
+
+      expect(response.body.data[0].title).toBe('Test Post 1');
       expect(response.body.data[0].board.id).toBe(userBoard.id);
       expect(response.body.data[0].nickname).toBe(user.nickname);
     });
@@ -594,13 +637,13 @@ describe('Posts - /posts (e2e)', () => {
       });
 
       expect(response.body.data).toHaveLength(limit);
-      // 두 번째 페이지의 첫 번째 게시글은 6번째 게시글이어야 함 (1-based index)
+
       expect(response.body.data[0].title).toBe('Test Post 6');
     });
 
     it('should return correct pagination info for last page', async () => {
-      const page = Math.ceil(totalPosts / defaultLimit); // 마지막 페이지
-      const expectedItemsOnLastPage = totalPosts % defaultLimit || defaultLimit; // 마지막 페이지 아이템 수
+      const page = Math.ceil(totalPosts / defaultLimit);
+      const expectedItemsOnLastPage = totalPosts % defaultLimit || defaultLimit;
 
       const response = await request(app.getHttpServer())
         .get(`/posts/board/${userBoard.id}`)
@@ -611,19 +654,19 @@ describe('Posts - /posts (e2e)', () => {
         data: expect.any(Array),
         currentPage: page,
         totalItems: totalPosts,
-        totalPages: page, // totalPages는 마지막 페이지 번호와 같음
+        totalPages: page,
       });
 
       expect(response.body.data).toHaveLength(expectedItemsOnLastPage);
     });
 
     it('should return empty data array if page is out of range', async () => {
-      const page = Math.ceil(totalPosts / defaultLimit) + 1; // 범위를 벗어난 페이지
+      const page = Math.ceil(totalPosts / defaultLimit) + 1;
 
       const response = await request(app.getHttpServer())
         .get(`/posts/board/${userBoard.id}`)
         .query({ page })
-        .expect(200); // 404 대신 200 OK, 빈 데이터 배열 반환
+        .expect(200);
 
       expect(response.body).toEqual({
         data: [],
@@ -641,7 +684,7 @@ describe('Posts - /posts (e2e)', () => {
       const dates = response.body.data.map((post: any) =>
         new Date(post.createdAt).getTime(),
       );
-      const sortedDates = [...dates].sort((a, b) => b - a); // 내림차순 정렬
+      const sortedDates = [...dates].sort((a, b) => b - a);
       expect(dates).toEqual(sortedDates);
     });
 
@@ -652,16 +695,15 @@ describe('Posts - /posts (e2e)', () => {
         .expect(200);
 
       const dates = response.body.data.map((post: any) => post.createdAt);
-      const sortedDates = [...dates].sort((a, b) => a - b); // 오름차순 정렬
+      const sortedDates = [...dates].sort((a, b) => a - b);
       expect(dates).toEqual(sortedDates);
     });
 
     it('should return empty paginated result if board has no posts', async () => {
-      // 다른 보드 (게시글 없는)를 사용하거나, 기존 게시글을 모두 삭제한 후 테스트
-      await truncatePostsTable(dataSource); // 현재 테스트 전에 게시글 삭제
+      await truncatePostsTable(dataSource);
 
       const response = await request(app.getHttpServer())
-        .get(`/posts/board/${userBoard.id}`) // 게시글이 없는 보드
+        .get(`/posts/board/${userBoard.id}`)
         .expect(200);
 
       expect(response.body).toEqual({

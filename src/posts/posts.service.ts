@@ -1,4 +1,6 @@
 import {
+  forwardRef,
+  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -19,12 +21,16 @@ import { CreateScrapedVideoDto } from '@/video-harvester/dto/create-scraped-vide
 import { BoardPurpose } from '@/boards/entities/board.entity';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
+import { CommentsService } from '@/comments/comments.service';
+import { Transactional } from 'typeorm-transactional';
 
 @Injectable()
 export class PostsService {
   constructor(
     @InjectRepository(Post)
     private readonly postRepository: Repository<Post>,
+    @Inject(forwardRef(() => CommentsService))
+    private readonly commentsService: CommentsService,
     private readonly boardsService: BoardsService,
     private readonly categoriesService: CategoriesService,
   ) {}
@@ -153,6 +159,7 @@ export class PostsService {
   }
 
   // 게시글 삭제
+  @Transactional()
   async delete(id: number, user: User): Promise<void> {
     const post = await this.findById(id);
 
@@ -165,6 +172,8 @@ export class PostsService {
     if (post.createdBy.id !== user.id && user.role !== UserRole.ADMIN) {
       throw new UnauthorizedException('삭제 권한이 없습니다');
     }
+
+    await this.commentsService.softDeletePostComments(id);
 
     const result = await this.postRepository.softDelete(id);
     if (result.affected !== 1) {

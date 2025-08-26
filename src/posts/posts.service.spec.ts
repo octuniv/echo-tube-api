@@ -25,6 +25,11 @@ import { BoardPurpose } from '@/boards/entities/board.entity';
 import { CreateScrapedVideoDto } from '@/video-harvester/dto/create-scraped-video.dto';
 import { VideoFactory } from '@/video-harvester/factory/video.factory';
 import { PaginationDto } from '@/common/dto/pagination.dto';
+import { CommentsService } from '@/comments/comments.service';
+
+jest.mock('typeorm-transactional', () => ({
+  Transactional: () => () => ({}),
+}));
 
 const mockQueryBuilder = {
   update: jest.fn().mockReturnThis(),
@@ -38,6 +43,7 @@ describe('PostsService', () => {
   let postRepository: Repository<Post>;
   let boardsService: BoardsService;
   let categoriesService: CategoriesService;
+  let commentsService: CommentsService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -55,6 +61,10 @@ describe('PostsService', () => {
           provide: CategoriesService,
           useValue: createMock<CategoriesService>(),
         },
+        {
+          provide: CommentsService,
+          useValue: { softDeletePostComments: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -62,6 +72,7 @@ describe('PostsService', () => {
     postRepository = module.get<Repository<Post>>(getRepositoryToken(Post));
     boardsService = module.get<BoardsService>(BoardsService);
     categoriesService = module.get<CategoriesService>(CategoriesService);
+    commentsService = module.get<CommentsService>(CommentsService);
   });
 
   it('should be defined', () => {
@@ -290,7 +301,7 @@ describe('PostsService', () => {
       jest.spyOn(service, 'findById').mockResolvedValue(post);
       const user = createUserEntity({ id: 1, role: UserRole.USER });
 
-      await expect(service.delete(1, user)).rejects.toThrow(
+      await expect(service.delete(post.id, user)).rejects.toThrow(
         UnauthorizedException,
       );
     });
@@ -303,7 +314,7 @@ describe('PostsService', () => {
       });
       postRepository.findOne = jest.fn().mockResolvedValue(post);
 
-      await expect(service.delete(1, user)).rejects.toThrow(
+      await expect(service.delete(post.id, user)).rejects.toThrow(
         UnauthorizedException,
       );
     });
@@ -321,7 +332,7 @@ describe('PostsService', () => {
         generatedMaps: [],
       } satisfies UpdateResult);
 
-      await expect(service.delete(1, user)).rejects.toThrow(
+      await expect(service.delete(post.id, user)).rejects.toThrow(
         InternalServerErrorException,
       );
     });
@@ -340,7 +351,10 @@ describe('PostsService', () => {
       } satisfies UpdateResult);
       const adminUser = createUserEntity({ id: 1, role: UserRole.ADMIN });
 
-      await service.delete(1, adminUser);
+      await service.delete(post.id, adminUser);
+      expect(commentsService.softDeletePostComments).toHaveBeenCalledWith(
+        post.id,
+      );
       expect(postRepository.softDelete).toHaveBeenCalled();
     });
 
@@ -357,7 +371,10 @@ describe('PostsService', () => {
         generatedMaps: [],
       } satisfies UpdateResult);
 
-      await expect(service.delete(1, user)).resolves.toBeUndefined();
+      await expect(service.delete(post.id, user)).resolves.toBeUndefined();
+      expect(commentsService.softDeletePostComments).toHaveBeenCalledWith(
+        post.id,
+      );
       expect(postRepository.softDelete).toHaveBeenCalledWith(1);
     });
   });

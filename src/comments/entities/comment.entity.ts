@@ -2,7 +2,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import { User } from '@/users/entities/user.entity';
 import { Post } from '@/posts/entities/post.entity';
 import {
-  AfterLoad,
   Column,
   CreateDateColumn,
   DeleteDateColumn,
@@ -73,15 +72,6 @@ export class Comment {
     cascade: true,
   })
   children: Comment[];
-
-  // 작성자 닉네임을 직접 저장하여 soft delete 문제 해결
-  @Column({ select: false, nullable: true })
-  private _nickname?: string;
-
-  @AfterLoad()
-  setNickname() {
-    this._nickname = this.createdBy?.nickname ?? null;
-  }
 
   @Expose()
   @ApiProperty({ description: '작성자 닉네임', required: false })

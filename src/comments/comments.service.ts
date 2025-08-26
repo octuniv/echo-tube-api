@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -30,6 +32,7 @@ export class CommentsService {
     private commentRepository: Repository<Comment>,
     @InjectRepository(CommentLike)
     private commentLikeRepository: Repository<CommentLike>,
+    @Inject(forwardRef(() => PostsService))
     private postsService: PostsService,
   ) {}
 
@@ -290,5 +293,14 @@ export class CommentsService {
     });
 
     return { likes: comment.likes, isAdded: true };
+  }
+
+  async softDeletePostComments(postId: number) {
+    await this.commentRepository
+      .createQueryBuilder()
+      .update(Comment)
+      .set({ deletedAt: () => 'CURRENT_TIMESTAMP' })
+      .where('post_id = :postId', { postId })
+      .execute();
   }
 }

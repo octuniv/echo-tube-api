@@ -22,7 +22,7 @@ describe('DashboardService', () => {
           useValue: {
             findPopularPosts: jest.fn(),
             findRecentPosts: jest.fn(),
-            findPostsByBoardSlug: jest.fn(),
+            findRecentPostsByBoardSlug: jest.fn(),
           },
         },
         {
@@ -89,7 +89,7 @@ describe('DashboardService', () => {
       .spyOn(postsService, 'findRecentPosts')
       .mockResolvedValue(mockRecentPosts.map(PostResponseDto.fromEntity));
     jest
-      .spyOn(postsService, 'findPostsByBoardSlug')
+      .spyOn(postsService, 'findRecentPostsByBoardSlug')
       .mockResolvedValue(mockNoticesPosts.map(PostResponseDto.fromEntity));
     jest
       .spyOn(visitorsService, 'getTodayVisitors')

@@ -50,8 +50,8 @@ export class PostsService {
 
     return (
       post.views * 1.5 +
-      // (post.comments.length * 2 || 0) +
-      // (post.likes?.length * 3 || 0) +
+      post.commentsCount * 2 +
+      post.likesCount * 3 +
       (1 / Math.pow(ageInHours + 2, 1.5)) * 100 // 시간 감소 보정
     );
   }
@@ -260,16 +260,23 @@ export class PostsService {
   }
 
   // 보드별 게시물 조회 (slug)
-  async findPostsByBoardSlug(slug: string): Promise<PostResponseDto[]> {
-    const posts = await this.postRepository.find({
-      where: { board: { categorySlug: { slug } } },
-      relations: {
-        createdBy: true,
-        board: {
-          categorySlug: true,
-        },
-      },
-    });
+  async findRecentPostsByBoardSlug(
+    slug: string,
+    limit?: number,
+  ): Promise<PostResponseDto[]> {
+    const query = this.postRepository
+      .createQueryBuilder('post')
+      .leftJoinAndSelect('post.createdBy', 'createdBy')
+      .leftJoinAndSelect('post.board', 'board')
+      .leftJoinAndSelect('board.categorySlug', 'categorySlug')
+      .where('categorySlug.slug = :slug', { slug })
+      .orderBy('post.createdAt', 'DESC'); // 최신 순 정렬 추가
+
+    if (limit) {
+      query.take(limit);
+    }
+
+    const posts = await query.getMany();
     return posts.map(PostResponseDto.fromEntity);
   }
 
@@ -301,15 +308,12 @@ export class PostsService {
   @Cron(CronExpression.EVERY_30_MINUTES)
   async updateHotScores() {
     const posts = await this.postRepository.find();
-    for (const post of posts) {
+    const updatePromises = posts.map(async (post) => {
       post.hotScore = this.calculateHotScore(post);
-      try {
-        await this.postRepository.save(post);
-      } catch (error) {
-        console.error(`Failed to update post ${post.id}:`, error);
-        throw new InternalServerErrorException();
-      }
-    }
+      return this.postRepository.save(post);
+    });
+
+    await Promise.all(updatePromises);
   }
 
   async createScrapedPost(

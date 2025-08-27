@@ -20,7 +20,7 @@ export class DashboardService {
           this.postsService.findPopularPosts([NOTICE_BOARD_SLUG]), // 공지사항 제외
           this.postsService.findRecentPosts([], 10, [NOTICE_BOARD_SLUG]), // 공지사항 제외
           this.visitorsService.getTodayVisitors(),
-          this.postsService.findPostsByBoardSlug('notices'),
+          this.postsService.findRecentPostsByBoardSlug('notices', 5),
         ]);
 
       return DashboardSummaryDto.fromData(

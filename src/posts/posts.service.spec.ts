@@ -531,57 +531,34 @@ describe('PostsService', () => {
     });
   });
 
-  describe('findPostsByBoardSlug', () => {
-    it('should return all posts in the specified board', async () => {
-      const board = createBoard({
-        categorySlug: createCategorySlug({ slug: 'notices' }),
-      });
-      const mockPosts = [
-        createPost({ id: 1, title: 'Post 1', board: board }),
-        createPost({ id: 2, title: 'Post 2', board: board }),
-      ] satisfies Post[];
-
-      postRepository.find = jest.fn().mockResolvedValue(mockPosts);
-
-      const result = await service.findPostsByBoardSlug(
-        board.categorySlug.slug,
-      );
-
-      expect(postRepository.find).toHaveBeenCalledWith({
-        where: { board: { categorySlug: { slug: board.categorySlug.slug } } },
-        relations: {
-          createdBy: true,
-          board: {
-            categorySlug: true,
-          },
-        },
-      });
-      expect(result).toEqual(mockPosts.map(PostResponseDto.fromEntity));
-    });
-
-    it('should return empty array when board has no posts', async () => {
-      postRepository.find = jest.fn().mockResolvedValue([]);
-      const result = await service.findPostsByBoardSlug('non-existed');
-      expect(result).toEqual([]);
-    });
-  });
-
   describe('updateHotScores', () => {
-    it('should update hot scores for all posts based on the formula', async () => {
+    it('should update hot scores correctly with all metrics (views, comments, likes)', async () => {
       const mockDate = new Date('2023-10-01T00:00:00Z').getTime();
       jest.spyOn(Date, 'now').mockReturnValue(mockDate);
 
       const posts = [
         createPost({
           id: 1,
-          createdAt: new Date('2023-09-30T00:00:00Z'),
-          views: 10,
+          createdAt: new Date('2023-09-30T00:00:00Z'), // 1일 전
+          views: 100,
+          commentsCount: 10,
+          likesCount: 20,
           hotScore: 0,
         }),
         createPost({
           id: 2,
-          createdAt: new Date('2023-09-29T00:00:00Z'),
-          views: 5,
+          createdAt: new Date('2023-09-29T00:00:00Z'), // 2일 전
+          views: 200,
+          commentsCount: 5,
+          likesCount: 30,
+          hotScore: 0,
+        }),
+        createPost({
+          id: 3,
+          createdAt: new Date('2023-10-01T00:00:00Z'), // 오늘
+          views: 50,
+          commentsCount: 15,
+          likesCount: 10,
           hotScore: 0,
         }),
       ];
@@ -591,48 +568,95 @@ describe('PostsService', () => {
 
       await service.updateHotScores();
 
-      expect(postRepository.find).toHaveBeenCalled();
+      // 1. 첫 번째 게시물 (1일 전, 100 views, 10 comments, 20 likes)
+      const age1 = mockDate - new Date('2023-09-30T00:00:00Z').getTime();
+      const ageInHours1 = age1 / (1000 * 60 * 60);
+      const expectedScore1 =
+        100 * 1.5 +
+        10 * 2 +
+        20 * 3 +
+        (1 / Math.pow(ageInHours1 + 2, 1.5)) * 100;
+      expect(posts[0].hotScore).toBeCloseTo(expectedScore1, 5);
 
-      posts.forEach((post) => {
-        const age = mockDate - post.createdAt.getTime();
-        const ageInHours = age / (1000 * 60 * 60);
-        const expectedHotScore =
-          post.views * 1.5 + (1 / Math.pow(ageInHours + 2, 1.5)) * 100;
-        expect(post.hotScore).toBeCloseTo(expectedHotScore, 5);
-      });
+      // 2. 두 번째 게시물 (2일 전, 200 views, 5 comments, 30 likes)
+      const age2 = mockDate - new Date('2023-09-29T00:00:00Z').getTime();
+      const ageInHours2 = age2 / (1000 * 60 * 60);
+      const expectedScore2 =
+        200 * 1.5 + 5 * 2 + 30 * 3 + (1 / Math.pow(ageInHours2 + 2, 1.5)) * 100;
+      expect(posts[1].hotScore).toBeCloseTo(expectedScore2, 5);
 
+      // 3. 세 번째 게시물 (오늘, 50 views, 15 comments, 10 likes)
+      const age3 = mockDate - new Date('2023-10-01T00:00:00Z').getTime();
+      const ageInHours3 = age3 / (1000 * 60 * 60);
+      const expectedScore3 =
+        50 * 1.5 + 15 * 2 + 10 * 3 + (1 / Math.pow(ageInHours3 + 2, 1.5)) * 100;
+      expect(posts[2].hotScore).toBeCloseTo(expectedScore3, 5);
+
+      // 4. 정렬 순서 검증 (수동 계산)
+      expect(posts[1].hotScore).toBeGreaterThan(posts[0].hotScore); // 2번이 1번보다 높아야 함
+      expect(posts[2].hotScore).toBeLessThan(posts[0].hotScore); // 3번이 1번보다 낮아야 함
+
+      // 5. 저장 호출 검증
       expect(postRepository.save).toHaveBeenCalledTimes(posts.length);
       posts.forEach((post, index) => {
         expect(postRepository.save).toHaveBeenNthCalledWith(index + 1, post);
       });
     });
 
-    it('should handle empty posts array', async () => {
-      postRepository.find = jest.fn().mockResolvedValue([]);
+    it('should handle zero values correctly', async () => {
+      const mockDate = new Date('2023-10-01T00:00:00Z').getTime();
+      jest.spyOn(Date, 'now').mockReturnValue(mockDate);
+
+      const posts = [
+        createPost({
+          id: 1,
+          createdAt: new Date('2023-10-01T00:00:00Z'),
+          views: 0,
+          commentsCount: 0,
+          likesCount: 0,
+          hotScore: 0,
+        }),
+      ];
+
+      postRepository.find = jest.fn().mockResolvedValue(posts);
+      postRepository.save = jest.fn().mockImplementation((post) => post);
+
       await service.updateHotScores();
-      expect(postRepository.save).not.toHaveBeenCalled();
+
+      // 시간 가중치만으로도 0보다 커야 함
+      expect(posts[0].hotScore).toBeGreaterThan(0);
+      expect(posts[0].hotScore).toBeCloseTo((1 / Math.pow(2, 1.5)) * 100, 5);
     });
 
-    it('should throw InternalServerErrorException on save failure', async () => {
-      const posts = [createPost({ id: 1 })];
-      postRepository.find = jest.fn().mockResolvedValue(posts);
-      postRepository.save = jest
-        .fn()
-        .mockRejectedValue(new Error('Database error'));
+    it('should rank newer posts higher with same metrics', async () => {
+      const mockDate = new Date('2023-10-01T00:00:00Z').getTime();
+      jest.spyOn(Date, 'now').mockReturnValue(mockDate);
 
-      const consoleErrorSpy = jest
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      const oldPost = createPost({
+        id: 1,
+        createdAt: new Date('2023-09-28T00:00:00Z'), // 3일 전
+        views: 100,
+        commentsCount: 10,
+        likesCount: 20,
+        hotScore: 0,
+      });
 
-      await expect(service.updateHotScores()).rejects.toThrow(
-        InternalServerErrorException,
-      );
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to update post 1:',
-        expect.any(Error),
-      );
+      const newPost = createPost({
+        id: 2,
+        createdAt: new Date('2023-09-30T00:00:00Z'), // 1일 전
+        views: 100,
+        commentsCount: 10,
+        likesCount: 20,
+        hotScore: 0,
+      });
 
-      consoleErrorSpy.mockRestore();
+      postRepository.find = jest.fn().mockResolvedValue([oldPost, newPost]);
+      postRepository.save = jest.fn().mockImplementation((post) => post);
+
+      await service.updateHotScores();
+
+      // 동일한 메트릭을 가진 경우, 더 최근 게시물이 더 높은 점수를 가져야 함
+      expect(newPost.hotScore).toBeGreaterThan(oldPost.hotScore);
     });
   });
 

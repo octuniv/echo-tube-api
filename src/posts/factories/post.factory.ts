@@ -12,8 +12,8 @@ export const createPost = (options: Partial<Post> = {}): Post => {
   post.videoUrl = faker.datatype.boolean(0.3)
     ? faker.internet.url()
     : undefined;
-  post.views = faker.number.int({ min: 0, max: 1000 });
-  post.commentsCount = faker.number.int({ min: 0, max: 500 });
+  post.views = options.views ?? 0;
+  post.commentsCount = options.commentsCount ?? 0;
   post.createdBy = options.createdBy ?? createUserEntity();
   post.createdAt = faker.date.past();
   post.updatedAt = faker.date.recent();

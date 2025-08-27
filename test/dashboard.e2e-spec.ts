@@ -20,9 +20,8 @@ import {
   truncateAllTables,
   truncatePostsTable,
 } from './utils/test.util';
-import { plainToInstance } from 'class-transformer';
-import { DashboardSummaryDto } from '@/dashboard/dto/dashboard.summary.dto';
-import { validate } from 'class-validator';
+import { PostsService } from '@/posts/posts.service';
+import { PostResponseDto } from '@/posts/dto/post-response.dto';
 
 const userInfo = createUserDto();
 
@@ -33,6 +32,7 @@ describe('DashboardController (e2e)', () => {
   let user: User;
   let userRepository: Repository<User>;
   let postRepository: Repository<Post>;
+  let postsService: PostsService;
   let visitorRepository: Repository<Visitor>;
   let visitorEntryRepository: Repository<VisitorEntry>;
   let boardsService: BoardsService;
@@ -48,6 +48,7 @@ describe('DashboardController (e2e)', () => {
     visitorEntryRepository = module.get<Repository<VisitorEntry>>(
       getRepositoryToken(VisitorEntry),
     );
+    postsService = module.get<PostsService>(PostsService);
     boardsService = module.get<BoardsService>(BoardsService);
   }, 15000);
 
@@ -66,49 +67,14 @@ describe('DashboardController (e2e)', () => {
     await truncatePostsTable(dataSource);
   });
 
-  it('/dashboard/summary (GET) should return dashboard summary', async () => {
+  it('/dashboard/summary (GET) should return dashboard summary with correct recent and popular posts', async () => {
     const boards = await boardsService.findAll();
     const testBoard = boards.find(
       (board) => board.categorySlug.slug === 'free',
     );
-
-    const recentPosts = [
-      createPost({
-        title: 'Recent Post 1',
-        content: 'Content 1',
-        hotScore: 1,
-        createdAt: new Date('2023-10-01'),
-        board: testBoard,
-        createdBy: user,
-      }),
-      createPost({
-        title: 'Recent Post 2',
-        content: 'Content 2',
-        hotScore: 2,
-        createdAt: new Date('2023-10-02'), // Newer date
-        board: testBoard,
-        createdBy: user,
-      }),
-    ];
-    await postRepository.save(recentPosts);
-
-    const popularPosts = [
-      createPost({
-        title: 'Hot Post 1',
-        content: 'Content 1',
-        hotScore: 95,
-        board: testBoard,
-        createdBy: user,
-      }),
-      createPost({
-        title: 'Hot Post 2',
-        content: 'Content 2',
-        hotScore: 85,
-        board: testBoard,
-        createdBy: user,
-      }),
-    ];
-    await postRepository.save(popularPosts);
+    const noticeBoard = boards.find(
+      (board) => board.categorySlug.slug === 'notices',
+    );
 
     const today = new Date().toISOString().split('T')[0];
     const visitor = createVisitor({ date: today });
@@ -117,67 +83,118 @@ describe('DashboardController (e2e)', () => {
     const visitorEntry = createVisitorEntry({ date: today });
     await visitorEntryRepository.save(visitorEntry);
 
+    const notices = [
+      createPost({
+        title: 'Notice 1',
+        content: 'Notice Content 1',
+        board: noticeBoard,
+        createdBy: user,
+        createdAt: new Date('2023-10-01'),
+      }),
+      createPost({
+        title: 'Notice 2',
+        content: 'Notice Content 2',
+        board: noticeBoard,
+        createdBy: user,
+        createdAt: new Date('2023-10-02'),
+      }),
+    ];
+    await postRepository.save(notices);
+
+    const postA = createPost({
+      title: 'Popular Post A',
+      content: 'Content A',
+      views: 100,
+      commentsCount: 10,
+      likesCount: 20,
+      createdAt: new Date('2023-09-30T00:00:00Z'),
+      board: testBoard,
+      createdBy: user,
+    });
+
+    const postB = createPost({
+      title: 'Popular Post B',
+      content: 'Content B',
+      views: 200,
+      commentsCount: 5,
+      likesCount: 30,
+      createdAt: new Date('2023-10-01T00:00:00Z'),
+      board: testBoard,
+      createdBy: user,
+    });
+
+    const recentPost1 = createPost({
+      title: 'Recent Post 1',
+      content: 'Content 1',
+      createdAt: new Date('2023-10-01T10:00:00Z'),
+      board: testBoard,
+      createdBy: user,
+    });
+
+    const recentPost2 = createPost({
+      title: 'Recent Post 2',
+      content: 'Content 2',
+      createdAt: new Date('2023-10-02T08:00:00Z'),
+      board: testBoard,
+      createdBy: user,
+    });
+
+    await postRepository.save([postA, postB, recentPost1, recentPost2]);
+
+    await postsService.updateHotScores();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     const response = await request(app.getHttpServer())
       .get('/dashboard/summary')
       .expect(200);
 
-    expect(response.body).toEqual({
-      visitors: visitor.count,
-      recentPosts: expect.arrayContaining([
-        expect.objectContaining({
-          title: 'Hot Post 1', // Higher hotScore
-          board: expect.objectContaining({ name: testBoard.name }),
-        }),
-        expect.objectContaining({
-          title: 'Hot Post 2',
-          board: expect.objectContaining({ name: testBoard.name }),
-        }),
-        expect.objectContaining({
-          title: 'Recent Post 2', // Should appear first (newer)
-          board: expect.objectContaining({ name: testBoard.name }),
-        }),
-        expect.objectContaining({
-          title: 'Recent Post 1',
-          board: expect.objectContaining({ name: testBoard.name }),
-        }),
-      ]),
-      popularPosts: expect.arrayContaining([
-        expect.objectContaining({
-          title: 'Hot Post 1', // Higher hotScore
-          hotScore: 95,
-          board: expect.objectContaining({ name: testBoard.name }),
-        }),
-        expect.objectContaining({
-          title: 'Hot Post 2',
-          hotScore: 85,
-          board: expect.objectContaining({ name: testBoard.name }),
-        }),
-        expect.objectContaining({
-          title: 'Recent Post 2', // Should appear first (newer)
-          board: expect.objectContaining({ name: testBoard.name }),
-        }),
-        expect.objectContaining({
-          title: 'Recent Post 1',
-          board: expect.objectContaining({ name: testBoard.name }),
-        }),
-      ]),
-      noticesPosts: [],
-    });
+    expect(response.body.visitors).toBe(visitor.count);
 
-    const dashboardDto = plainToInstance(DashboardSummaryDto, response.body);
+    expect(response.body.noticesPosts).toHaveLength(2);
+    expect(response.body.noticesPosts[0].title).toBe('Notice 2');
+    expect(response.body.noticesPosts[1].title).toBe('Notice 1');
 
-    const errors = await validate(dashboardDto, {
-      forbidUnknownValues: true, // 알 수 없는 필드 금지
-      whitelist: true, // 허용되지 않은 필드 제거
-      validationError: { target: false }, // 오류 메시지 간결화
-    });
+    expect(response.body.recentPosts).toHaveLength(4);
+    expect(response.body.recentPosts[0].title).toBe('Recent Post 2');
+    expect(response.body.recentPosts[1].title).toBe('Recent Post 1');
+    expect(response.body.recentPosts[2].title).toBe('Popular Post B');
+    expect(response.body.recentPosts[3].title).toBe('Popular Post A');
 
-    if (errors.length > 0) {
-      console.error('Validation Errors:', errors);
-      throw new Error('DTO 검증 실패');
-    }
+    expect(response.body.popularPosts).toHaveLength(4);
+    expect(response.body.popularPosts[0].title).toBe('Popular Post B');
+    expect(response.body.popularPosts[1].title).toBe('Popular Post A');
 
-    expect(dashboardDto.recentPosts[0].nickname).toBeDefined();
-    expect(dashboardDto.popularPosts[0].hotScore).toBeGreaterThan(0);
+    const HOUR = 1000 * 60 * 60;
+    const now = Date.now();
+
+    const ageB = now - new Date('2023-10-01T00:00:00Z').getTime();
+    const ageInHoursB = ageB / HOUR;
+    const expectedScoreB =
+      200 * 1.5 + 5 * 2 + 30 * 3 + (1 / Math.pow(ageInHoursB + 2, 1.5)) * 100;
+
+    const ageA = now - new Date('2023-09-30T00:00:00Z').getTime();
+    const ageInHoursA = ageA / HOUR;
+    const expectedScoreA =
+      100 * 1.5 + 10 * 2 + 20 * 3 + (1 / Math.pow(ageInHoursA + 2, 1.5)) * 100;
+
+    expect(response.body.popularPosts[0].hotScore).toBeCloseTo(
+      expectedScoreB,
+      2,
+    );
+    expect(response.body.popularPosts[1].hotScore).toBeCloseTo(
+      expectedScoreA,
+      2,
+    );
+
+    const popularTitles = response.body.popularPosts.map(
+      (p: PostResponseDto) => p.title,
+    );
+    const recentTitles = response.body.recentPosts.map(
+      (p: PostResponseDto) => p.title,
+    );
+    expect(popularTitles).not.toContain('Notice 1');
+    expect(popularTitles).not.toContain('Notice 2');
+    expect(recentTitles).not.toContain('Notice 1');
+    expect(recentTitles).not.toContain('Notice 2');
   });
 });

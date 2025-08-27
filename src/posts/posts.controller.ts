@@ -10,6 +10,8 @@ import {
   Req,
   Query,
   ParseIntPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
@@ -27,6 +29,8 @@ import {
 import { PostResponseDto } from './dto/post-response.dto';
 import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
+import { LikeResponseDto } from './dto/like-response.dto';
+import { RequestWithUser } from '@/auth/types/request-with-user.dto';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -38,7 +42,10 @@ export class PostsController {
   @ApiOperation({ summary: 'Create new post' })
   @ApiResponse({ status: 201, type: PostResponseDto })
   @UseGuards(JwtAuthGuard)
-  async create(@Body() createPostDto: CreatePostDto, @Req() req: any) {
+  async create(
+    @Body() createPostDto: CreatePostDto,
+    @Req() req: RequestWithUser,
+  ) {
     return this.postsService.create(createPostDto, req.user);
   }
 
@@ -78,7 +85,7 @@ export class PostsController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePostDto: UpdatePostDto,
-    @Req() req: any,
+    @Req() req: RequestWithUser,
   ) {
     return this.postsService.update(id, updatePostDto, req.user);
   }
@@ -88,7 +95,10 @@ export class PostsController {
   @ApiOperation({ summary: 'Delete post' })
   @ApiResponse({ status: 200, type: DeletePostResultDto })
   @UseGuards(JwtAuthGuard)
-  async delete(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+  async delete(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: RequestWithUser,
+  ) {
     await this.postsService.delete(id, req.user);
     return { message: 'Post deleted successfully.' };
   }
@@ -119,5 +129,22 @@ export class PostsController {
     @Query() paginationDto: PaginationDto,
   ): Promise<PaginatedResponseDto<PostResponseDto>> {
     return this.postsService.findPostsByBoardId(boardId, paginationDto);
+  }
+
+  @Post('like/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Like a post (once only)' })
+  @ApiResponse({ status: 200, type: LikeResponseDto })
+  @ApiResponse({
+    status: 404,
+    description: 'Post not found',
+  })
+  @UseGuards(JwtAuthGuard)
+  async likePost(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: RequestWithUser,
+  ): Promise<LikeResponseDto> {
+    return this.postsService.likePost(id, req.user);
   }
 }

@@ -4,7 +4,7 @@ import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { UserRole } from '@/users/entities/user-role.enum';
-import { UnauthorizedException } from '@nestjs/common';
+import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { DeletePostResultDto } from './dto/delete-result.dto';
 import { createMock } from '@golevelup/ts-jest';
 import { JwtAuthGuard } from '@/auth/jwt-auth.guard';
@@ -13,6 +13,7 @@ import { FindRecentPostsDto } from './dto/find-recent.dto';
 import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 import { PostResponseDto } from './dto/post-response.dto';
+import { createUserEntity } from '@/users/factory/user.factory';
 
 describe('PostsController', () => {
   let controller: PostsController;
@@ -206,6 +207,35 @@ describe('PostsController', () => {
         paginationDto,
       ); // 페이지네이션 DTO 전달 확인
       expect(result).toEqual(emptyPaginatedResult); // 빈 페이지네이션된 결과 비교
+    });
+  });
+
+  describe('likePost', () => {
+    it('should like a post successfully', async () => {
+      const postId = 1;
+      const req = { user: createUserEntity({ id: 1 }) } as any;
+      const mockResponse = {
+        postId: postId,
+        likesCount: 1,
+        isAdded: true,
+      };
+
+      service.likePost = jest.fn().mockResolvedValue(mockResponse);
+
+      expect(await controller.likePost(postId, req)).toEqual(mockResponse);
+      expect(service.likePost).toHaveBeenCalledWith(postId, req.user);
+    });
+
+    it('should throw NotFoundException when post not found', async () => {
+      const postId = 999;
+      const req = { user: createUserEntity({ id: 1 }) } as any;
+
+      service.likePost = jest.fn().mockRejectedValue(new NotFoundException());
+
+      await expect(controller.likePost(postId, req)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(service.likePost).toHaveBeenCalledWith(postId, req.user);
     });
   });
 });

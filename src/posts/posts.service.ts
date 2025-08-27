@@ -23,12 +23,16 @@ import { PaginationDto } from '@/common/dto/pagination.dto';
 import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
 import { CommentsService } from '@/comments/comments.service';
 import { Transactional } from 'typeorm-transactional';
+import { PostLike } from './entities/post-like.entity';
+import { LikeResponseDto } from './dto/like-response.dto';
 
 @Injectable()
 export class PostsService {
   constructor(
     @InjectRepository(Post)
     private readonly postRepository: Repository<Post>,
+    @InjectRepository(PostLike)
+    private readonly postLikeRepository: Repository<PostLike>,
     @Inject(forwardRef(() => CommentsService))
     private readonly commentsService: CommentsService,
     private readonly boardsService: BoardsService,
@@ -360,5 +364,63 @@ export class PostsService {
       .set({ commentsCount: () => `GREATEST(commentsCount - ${count}, 0)` }) // 음수 방지
       .where('id = :id', { id: postId })
       .execute();
+  }
+
+  @Transactional()
+  async likePost(postId: number, user: User): Promise<LikeResponseDto> {
+    const post = await this.postRepository.findOne({
+      where: { id: postId },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    // 이미 좋아요한지 확인
+    const existingLike = await this.postLikeRepository.findOne({
+      where: {
+        userId: user.id,
+        postId,
+      },
+    });
+
+    let isAdded = false;
+
+    if (existingLike) {
+      // 이미 좋아요한 경우 무시하고 현재 좋아요 수 반환
+      return {
+        postId: post.id,
+        likesCount: post.likesCount,
+        isAdded: false,
+      };
+    } else {
+      // 좋아요 추가
+      await this.postLikeRepository.save({
+        userId: user.id,
+        postId,
+      });
+
+      // likesCount 직접 증가
+      await this.postRepository
+        .createQueryBuilder()
+        .update(Post)
+        .set({ likesCount: () => 'likesCount + 1' })
+        .where('id = :id', { id: postId })
+        .execute();
+
+      isAdded = true;
+    }
+
+    // 최신 좋아요 수 조회
+    const updatedPost = await this.postRepository.findOne({
+      where: { id: postId },
+      select: ['likesCount'],
+    });
+
+    return {
+      postId: post.id,
+      likesCount: updatedPost.likesCount,
+      isAdded,
+    };
   }
 }

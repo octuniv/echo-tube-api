@@ -26,6 +26,7 @@ export const createPost = (options: Partial<Post> = {}): Post => {
   post.duration = null;
   post.source = null;
   post.comments = options.comments ?? [];
+  post.likesCount = options.likesCount ?? 0;
 
   post.setNickname();
 

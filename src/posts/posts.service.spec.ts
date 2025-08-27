@@ -26,6 +26,7 @@ import { CreateScrapedVideoDto } from '@/video-harvester/dto/create-scraped-vide
 import { VideoFactory } from '@/video-harvester/factory/video.factory';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 import { CommentsService } from '@/comments/comments.service';
+import { PostLike } from './entities/post-like.entity';
 
 jest.mock('typeorm-transactional', () => ({
   Transactional: () => () => ({}),
@@ -41,6 +42,7 @@ const mockQueryBuilder = {
 describe('PostsService', () => {
   let service: PostsService;
   let postRepository: Repository<Post>;
+  let postLikeRepository: Repository<PostLike>;
   let boardsService: BoardsService;
   let categoriesService: CategoriesService;
   let commentsService: CommentsService;
@@ -52,6 +54,10 @@ describe('PostsService', () => {
         {
           provide: getRepositoryToken(Post),
           useValue: createMock<Repository<Post>>(),
+        },
+        {
+          provide: getRepositoryToken(PostLike),
+          useValue: createMock<Repository<PostLike>>(),
         },
         {
           provide: BoardsService,
@@ -70,6 +76,9 @@ describe('PostsService', () => {
 
     service = module.get<PostsService>(PostsService);
     postRepository = module.get<Repository<Post>>(getRepositoryToken(Post));
+    postLikeRepository = module.get<Repository<PostLike>>(
+      getRepositoryToken(PostLike),
+    );
     boardsService = module.get<BoardsService>(BoardsService);
     categoriesService = module.get<CategoriesService>(CategoriesService);
     commentsService = module.get<CommentsService>(CommentsService);
@@ -876,6 +885,114 @@ describe('PostsService', () => {
         id: postId,
       });
       expect(mockQueryBuilder.execute).toHaveBeenCalled();
+    });
+  });
+
+  describe('likePost', () => {
+    it('should throw NotFoundException when post does not exist', async () => {
+      const postId = 999;
+      const user = createUserEntity({ id: 1 });
+
+      jest.spyOn(postRepository, 'findOne').mockResolvedValue(null);
+
+      await expect(service.likePost(postId, user)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(postRepository.findOne).toHaveBeenCalledWith({
+        where: { id: postId },
+      });
+      expect(postLikeRepository.findOne).not.toHaveBeenCalled();
+    });
+
+    it('should return existing like status when user already liked the post', async () => {
+      const postId = 1;
+      const user = createUserEntity({ id: 1 });
+      const post = createPost({ id: postId, likesCount: 5 });
+
+      jest.spyOn(postRepository, 'findOne').mockResolvedValue(post);
+      jest.spyOn(postLikeRepository, 'findOne').mockResolvedValue({
+        userId: user.id,
+        postId: postId,
+        createdAt: new Date(),
+      } as any);
+
+      const result = await service.likePost(postId, user);
+
+      expect(result).toEqual({
+        postId: postId,
+        likesCount: 5,
+        isAdded: false,
+      });
+      expect(postLikeRepository.findOne).toHaveBeenCalledWith({
+        where: {
+          userId: user.id,
+          postId: postId,
+        },
+      });
+      expect(postRepository.createQueryBuilder).not.toHaveBeenCalled();
+      expect(postLikeRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should add new like and increment likesCount when user not liked yet', async () => {
+      const postId = 1;
+      const user = createUserEntity({ id: 1 });
+      const post = createPost({ id: postId, likesCount: 5 });
+
+      jest
+        .spyOn(postRepository, 'findOne')
+        .mockResolvedValueOnce(post)
+        .mockResolvedValueOnce({
+          ...post,
+          likesCount: 6,
+        } as any);
+      jest.spyOn(postLikeRepository, 'findOne').mockResolvedValue(null);
+
+      const mockQueryBuilder = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue(undefined),
+      };
+      jest
+        .spyOn(postRepository, 'createQueryBuilder')
+        .mockReturnValue(mockQueryBuilder as any);
+
+      jest.spyOn(postLikeRepository, 'save').mockResolvedValue(undefined);
+
+      const result = await service.likePost(postId, user);
+
+      expect(result).toEqual({
+        postId: postId,
+        likesCount: 6,
+        isAdded: true,
+      });
+
+      expect(postLikeRepository.findOne).toHaveBeenCalledWith({
+        where: {
+          userId: user.id,
+          postId: postId,
+        },
+      });
+
+      expect(postLikeRepository.save).toHaveBeenCalledWith({
+        userId: user.id,
+        postId: postId,
+      });
+
+      expect(postRepository.createQueryBuilder).toHaveBeenCalled();
+      expect(mockQueryBuilder.update).toHaveBeenCalledWith(Post);
+      expect(mockQueryBuilder.set).toHaveBeenCalledWith({
+        likesCount: expect.any(Function),
+      });
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('id = :id', {
+        id: postId,
+      });
+      expect(mockQueryBuilder.execute).toHaveBeenCalled();
+
+      expect(postRepository.findOne).toHaveBeenCalledWith({
+        where: { id: postId },
+        select: ['likesCount'],
+      });
     });
   });
 });

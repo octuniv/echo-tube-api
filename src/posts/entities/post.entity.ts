@@ -46,6 +46,10 @@ export class Post {
   @Column({ default: 0 })
   commentsCount: number;
 
+  @ApiProperty({ description: 'Like count' })
+  @Column({ default: 0 })
+  likesCount: number;
+
   @ApiProperty({ description: 'Hot score algorithm result' })
   @Column({ type: 'float', default: 0 })
   hotScore: number;

@@ -19,6 +19,7 @@ import {
   truncatePostsTable,
 } from './utils/test.util';
 import { Comment } from '@/comments/entities/comment.entity';
+import { PostLike } from '@/posts/entities/post-like.entity';
 
 const userInfos = Array(2)
   .fill('')
@@ -29,6 +30,7 @@ describe('Posts - /posts (e2e)', () => {
   let module: TestingModule;
   let dataSource: DataSource;
   let postRepository: Repository<Post>;
+  let postLikeRepository: Repository<PostLike>;
   let userRepository: Repository<User>;
   let commentRepository: Repository<Comment>;
   let accessTokens: string[];
@@ -42,6 +44,9 @@ describe('Posts - /posts (e2e)', () => {
     ({ app, module, dataSource } = testApp);
 
     postRepository = module.get<Repository<Post>>(getRepositoryToken(Post));
+    postLikeRepository = module.get<Repository<PostLike>>(
+      getRepositoryToken(PostLike),
+    );
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
     commentRepository = module.get<Repository<Comment>>(
       getRepositoryToken(Comment),
@@ -294,6 +299,7 @@ describe('Posts - /posts (e2e)', () => {
           content: 'This is a test post',
           createdBy: user,
           board: userBoard,
+          likesCount: 1,
         }),
       );
 
@@ -310,6 +316,7 @@ describe('Posts - /posts (e2e)', () => {
         id: userBoard.id,
         slug: userBoard.categorySlug.slug,
       });
+      expect(response.body.likesCount).toBe(1);
     });
 
     it('should return 404 if post does not exist (실패)', async () => {
@@ -716,6 +723,150 @@ describe('Posts - /posts (e2e)', () => {
 
     afterEach(async () => {
       await truncatePostsTable(dataSource);
+    });
+  });
+
+  describe('POST like/:id', () => {
+    let user: User;
+    let accessToken: string;
+    let post: Post;
+
+    beforeEach(async () => {
+      if (!users || users.length === 0) {
+        throw new Error('Users are not initialized');
+      }
+      if (!accessTokens || accessTokens.length === 0) {
+        throw new Error('Access tokens are not initialized');
+      }
+
+      user = users[0];
+      accessToken = accessTokens[0];
+
+      post = await postRepository.save(
+        createPost({
+          title: 'Like Test Post',
+          content: 'This is a post for like testing',
+          createdBy: user,
+          board: userBoard,
+        }),
+      );
+      expect(post).toBeDefined();
+      expect(post.title).toBe('Like Test Post');
+    });
+
+    afterEach(async () => {
+      const result = await postRepository.delete(post.id);
+      expect(result.affected).toBe(1);
+      await postLikeRepository.clear();
+    });
+
+    it('존재하지 않은 게시물에는 좋아요를 누를 수 없습니다.', async () => {
+      const nonExistentPostId = 9999;
+
+      const response = await request(app.getHttpServer())
+        .post(`/posts/like/${nonExistentPostId}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(404);
+
+      expect(response.body.message).toBe('Post not found');
+    });
+
+    it('추천하지 않은 게시물에는 좋아요를 한 번 누를 수 있습니다.', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/posts/like/${post.id}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(response.body).toEqual({
+        postId: post.id,
+        likesCount: 1,
+        isAdded: true,
+      });
+
+      const likesCount = await postRepository.findOne({
+        where: { id: post.id },
+      });
+      expect(likesCount.likesCount).toBe(1);
+
+      const likeRecord = await postLikeRepository.findOne({
+        where: { userId: user.id, postId: post.id },
+      });
+      expect(likeRecord).toBeDefined();
+    });
+
+    it('추천한 게시물에는 좋아요를 눌러도 그 행동을 무시합니다.', async () => {
+      await request(app.getHttpServer())
+        .post(`/posts/like/${post.id}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      const response = await request(app.getHttpServer())
+        .post(`/posts/like/${post.id}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      expect(response.body).toEqual({
+        postId: post.id,
+        likesCount: 1,
+        isAdded: false,
+      });
+
+      const likesCount = await postRepository.findOne({
+        where: { id: post.id },
+      });
+      expect(likesCount.likesCount).toBe(1);
+
+      const likeRecords = await postLikeRepository.find({
+        where: { postId: post.id },
+      });
+      expect(likeRecords).toHaveLength(1);
+    });
+
+    it('인증되지 않은 사용자는 좋아요를 누를 수 없습니다.', async () => {
+      await request(app.getHttpServer())
+        .post(`/posts/like/${post.id}`)
+        .expect(401);
+    });
+
+    it('다른 사용자가 같은 게시물에 좋아요를 누를 수 있습니다.', async () => {
+      await request(app.getHttpServer())
+        .post(`/posts/like/${post.id}`)
+        .set('Authorization', `Bearer ${accessTokens[0]}`)
+        .expect(200);
+
+      const response = await request(app.getHttpServer())
+        .post(`/posts/like/${post.id}`)
+        .set('Authorization', `Bearer ${accessTokens[1]}`)
+        .expect(200);
+
+      expect(response.body).toEqual({
+        postId: post.id,
+        likesCount: 2,
+        isAdded: true,
+      });
+
+      const likesCount = await postRepository.findOne({
+        where: { id: post.id },
+      });
+      expect(likesCount.likesCount).toBe(2);
+
+      const likeRecords = await postLikeRepository.find({
+        where: { postId: post.id },
+      });
+      expect(likeRecords).toHaveLength(2);
+    });
+
+    it('게시물 상세 조회 시 좋아요 수가 정확히 표시됩니다.', async () => {
+      await request(app.getHttpServer())
+        .post(`/posts/like/${post.id}`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(200);
+
+      const response = await request(app.getHttpServer())
+        .get(`/posts/${post.id}`)
+        .expect(200);
+
+      expect(response.body.likesCount).toBe(1);
     });
   });
 });

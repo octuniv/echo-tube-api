@@ -32,6 +32,10 @@ export class PostResponseDto {
   @IsNumber()
   commentsCount: number;
 
+  @ApiProperty({ description: 'Like count' })
+  @IsNumber()
+  likesCount: number;
+
   @ApiProperty({ example: 'https://example.com/video.mp4', required: false })
   @IsUrl()
   @IsOptional()
@@ -92,6 +96,7 @@ export class PostResponseDto {
     dto.type = post.type;
     dto.channelTitle = post.channelTitle || undefined;
     dto.duration = post.duration || undefined;
+    dto.likesCount = post.likesCount || 0;
     return dto;
   }
 }

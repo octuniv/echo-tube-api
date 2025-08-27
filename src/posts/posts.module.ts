@@ -6,10 +6,11 @@ import { Post } from './entities/post.entity';
 import { BoardsModule } from '@/boards/boards.module';
 import { CategoriesModule } from '@/categories/categories.module';
 import { CommentsModule } from '@/comments/comments.module';
+import { PostLike } from './entities/post-like.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Post]),
+    TypeOrmModule.forFeature([Post, PostLike]),
     BoardsModule,
     CategoriesModule,
     forwardRef(() => CommentsModule),

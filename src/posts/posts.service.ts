@@ -25,6 +25,7 @@ import { CommentsService } from '@/comments/comments.service';
 import { Transactional } from 'typeorm-transactional';
 import { PostLike } from './entities/post-like.entity';
 import { LikeResponseDto } from './dto/like-response.dto';
+import { POST_ERROR_MESSAGES } from './constants/error-messages.constants';
 
 @Injectable()
 export class PostsService {
@@ -74,7 +75,9 @@ export class PostsService {
     );
 
     if (!this.checkRole(user.role, board.requiredRole)) {
-      throw new UnauthorizedException('해당 게시판에 글쓰기 권한이 없습니다');
+      throw new UnauthorizedException(
+        POST_ERROR_MESSAGES.POST_CREATE_BOARD_PERMISSION_DENIED,
+      );
     }
 
     const newPost = this.postRepository.create({
@@ -128,7 +131,8 @@ export class PostsService {
         },
       },
     });
-    if (!post) throw new NotFoundException('Post not found');
+    if (!post)
+      throw new NotFoundException(POST_ERROR_MESSAGES.POST_FIND_NOT_FOUND);
     return post;
   }
 
@@ -149,12 +153,16 @@ export class PostsService {
 
     // 게시판 권한 검사
     if (!this.checkRole(user.role, post.board.requiredRole)) {
-      throw new UnauthorizedException('해당 게시판 수정 권한이 없습니다');
+      throw new UnauthorizedException(
+        POST_ERROR_MESSAGES.POST_UPDATE_BOARD_PERMISSION_DENIED,
+      );
     }
 
     // 소유자 또는 관리자 검사
     if (post.createdBy.id !== user.id && user.role !== UserRole.ADMIN) {
-      throw new UnauthorizedException('수정 권한이 없습니다');
+      throw new UnauthorizedException(
+        POST_ERROR_MESSAGES.POST_UPDATE_OWNERSHIP_PERMISSION_DENIED,
+      );
     }
 
     Object.assign(post, updatePostDto);
@@ -169,19 +177,25 @@ export class PostsService {
 
     // 게시판 권한 검사
     if (!this.checkRole(user.role, post.board.requiredRole)) {
-      throw new UnauthorizedException('해당 게시판 삭제 권한이 없습니다');
+      throw new UnauthorizedException(
+        POST_ERROR_MESSAGES.POST_DELETE_BOARD_PERMISSION_DENIED,
+      );
     }
 
     // 소유자 또는 관리자 검사
     if (post.createdBy.id !== user.id && user.role !== UserRole.ADMIN) {
-      throw new UnauthorizedException('삭제 권한이 없습니다');
+      throw new UnauthorizedException(
+        POST_ERROR_MESSAGES.POST_DELETE_OWNERSHIP_PERMISSION_DENIED,
+      );
     }
 
     await this.commentsService.softDeletePostComments(id);
 
     const result = await this.postRepository.softDelete(id);
     if (result.affected !== 1) {
-      throw new InternalServerErrorException('Internal Server Error');
+      throw new InternalServerErrorException(
+        POST_ERROR_MESSAGES.POST_DELETE_FAILED,
+      );
     }
   }
 
@@ -359,7 +373,9 @@ export class PostsService {
 
     const post = await this.postRepository.findOne({ where: { id: postId } });
     if (!post) {
-      throw new NotFoundException(`Post with ID ${postId} not found`);
+      throw new NotFoundException(
+        POST_ERROR_MESSAGES.POST_FIND_NOT_FOUND_BY_ID(postId.toString()),
+      );
     }
 
     await this.postRepository
@@ -377,7 +393,7 @@ export class PostsService {
     });
 
     if (!post) {
-      throw new NotFoundException('Post not found');
+      throw new NotFoundException(POST_ERROR_MESSAGES.POST_FIND_NOT_FOUND);
     }
 
     // 이미 좋아요한지 확인

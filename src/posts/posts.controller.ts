@@ -31,6 +31,7 @@ import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 import { LikeResponseDto } from './dto/like-response.dto';
 import { RequestWithUser } from '@/auth/types/request-with-user.dto';
+import { POST_ERROR_MESSAGES } from './constants/error-messages.constants';
 
 @ApiTags('Posts')
 @Controller('posts')
@@ -138,7 +139,7 @@ export class PostsController {
   @ApiResponse({ status: 200, type: LikeResponseDto })
   @ApiResponse({
     status: 404,
-    description: 'Post not found',
+    description: POST_ERROR_MESSAGES.POST_FIND_NOT_FOUND,
   })
   @UseGuards(JwtAuthGuard)
   async likePost(

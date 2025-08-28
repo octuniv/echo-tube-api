@@ -20,6 +20,16 @@ import {
 } from './utils/test.util';
 import { Comment } from '@/comments/entities/comment.entity';
 import { PostLike } from '@/posts/entities/post-like.entity';
+import { POST_ERROR_MESSAGES } from '@/posts/constants/error-messages.constants';
+import * as dotenv from 'dotenv';
+
+const envFile = `.env.${process.env.NODE_ENV || 'production'}`;
+dotenv.config({ path: envFile });
+
+const SYSTEM_USER = {
+  email: process.env.SYSTEM_USER_EMAIL || 'system@example.com',
+  password: process.env.SYSTEM_USER_PASSWORD || 'system1234',
+};
 
 const userInfos = Array(2)
   .fill('')
@@ -34,6 +44,7 @@ describe('Posts - /posts (e2e)', () => {
   let userRepository: Repository<User>;
   let commentRepository: Repository<Comment>;
   let accessTokens: string[];
+  let admin: User;
   let users: User[];
   let boardsService: BoardsService;
   let userBoard: Board;
@@ -85,6 +96,15 @@ describe('Posts - /posts (e2e)', () => {
 
     expect(accessTokens).toHaveLength(2);
     expect(users).toHaveLength(2);
+  });
+
+  beforeAll(async () => {
+    admin = await userRepository.findOne({
+      where: { email: SYSTEM_USER.email },
+    });
+    if (!admin) {
+      throw new Error(`Admin not found: ${SYSTEM_USER.email}`);
+    }
   });
 
   beforeEach(async () => {
@@ -176,12 +196,8 @@ describe('Posts - /posts (e2e)', () => {
         .expect(401);
 
       expect(response.body.message).toBe(
-        '해당 게시판에 글쓰기 권한이 없습니다',
+        POST_ERROR_MESSAGES.POST_CREATE_BOARD_PERMISSION_DENIED,
       );
-    });
-
-    afterEach(async () => {
-      await truncatePostsTable(dataSource);
     });
   });
 
@@ -228,10 +244,6 @@ describe('Posts - /posts (e2e)', () => {
 
       expect(response.body).toEqual([]);
     });
-
-    afterEach(async () => {
-      await truncatePostsTable(dataSource);
-    });
   });
 
   describe('GET /posts/user/:userId', () => {
@@ -276,10 +288,6 @@ describe('Posts - /posts (e2e)', () => {
 
       expect(response.body.length).toBe(0);
     });
-
-    afterEach(async () => {
-      await truncatePostsTable(dataSource);
-    });
   });
 
   describe('GET /posts/:id', () => {
@@ -320,11 +328,13 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     it('should return 404 if post does not exist (실패)', async () => {
-      await request(app.getHttpServer()).get('/posts/9').expect(404);
-    });
+      const response = await request(app.getHttpServer())
+        .get('/posts/9')
+        .expect(404);
 
-    afterEach(async () => {
-      await truncatePostsTable(dataSource);
+      expect(response.body.message).toBe(
+        POST_ERROR_MESSAGES.POST_FIND_NOT_FOUND,
+      );
     });
   });
 
@@ -381,6 +391,31 @@ describe('Posts - /posts (e2e)', () => {
         .expect(401);
     });
 
+    it('해당 게시판의 수정 권한을 가지지 못한 유저는 401 에러와 함께 해당 메세지를 받습니다. (실패)', async () => {
+      const post = await postRepository.save(
+        createPost({
+          title: '공지사항',
+          content: 'ADMIN 테스트용',
+          createdBy: users[0],
+          board: adminBoard,
+        }),
+      );
+
+      const updatePostDto: UpdatePostDto = {
+        title: 'Updated Post',
+      };
+
+      const response = await request(app.getHttpServer())
+        .patch(`/posts/${post.id}`)
+        .set('Authorization', `Bearer ${accessTokens[0]}`)
+        .send(updatePostDto)
+        .expect(401);
+
+      expect(response.body.message).toBe(
+        POST_ERROR_MESSAGES.POST_UPDATE_BOARD_PERMISSION_DENIED,
+      );
+    });
+
     it('should return 401 if user is not the owner or admin (실패)', async () => {
       const post = await postRepository.save(
         createPost({
@@ -395,23 +430,27 @@ describe('Posts - /posts (e2e)', () => {
         title: 'Updated Post',
       };
 
-      await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .patch(`/posts/${post.id}`)
         .set('Authorization', `Bearer ${accessTokens[1]}`)
         .send(updatePostDto)
         .expect(401);
+
+      expect(response.body.message).toBe(
+        POST_ERROR_MESSAGES.POST_UPDATE_OWNERSHIP_PERMISSION_DENIED,
+      );
     });
 
     it('should return 404 if post does not exist (실패)', async () => {
-      await request(app.getHttpServer())
+      const response = await request(app.getHttpServer())
         .patch('/posts/999')
         .set('Authorization', `Bearer ${accessTokens[0]}`)
         .send({ title: 'Updated Post' })
         .expect(404);
-    });
 
-    afterEach(async () => {
-      await truncatePostsTable(dataSource);
+      expect(response.body.message).toBe(
+        POST_ERROR_MESSAGES.POST_FIND_NOT_FOUND,
+      );
     });
   });
 
@@ -486,11 +525,35 @@ describe('Posts - /posts (e2e)', () => {
         .expect(401);
     });
 
-    it('should return 401 if user is not the owner or admin (실패)', async () => {
-      await request(app.getHttpServer())
+    it('해당 게시판의 삭제 권한을 가지지 못한 유저는 401 에러와 함께 해당 메세지를 받습니다. (실패)', async () => {
+      const post = await postRepository.save(
+        createPost({
+          title: '공지사항',
+          content: 'ADMIN 테스트용',
+          createdBy: admin,
+          board: adminBoard,
+        }),
+      );
+
+      const response = await request(app.getHttpServer())
         .delete(`/posts/${post.id}`)
         .set('Authorization', `Bearer ${accessTokens[1]}`)
         .expect(401);
+
+      expect(response.body.message).toBe(
+        POST_ERROR_MESSAGES.POST_DELETE_BOARD_PERMISSION_DENIED,
+      );
+    });
+
+    it('should return 401 if user is not the owner or admin (실패)', async () => {
+      const response = await request(app.getHttpServer())
+        .delete(`/posts/${post.id}`)
+        .set('Authorization', `Bearer ${accessTokens[1]}`)
+        .expect(401);
+
+      expect(response.body.message).toBe(
+        POST_ERROR_MESSAGES.POST_DELETE_OWNERSHIP_PERMISSION_DENIED,
+      );
     });
 
     it('should return 404 if post does not exist (실패)', async () => {
@@ -707,7 +770,7 @@ describe('Posts - /posts (e2e)', () => {
     });
 
     it('should return empty paginated result if board has no posts', async () => {
-      await truncatePostsTable(dataSource);
+      await postRepository.delete({ board: { id: userBoard.id } });
 
       const response = await request(app.getHttpServer())
         .get(`/posts/board/${userBoard.id}`)
@@ -719,10 +782,6 @@ describe('Posts - /posts (e2e)', () => {
         totalItems: 0,
         totalPages: 0,
       });
-    });
-
-    afterEach(async () => {
-      await truncatePostsTable(dataSource);
     });
   });
 
@@ -768,7 +827,9 @@ describe('Posts - /posts (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(404);
 
-      expect(response.body.message).toBe('Post not found');
+      expect(response.body.message).toBe(
+        POST_ERROR_MESSAGES.POST_FIND_NOT_FOUND,
+      );
     });
 
     it('추천하지 않은 게시물에는 좋아요를 한 번 누를 수 있습니다.', async () => {

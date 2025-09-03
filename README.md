@@ -4,14 +4,17 @@ NestJS 기반 동영상 공유 커뮤니티 백엔드 서버
 
 ---
 
-## ✨ 핵심 기능: 사용자 기반 커뮤니티 구축
+## ✨ 핵심 기능
 
 ### 1. **사용자 생성형 커뮤니티**
 
-사용자는 봇 전용 게시판 외에도 일반 게시판을 통해 직접 게시물을 생성, 수정, 삭제할 수 있습니다.
-→ 다양한 관심사를 가진 사용자들이 실시간으로 콘텐츠를 공유하며 커뮤니티를 형성 할 수 있습니다.
+- 사용자는 봇 전용 게시판 외에도 일반 게시판을 통해 직접 게시물을 생성, 수정, 삭제 가능
+- 댓글 시스템을 통해 사용자 간 상호작용 강화
+- 게시물 및 댓글에 대한 좋아요 기능 지원
 
-### 2. **게시물 CRUD 기능**
+### 2. **기본 기능**
+
+#### 2-1. 게시물 관리
 
 | HTTP 메서드 | 엔드포인트      | 기능                 | 인증 필요 |
 | ----------- | --------------- | -------------------- | --------- |
@@ -20,65 +23,47 @@ NestJS 기반 동영상 공유 커뮤니티 백엔드 서버
 | GET         | /posts/user/:id | 사용자별 게시물 조회 | X         |
 | PATCH       | /posts/:id      | 게시물 수정          | O         |
 | DELETE      | /posts/:id      | 게시물 삭제          | O         |
+| POST        | /posts/like/:id | 게시물 좋아요        | O         |
 
-**공통 응답 구조**:
+#### 2-2. 댓글 시스템
 
-```ts
-{
-  id: number,
-  title: string,
-  content: string,
-  views: number,
-  commentsCount: number,
-  videoUrl?: string,
-  nickname?: string,
-  createdAt: Date,
-  updatedAt: Date,
-  board: BoardListItemDto,
-  hotScore: number
-}
-```
+| HTTP 메서드 | 엔드포인트             | 기능                    |
+| ----------- | ---------------------- | ----------------------- |
+| POST        | /comments              | 댓글/대댓글 생성        |
+| GET         | /comments/post/:postId | 댓글 목록 조회 (페이징) |
+| PUT         | /comments/:id          | 댓글 수정               |
+| DELETE      | /comments/:id          | 댓글 삭제               |
+| POST        | /comments/like/:id     | 댓글 좋아요             |
 
-### 3. **봇 전용 기능**
+**주요 특징**:
 
-1. **영상 수집 대상 게시판 조회**
+- 대댓글은 최대 2단계까지만 지원
+- 소프트 삭제 정책 적용 (삭제된 댓글은 "[삭제된 댓글]"로 표시)
+- 좋아요는 한 번만 가능 (중복 요청 무시)
+- 페이징 조회 시 부모 댓글은 최신순, 대댓글은 작성순 정렬
 
-   - **엔드포인트**: `GET /boards/scraping-targets`
-   - **특징**:
-     - AI_DIGEST 타입 게시판만 반환
-     - BOT 역할만 접근 가능
-     - 응답 예시: `{ slug: "nestjs", name: "NESTJS" }`
-
-2. **영상 게시물 생성**
-
-   - **엔드포인트**: `POST /harvest/videos?slug={boardSlug}`
-   - **요청 본문**:
-     ```ts
-     {
-       youtubeId: string,  // 유튜브 ID
-       title: string,      // 영상 제목
-       thumbnailUrl: string, // 썸네일 URL
-       channelTitle: string, // 채널명
-       duration: string,   // 영상 길이
-       topic: string       // 주제
-     }
-     ```
-
-### 4. **관리자 전용 기능**
+### 3. **관리자 전용 기능**
 
 관리자는 카테고리, 게시판, 사용자 계정을 관리할 수 있는 전용 API를 사용할 수 있습니다.
 
-#### 4-1. 카테고리 관리
+#### 3-1. 카테고리 관리
 
-- **기능**: 카테고리 생성, 수정, 삭제, 조회
+- **기능**: 카테고리 생성, 수정, 삭제, 조회 및 슬러그 관리
+- **API 엔드포인트**: `/admin/categories`
 - **주요 제약사항**:
   - 카테고리 이름은 고유해야 함
   - 슬러그는 소문자, 숫자, 하이픈(-)만 사용 가능 (언더스코어(\_) 금지)
   - 최소 1개 이상의 슬러그 등록 필수
+  - AI_DIGEST 게시판 생성 시 `USER` 이상의 권한 필요
+- **추가 기능**:
+  - 슬러그 중복 검증 API (`/admin/categories/validate-slug`)
+  - 카테고리 이름 중복 검증 API (`/admin/categories/validate-name`)
+  - 사용 가능한 카테고리 및 슬러그 조회 (`/admin/categories/available`)
 
-#### 4-2. 게시판 관리
+#### 3-2. 게시판 관리
 
 - **기능**: 게시판 생성, 수정, 삭제, 조회
+- **API 엔드포인트**: `/admin/boards`
 - **게시판 타입**:
   - `GENERAL`: 일반 토론 공간
   - `AI_DIGEST`: 서버와 연동된 봇 전용 게시판으로, 일반 사용자의 직접적인 게시물 생성/수정/삭제가 금지됩니다.
@@ -87,15 +72,35 @@ NestJS 기반 동영상 공유 커뮤니티 백엔드 서버
 - **주요 제약사항**:
   - 슬러그는 카테고리 내에서 고유해야 함
   - AI_DIGEST 타입 게시판은 USER 이상의 권한만 생성 가능
+  - 게시판 삭제 시 연관된 모든 게시물이 함께 삭제됨
 
-#### 4-3. 사용자 관리
+#### 3-3. 사용자 관리
 
-- **기능**: 사용자 생성, 수정, 삭제, 검색
+- **기능**: 사용자 생성, 수정, 삭제, 검색 및 페이지네이션
+- **API 엔드포인트**: `/admin/users`
 - **주요 기능**:
   - 닉네임/이메일 중복 검사
   - 역할(ADMIN/USER/BOT) 관리
   - 소프트 삭제(soft delete) 기능
-  - 검색 및 필터링 기능
+  - 검색 및 필터링 기능 (이메일, 닉네임, 역할 기준)
+  - 페이지네이션 및 정렬 (createdAt, updatedAt 기준)
+- **사용자 역할**:
+  - `ADMIN`: 모든 관리자 기능 사용 가능
+  - `USER`: 일반 사용자 권한
+  - `BOT`: 시스템 봇 전용 계정
+
+이 기능들은 관리자가 커뮤니티의 구조와 사용자 데이터를 효과적으로 관리할 수 있도록 설계되었습니다. 관리자 전용 API는 ADMIN 역할을 가진 사용자만 접근할 수 있으며, JWT 토큰을 통해 인증됩니다. 상세한 API 스펙은 Swagger 문서에서 확인할 수 있습니다.
+
+### 4. **봇 전용 기능**
+
+1. **영상 수집 대상 게시판 조회**
+
+   - **엔드포인트**: `GET /boards/scraping-targets`
+   - **특징**: AI_DIGEST 타입 게시판만 반환, BOT 역할만 접근 가능
+
+2. **영상 게시물 생성**
+   - **엔드포인트**: `POST /harvest/videos?slug={boardSlug}`
+   - **요청 본문**: 유튜브 ID, 제목, 썸네일 URL 등 영상 메타데이터
 
 ---
 
@@ -112,30 +117,14 @@ NestJS 기반 동영상 공유 커뮤니티 백엔드 서버
 
 ## 📄 API 문서
 
-Swagger를 통해 API 문서를 확인할 수 있습니다.
+상세한 API 스펙은 Swagger를 통해 확인 가능합니다.
 
-**접근 방법:**
+- **접근 방법**: 서버 실행 후 [http://localhost:3000/api-docs](http://localhost:3000/api-docs) 접속
+- **인증**: `Authorize` 버튼을 통해 JWT 토큰 입력 (Bearer {your_jwt_token})
 
-1. 서버 실행 후 [http://localhost:3000/api-docs](http://localhost:3000/api-docs) 접속
-2. 인증이 필요한 API는 `Authorize` 버튼을 눌러 JWT 토큰 입력
-   - 토큰 형식: `Bearer {your_jwt_token}`
-   - **일반 사용자**: USER 권한 이상의 토큰 필요
-   - **관리자 전용 API**: ADMIN 권한의 토큰 필요
+> 💡 **참고**: 상세한 요청/응답 구조, 오류 코드, 인증 정보 등은 Swagger 문서에서 확인하시기 바랍니다.
 
 ---
-
-## ⚠️ 주요 오류 코드
-
-### 관리자 전용 API 오류
-
-| 상태 코드 | 메시지                                           | 설명                                                      |
-| --------- | ------------------------------------------------ | --------------------------------------------------------- |
-| 400       | Each slug must be URL-friendly                   | 슬러그 형식이 올바르지 않음 (소문자, 숫자, 하이픈만 허용) |
-| 400       | 이미 사용 중인 슬러그가 있습니다                 | 중복된 슬러그로 인한 생성/수정 실패                       |
-| 400       | AI_DIGEST board requires a role higher than USER | AI_DIGEST 게시판 생성 시 권한 부족                        |
-| 403       | This nickname is already existed!                | 닉네임 중복으로 인한 사용자 생성/수정 실패                |
-| 404       | Category not found                               | 요청한 ID의 카테고리를 찾을 수 없음                       |
-| 409       | This nickname is already existed!                | 닉네임 중복 오류                                          |
 
 ## 🚀 시작하기 (Quick Start)
 

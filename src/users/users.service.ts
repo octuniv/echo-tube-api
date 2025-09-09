@@ -299,4 +299,11 @@ export class UsersService {
       totalPages: Math.ceil(totalItems / limit),
     };
   }
+
+  async getAllActiveUsers(): Promise<User[]> {
+    // for message service
+    return this.usersRepository.find({
+      select: ['id', 'name', 'nickname', 'email'],
+    });
+  }
 }

@@ -14,6 +14,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { VideoHarvesterModule } from './video-harvester/video-harvester.module';
 import { AdminModule } from './admin/admin.module';
 import { CommentsModule } from './comments/comments.module';
+import { MessageModule } from './message/message.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { CommentsModule } from './comments/comments.module';
     VideoHarvesterModule,
     AdminModule,
     CommentsModule,
+    MessageModule,
   ],
   controllers: [AppController],
   providers: [AppService],

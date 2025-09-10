@@ -6,7 +6,7 @@ export class MessageListItemDto {
   id: number;
 
   @ApiProperty({ example: '관리자' })
-  senderName: string;
+  senderNickname: string;
 
   @ApiProperty({ example: '[공지] 점검 안내 드립니다...' })
   preview: string;
@@ -20,7 +20,7 @@ export class MessageListItemDto {
   static fromEntity(message: Message): MessageListItemDto {
     return {
       id: message.id,
-      senderName: message.sender.nickname,
+      senderNickname: message.sender.nickname,
       preview: message.isNotice
         ? `[공지] ${message.content.substring(0, 30)}...`
         : message.content.substring(0, 30) + '...',
@@ -33,9 +33,6 @@ export class MessageListItemDto {
 export class MessageDetailDto {
   @ApiProperty({ example: 1 })
   id: number;
-
-  @ApiProperty({ example: '관리자' })
-  senderName: string;
 
   @ApiProperty({ example: 'john_doe' })
   senderNickname: string;
@@ -55,7 +52,6 @@ export class MessageDetailDto {
   static fromEntity(message: Message): MessageDetailDto {
     return {
       id: message.id,
-      senderName: message.sender.name,
       senderNickname: message.sender.nickname,
       content: message.content,
       isRead: message.isRead,

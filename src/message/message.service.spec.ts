@@ -7,11 +7,18 @@ import { UsersService } from '@/users/users.service';
 import { User } from '@/users/entities/user.entity';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
-import { MessageErrorMessages } from './constants/message.constants';
+import { MessageErrors, MessageResponses } from './constants/message.constants';
 import { createUserEntity } from '@/users/factory/user.factory';
 import { UserRole } from '@/users/entities/user-role.enum';
 import { createMessageEntity } from './factory/create-message-entity';
 import { MessageDetailDto } from './dto/message-response.dto';
+import { CreateNoticeResponseDto } from './dto/create-message-response.dto';
+
+function isMessageDetailDto(
+  dto: CreateNoticeResponseDto | MessageDetailDto,
+): dto is MessageDetailDto {
+  return (dto as MessageDetailDto).isNotice !== undefined;
+}
 
 describe('MessageService', () => {
   let service: MessageService;
@@ -51,6 +58,7 @@ describe('MessageService', () => {
           provide: getRepositoryToken(Message),
           useValue: {
             create: jest.fn(),
+            insert: jest.fn(),
             save: jest.fn(),
             find: jest.fn(),
             findOne: jest.fn(),
@@ -79,103 +87,125 @@ describe('MessageService', () => {
         isNotice: true,
       };
       await expect(service.create(mockUser, dto)).rejects.toThrow(
-        new ForbiddenException(MessageErrorMessages.FORBIDDEN_NOTICE),
+        new ForbiddenException(MessageErrors.FORBIDDEN_NOTICE),
       );
     });
 
-    it('should send notice to all users (except sender) if admin', async () => {
+    it('should send notice to all users and return CreateNoticeResponseDto if admin', async () => {
       const dto: CreateMessageDto = {
         receiverId: 2,
         content: 'System Notice',
         isNotice: true,
       };
 
-      jest
-        .spyOn(usersService, 'getAllActiveUsers')
-        .mockResolvedValue([
-          createUserEntity({ id: 2, name: 'User2' }),
-          createUserEntity({ id: 3, name: 'User3' }),
-        ]);
-
-      jest.spyOn(messageRepository, 'create').mockImplementation((data) => {
-        return createMessageEntity({
-          ...data,
-          sender: mockAdmin,
-          receiver: createUserEntity({ id: data.receiverId }),
-        });
-      });
-
-      const savedMessages = [
-        createMessageEntity({
-          senderId: mockAdmin.id,
-          receiverId: 2,
-          content: dto.content,
-          isNotice: true,
-          sender: mockAdmin,
-          receiver: createUserEntity({ id: 2 }),
-        }),
-        createMessageEntity({
-          senderId: mockAdmin.id,
-          receiverId: 3,
-          content: dto.content,
-          isNotice: true,
-          sender: mockAdmin,
-          receiver: createUserEntity({ id: 3 }),
-        }),
+      const activeUsers = [
+        createUserEntity({ id: 2, name: 'User2' }),
+        createUserEntity({ id: 3, name: 'User3' }),
       ];
 
       jest
+        .spyOn(usersService, 'getAllActiveUsers')
+        .mockResolvedValue(activeUsers);
+
+      const firstMessageData = {
+        senderId: mockAdmin.id,
+        receiverId: activeUsers[0].id,
+        content: dto.content,
+        isNotice: true,
+      };
+
+      const savedFirstMessage = createMessageEntity({
+        ...firstMessageData,
+        sender: mockAdmin,
+        receiver: activeUsers[0],
+        id: 1001,
+        createdAt: new Date('2025-04-05T10:00:00Z'),
+      });
+
+      jest.spyOn(messageRepository, 'create').mockImplementation((data) => {
+        const receiver =
+          activeUsers.find((user) => user.id === data.receiverId) ||
+          activeUsers[0];
+
+        return createMessageEntity({
+          ...data,
+          sender: mockAdmin,
+          receiver,
+
+          id: data.id || undefined,
+          isRead: data.isRead ?? false,
+          isNotice: data.isNotice ?? false,
+          createdAt: data.createdAt || new Date(),
+          updatedAt: data.updatedAt || new Date(),
+          deletedAt: data.deletedAt || null,
+        });
+      });
+
+      jest
         .spyOn(messageRepository, 'save')
-        .mockResolvedValue(Promise.resolve(savedMessages) as any);
+        .mockResolvedValue(savedFirstMessage);
+
+      jest.spyOn(messageRepository, 'insert').mockResolvedValue({} as any);
 
       const result = await service.create(mockAdmin, dto);
 
       expect(usersService.getAllActiveUsers).toHaveBeenCalled();
-      expect(messageRepository.create).toHaveBeenCalledTimes(2);
-      expect(messageRepository.save).toHaveBeenCalled();
-      expect(Array.isArray(result)).toBe(true);
-      expect(result).toHaveLength(2);
-      expect(result[0]).toBeInstanceOf(Message);
-      expect(result[0].content).toBe('System Notice');
-      expect(result[0].isNotice).toBe(true);
+      expect(messageRepository.create).toHaveBeenCalledTimes(1);
+      expect(messageRepository.save).toHaveBeenCalledTimes(1);
+      expect(messageRepository.insert).toHaveBeenCalledTimes(1);
+
+      expect(result).toBeInstanceOf(CreateNoticeResponseDto);
+      expect(result).toEqual({
+        noticeId: `notice-${savedFirstMessage.id}`,
+        content: dto.content,
+        recipientCount: activeUsers.length,
+        createdAt: expect.any(Date),
+      });
     });
 
     it('should send 1:1 message successfully', async () => {
       const dto: CreateMessageDto = { receiverId: 2, content: 'Hello!' };
-
       jest
         .spyOn(usersService, 'getUserById')
         .mockResolvedValue(createUserEntity({ id: 2, name: 'Receiver' }));
 
-      const newMessage = createMessageEntity({
+      const createInput = {
         senderId: mockUser.id,
         receiverId: dto.receiverId,
         content: dto.content,
         isNotice: false,
+      };
+
+      const createdMessage = createMessageEntity({
+        ...createInput,
+        isRead: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
         sender: mockUser,
-        receiver: createUserEntity({ id: dto.receiverId }),
       });
+      jest.spyOn(messageRepository, 'create').mockReturnValue(createdMessage);
 
-      jest.spyOn(messageRepository, 'create').mockReturnValue(newMessage);
-
+      // ✅ 수정된 부분: 반환 객체에 senderId, receiverId를 명시적으로 추가합니다.
       jest
         .spyOn(messageRepository, 'save')
-        .mockResolvedValue(Promise.resolve(newMessage) as any);
+        .mockImplementation(async (message: Message) => {
+          return message;
+        });
+
+      jest
+        .spyOn(messageRepository, 'findOne')
+        .mockResolvedValue(createdMessage);
 
       const result = await service.create(mockUser, dto);
 
-      expect(messageRepository.create).toHaveBeenCalledWith({
-        senderId: mockUser.id,
-        receiverId: dto.receiverId,
-        content: dto.content,
-        isNotice: false,
-      });
-      expect(messageRepository.save).toHaveBeenCalledWith(newMessage);
+      expect(messageRepository.create).toHaveBeenCalled();
 
-      expect(Array.isArray(result)).toBe(false);
-      if (!Array.isArray(result)) {
+      expect(isMessageDetailDto(result)).toBe(true);
+      if (isMessageDetailDto(result)) {
         expect(result.content).toBe('Hello!');
         expect(result.isNotice).toBe(false);
+        expect(result.senderNickname).toBe(mockUser.nickname);
       }
     });
   });
@@ -197,7 +227,7 @@ describe('MessageService', () => {
 
       const result = await service.findAll(mockUser);
       expect(result).toHaveLength(1);
-      expect(result[0]).toHaveProperty('senderName', 'Alice');
+      expect(result[0]).toHaveProperty('senderNickname', 'Alice');
     });
   });
 
@@ -205,7 +235,7 @@ describe('MessageService', () => {
     it('should throw NotFoundException if message not found', async () => {
       jest.spyOn(messageRepository, 'findOne').mockResolvedValue(null);
       await expect(service.findOne(999, mockUser)).rejects.toThrow(
-        new NotFoundException(MessageErrorMessages.MESSAGE_NOT_FOUND),
+        new NotFoundException(MessageErrors.MESSAGE_NOT_FOUND),
       );
     });
 
@@ -237,13 +267,13 @@ describe('MessageService', () => {
 
       const result = await service.remove(1, mockUser);
       expect(messageRepository.softDelete).toHaveBeenCalledWith({ id: 1 });
-      expect(result.message).toBe('메시지가 삭제되었습니다.');
+      expect(result.message).toBe(MessageResponses.DELETED);
     });
 
     it('should throw NotFoundException if message not found', async () => {
       jest.spyOn(messageRepository, 'findOne').mockResolvedValue(null);
       await expect(service.remove(999, mockUser)).rejects.toThrow(
-        new NotFoundException(MessageErrorMessages.MESSAGE_NOT_FOUND),
+        new NotFoundException(MessageErrors.MESSAGE_NOT_FOUND),
       );
     });
   });

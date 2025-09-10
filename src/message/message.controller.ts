@@ -1,5 +1,3 @@
-// src/messages/message.controller.ts
-
 import {
   Controller,
   Get,
@@ -27,6 +25,7 @@ import {
   MessageListItemDto,
   MessageDetailDto,
 } from './dto/message-response.dto';
+import { CreateNoticeResponseDto } from './dto/create-message-response.dto';
 
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
@@ -36,14 +35,38 @@ export class MessageController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({
-    summary: '메시지 전송',
-    description: '1:1 메시지 또는 공지 메시지를 전송합니다.',
+  @ApiBody({
+    description: `
+    - 일반 메시지: \`receiverId\` 필수
+    - 공지 메시지(\`isNotice: true\`): \`receiverId\` 생략 가능
+  `,
+    schema: {
+      type: 'object',
+      properties: {
+        receiverId: {
+          type: 'number',
+          description: '수신자 ID (공지 메시지일 경우 생략 가능)',
+          example: 2,
+        },
+        content: {
+          type: 'string',
+          description: '메시지 내용',
+          example: '안녕하세요!',
+        },
+        isNotice: {
+          type: 'boolean',
+          description: '공지 메시지 여부',
+          example: false,
+        },
+      },
+      required: ['content'],
+    },
   })
   @ApiBody({ type: CreateMessageDto })
   @ApiResponse({
     status: 201,
-    description: '메시지 전송 성공',
+    description: '개인 메시지 전송 성공',
+    type: MessageDetailDto,
     schema: {
       example: {
         id: 101,
@@ -51,6 +74,19 @@ export class MessageController {
         receiverId: 2,
         content: '안녕하세요!',
         isRead: false,
+        createdAt: '2025-04-05T10:00:00Z',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: '공지 메시지 전송 성공',
+    type: CreateNoticeResponseDto,
+    schema: {
+      example: {
+        noticeId: 'notice-101',
+        content: '시스템 점검 안내',
+        sentTo: 15000,
         createdAt: '2025-04-05T10:00:00Z',
       },
     },

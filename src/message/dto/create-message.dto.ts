@@ -1,8 +1,15 @@
-import { IsNotEmpty, IsString, IsOptional, IsBoolean } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsBoolean,
+  ValidateIf,
+} from 'class-validator';
 
 export class CreateMessageDto {
-  @IsNotEmpty()
-  receiverId: number;
+  @ValidateIf((o) => !o.isNotice)
+  @IsNotEmpty({ message: '개인 메시지 전송 시 receiverId는 필수입니다.' })
+  receiverId?: number;
 
   @IsString()
   @IsNotEmpty()

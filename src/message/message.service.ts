@@ -13,7 +13,8 @@ import {
   MessageDetailDto,
 } from './dto/message-response.dto';
 import { UsersService } from '@/users/users.service';
-import { MessageErrorMessages } from './constants/message.constants';
+import { MessageErrors, MessageResponses } from './constants/message.constants';
+import { CreateNoticeResponseDto } from './dto/create-message-response.dto';
 
 @Injectable()
 export class MessageService {
@@ -25,39 +26,73 @@ export class MessageService {
 
   async create(sender: User, createMessageDto: CreateMessageDto) {
     const { receiverId, content, isNotice } = createMessageDto;
-
     if (isNotice && sender.role !== 'admin') {
-      throw new ForbiddenException(MessageErrorMessages.FORBIDDEN_NOTICE);
+      throw new ForbiddenException(MessageErrors.FORBIDDEN_NOTICE);
     }
+
+    const now = new Date();
 
     if (isNotice) {
       const allUsers = await this.usersService.getAllActiveUsers();
+      if (allUsers.length === 0) {
+        return CreateNoticeResponseDto.create('none', content, 0, now);
+      }
 
-      const noticeMessages = allUsers.map((user) =>
-        this.messageRepository.create({
+      const firstMessage = this.messageRepository.create({
+        sender: sender,
+        receiver: allUsers[0],
+        content,
+        isNotice: true,
+        isRead: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const savedFirst = await this.messageRepository.save(firstMessage);
+      const createdAtToUse = now;
+
+      if (allUsers.length > 1) {
+        const otherMessages = allUsers.slice(1).map((user) => ({
           senderId: sender.id,
           receiverId: user.id,
           content,
           isNotice: true,
-        }),
-      );
+          isRead: false,
+          createdAt: createdAtToUse,
+          updatedAt: createdAtToUse,
+        }));
+        await this.messageRepository.insert(otherMessages);
+      }
 
-      return await this.messageRepository.save(noticeMessages);
+      return CreateNoticeResponseDto.create(
+        `notice-${savedFirst.id}`,
+        content,
+        allUsers.length,
+        createdAtToUse,
+      );
     }
 
     const receiver = await this.usersService.getUserById(receiverId);
     if (!receiver || receiver.deletedAt) {
-      throw new NotFoundException(MessageErrorMessages.RECEIVER_NOT_FOUND);
+      throw new NotFoundException(MessageErrors.RECEIVER_NOT_FOUND);
     }
 
     const message = this.messageRepository.create({
-      senderId: sender.id,
-      receiverId,
+      sender: sender,
+      receiver: receiver,
       content,
       isNotice: false,
+      isRead: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    const savedMessage = await this.messageRepository.save(message);
+
+    const messageWithRelations = await this.messageRepository.findOne({
+      where: { id: savedMessage.id },
+      relations: ['sender'],
     });
 
-    return await this.messageRepository.save(message);
+    return MessageDetailDto.fromEntity(messageWithRelations);
   }
 
   async findAll(receiver: User) {
@@ -68,7 +103,6 @@ export class MessageService {
       relations: ['sender'],
       order: { createdAt: 'DESC' },
     });
-
     return messages.map((msg) => MessageListItemDto.fromEntity(msg));
   }
 
@@ -77,16 +111,13 @@ export class MessageService {
       where: { id, receiverId: receiver.id },
       relations: ['sender'],
     });
-
     if (!message) {
-      throw new NotFoundException(MessageErrorMessages.MESSAGE_NOT_FOUND);
+      throw new NotFoundException(MessageErrors.MESSAGE_NOT_FOUND);
     }
-
     if (!message.isRead) {
       message.isRead = true;
       await this.messageRepository.save(message);
     }
-
     return MessageDetailDto.fromEntity(message);
   }
 
@@ -94,12 +125,10 @@ export class MessageService {
     const message = await this.messageRepository.findOne({
       where: { id, receiverId: user.id },
     });
-
     if (!message) {
-      throw new NotFoundException(MessageErrorMessages.MESSAGE_NOT_FOUND);
+      throw new NotFoundException(MessageErrors.MESSAGE_NOT_FOUND);
     }
-
     await this.messageRepository.softDelete({ id: message.id });
-    return { message: '메시지가 삭제되었습니다.' };
+    return { message: MessageResponses.DELETED };
   }
 }

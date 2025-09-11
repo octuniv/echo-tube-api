@@ -1,5 +1,3 @@
-// src/messages/message.controller.spec.ts
-
 import { Test, TestingModule } from '@nestjs/testing';
 import { MessageController } from './message.controller';
 import { MessageService } from './message.service';
@@ -9,6 +7,8 @@ import { User } from '@/users/entities/user.entity';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { createUserEntity } from '@/users/factory/user.factory';
 import { UserRole } from '@/users/entities/user-role.enum';
+import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
+import { MessageListItemDto } from './dto/message-response.dto';
 
 describe('MessageController', () => {
   let controller: MessageController;
@@ -70,9 +70,54 @@ describe('MessageController', () => {
   });
 
   describe('findAll', () => {
-    it('should call service.findAll with user', async () => {
-      await controller.findAll(mockRequest);
-      expect(service.findAll).toHaveBeenCalledWith(mockUser);
+    it('should call service.findAll with user, default page and limit', async () => {
+      const mockPaginatedResponse: PaginatedResponseDto<MessageListItemDto> = {
+        data: [],
+        currentPage: 1,
+        totalItems: 0,
+        totalPages: 0,
+      };
+      (service.findAll as jest.Mock).mockResolvedValue(mockPaginatedResponse);
+
+      await controller.findAll(mockRequest, 1, 10);
+
+      expect(service.findAll).toHaveBeenCalledWith(mockUser, 1, 10);
+    });
+
+    it('should call service.findAll with user, custom page and limit', async () => {
+      const mockPaginatedResponse: PaginatedResponseDto<MessageListItemDto> = {
+        data: [],
+        currentPage: 2,
+        totalItems: 50,
+        totalPages: 5,
+      };
+      (service.findAll as jest.Mock).mockResolvedValue(mockPaginatedResponse);
+
+      await controller.findAll(mockRequest, 2, 20);
+
+      expect(service.findAll).toHaveBeenCalledWith(mockUser, 2, 20);
+    });
+
+    it('should return paginated response from service', async () => {
+      const expectedResponse: PaginatedResponseDto<MessageListItemDto> = {
+        data: [
+          {
+            id: 1,
+            senderNickname: 'Alice',
+            preview: 'Hello...',
+            isRead: false,
+            createdAt: new Date(),
+          },
+        ],
+        currentPage: 1,
+        totalItems: 1,
+        totalPages: 1,
+      };
+      (service.findAll as jest.Mock).mockResolvedValue(expectedResponse);
+
+      const result = await controller.findAll(mockRequest, 1, 10);
+
+      expect(result).toEqual(expectedResponse);
     });
   });
 

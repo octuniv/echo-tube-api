@@ -15,6 +15,7 @@ import {
 import { UsersService } from '@/users/users.service';
 import { MessageErrors, MessageResponses } from './constants/message.constants';
 import { CreateNoticeResponseDto } from './dto/create-message-response.dto';
+import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
 
 @Injectable()
 export class MessageService {
@@ -95,15 +96,41 @@ export class MessageService {
     return MessageDetailDto.fromEntity(messageWithRelations);
   }
 
-  async findAll(receiver: User) {
-    const messages = await this.messageRepository.find({
+  async findAll(
+    receiver: User,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<PaginatedResponseDto<MessageListItemDto>> {
+    const validPage = Math.max(1, page);
+    const skip = (validPage - 1) * limit;
+
+    const totalItems = await this.messageRepository.count({
       where: {
         receiverId: receiver.id,
       },
+    });
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    const messages = await this.messageRepository.find({
+      where: {
+        receiverId: receiver.id,
+        deletedAt: null,
+      },
       relations: ['sender'],
       order: { createdAt: 'DESC' },
+      skip: skip,
+      take: limit,
     });
-    return messages.map((msg) => MessageListItemDto.fromEntity(msg));
+
+    const data = messages.map((msg) => MessageListItemDto.fromEntity(msg));
+
+    return {
+      data,
+      currentPage: validPage,
+      totalItems,
+      totalPages,
+    };
   }
 
   async findOne(id: number, receiver: User) {

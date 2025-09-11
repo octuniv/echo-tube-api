@@ -186,7 +186,6 @@ describe('MessageService', () => {
       });
       jest.spyOn(messageRepository, 'create').mockReturnValue(createdMessage);
 
-      // ✅ 수정된 부분: 반환 객체에 senderId, receiverId를 명시적으로 추가합니다.
       jest
         .spyOn(messageRepository, 'save')
         .mockImplementation(async (message: Message) => {
@@ -207,27 +206,6 @@ describe('MessageService', () => {
         expect(result.isNotice).toBe(false);
         expect(result.senderNickname).toBe(mockUser.nickname);
       }
-    });
-  });
-
-  describe('findAll', () => {
-    it('should return list of messages for receiver', async () => {
-      const mockMessages = [
-        createMessageEntity({
-          id: 1,
-          sender: createUserEntity({ nickname: 'Alice' }),
-          content: 'Hello world!',
-          isRead: false,
-          createdAt: new Date(),
-          isNotice: false,
-        }),
-      ];
-
-      jest.spyOn(messageRepository, 'find').mockResolvedValue(mockMessages);
-
-      const result = await service.findAll(mockUser);
-      expect(result).toHaveLength(1);
-      expect(result[0]).toHaveProperty('senderNickname', 'Alice');
     });
   });
 

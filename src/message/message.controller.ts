@@ -9,6 +9,9 @@ import {
   Req,
   HttpStatus,
   HttpCode,
+  Query,
+  DefaultValuePipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { MessageService } from './message.service';
 import { CreateMessageDto } from './dto/create-message.dto';
@@ -19,6 +22,7 @@ import {
   ApiOperation,
   ApiBody,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { RequestWithUser } from '@/auth/types/request-with-user.dto';
 import {
@@ -26,6 +30,7 @@ import {
   MessageDetailDto,
 } from './dto/message-response.dto';
 import { CreateNoticeResponseDto } from './dto/create-message-response.dto';
+import { PaginatedResponseDto } from '@/common/dto/paginated-response.dto';
 
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
@@ -105,15 +110,47 @@ export class MessageController {
   @Get()
   @ApiOperation({
     summary: '받은 메시지 목록 조회',
-    description: '사용자가 받은 모든 메시지의 간략한 목록을 조회합니다.',
+    description:
+      '사용자가 받은 모든 메시지의 간략한 목록을 페이징하여 조회합니다.',
+  })
+  @ApiQuery({
+    name: 'page',
+    type: Number,
+    required: false,
+    description: '페이지 번호',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    type: Number,
+    required: false,
+    description: '한 페이지당 항목 수',
+    example: 10,
   })
   @ApiResponse({
     status: 200,
     description: '메시지 목록 조회 성공',
-    type: [MessageListItemDto],
+    type: PaginatedResponseDto<MessageListItemDto>,
+    schema: {
+      allOf: [
+        { $ref: '#/components/schemas/PaginatedResponseDto' },
+        {
+          properties: {
+            data: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/MessageListItemDto' },
+            },
+          },
+        },
+      ],
+    },
   })
-  async findAll(@Req() req: RequestWithUser) {
-    return this.messageService.findAll(req.user);
+  async findAll(
+    @Req() req: RequestWithUser,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ) {
+    return this.messageService.findAll(req.user, page, limit);
   }
 
   @Get(':id')

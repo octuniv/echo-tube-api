@@ -273,7 +273,6 @@ describe('Messages - /messages (e2e)', () => {
         content: '시스템 점검 안내',
         isNotice: true,
       } satisfies CreateMessageDto;
-
       await request(app.getHttpServer())
         .post('/messages')
         .set('Authorization', `Bearer ${adminToken}`)
@@ -281,12 +280,11 @@ describe('Messages - /messages (e2e)', () => {
         .expect(201);
 
       await Promise.all(
-        [1, 2, 3, 4, 5].map(async (seq) => {
+        Array.from({ length: 15 }, (_, i) => i + 1).map(async (seq) => {
           const sendMessageDto = {
             receiverId: users[1].id,
-            content: `안녕하세요 ${users[1].nickname}님! ${seq}`,
+            content: `안녕하세요 ${users[1].nickname}님! 메시지 ${seq}`,
           } satisfies CreateMessageDto;
-
           await request(app.getHttpServer())
             .post('/messages')
             .set('Authorization', `Bearer ${accessTokens[0]}`)
@@ -296,90 +294,139 @@ describe('Messages - /messages (e2e)', () => {
       );
     });
 
-    it('2.1: 메시지 목록 조회 성공 (200 OK)', async () => {
+    it('2.1: 메시지 목록 조회 성공 - 기본 페이지 (page=1, limit=10)', async () => {
       const response = await request(app.getHttpServer())
         .get('/messages')
         .set('Authorization', `Bearer ${accessTokens[1]}`)
         .expect(200);
 
-      expect(Array.isArray(response.body)).toBe(true);
-
-      expect(response.body).toHaveLength(6);
-
-      expect(response.body[0]).toEqual(
+      expect(response.body).toEqual(
         expect.objectContaining({
-          id: expect.any(Number),
-          preview: `안녕하세요 ${users[1].nickname}님! 5...`,
+          data: expect.any(Array),
+          currentPage: 1,
+          totalItems: 16,
+          totalPages: 2,
+        }),
+      );
+
+      expect(response.body.data).toHaveLength(10);
+
+      expect(response.body.data[0]).toEqual(
+        expect.objectContaining({
+          preview: `안녕하세요 ${users[1].nickname}님! 메시지 15...`,
           senderNickname: users[0].nickname,
           isRead: false,
           createdAt: expect.any(String),
         }),
       );
 
-      expect(response.body[1]).toEqual(
+      expect(response.body.data[9]).toEqual(
         expect.objectContaining({
-          id: expect.any(Number),
-          preview: `안녕하세요 ${users[1].nickname}님! 4...`,
+          preview: `안녕하세요 ${users[1].nickname}님! 메시지 6...`,
           senderNickname: users[0].nickname,
-          isRead: false,
-          createdAt: expect.any(String),
-        }),
-      );
-
-      expect(response.body[2]).toEqual(
-        expect.objectContaining({
-          id: expect.any(Number),
-          preview: `안녕하세요 ${users[1].nickname}님! 3...`,
-          senderNickname: users[0].nickname,
-          isRead: false,
-          createdAt: expect.any(String),
-        }),
-      );
-
-      expect(response.body[3]).toEqual(
-        expect.objectContaining({
-          id: expect.any(Number),
-          preview: `안녕하세요 ${users[1].nickname}님! 2...`,
-          senderNickname: users[0].nickname,
-          isRead: false,
-          createdAt: expect.any(String),
-        }),
-      );
-
-      expect(response.body[4]).toEqual(
-        expect.objectContaining({
-          id: expect.any(Number),
-          preview: `안녕하세요 ${users[1].nickname}님! 1...`,
-          senderNickname: users[0].nickname,
-          isRead: false,
-          createdAt: expect.any(String),
-        }),
-      );
-
-      expect(response.body[5]).toEqual(
-        expect.objectContaining({
-          id: expect.any(Number),
-          preview: '[공지] 시스템 점검 안내...',
-          senderNickname: admin.nickname,
           isRead: false,
           createdAt: expect.any(String),
         }),
       );
     });
 
-    it('2.2: 인증되지 않은 사용자 (401 Unauthorized)', async () => {
+    it('2.2: 두 번째 페이지 조회 (page=2, limit=10)', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/messages')
+        .query({ page: 2, limit: 10 })
+        .set('Authorization', `Bearer ${accessTokens[1]}`)
+        .expect(200);
+
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          data: expect.any(Array),
+          currentPage: 2,
+          totalItems: 16,
+          totalPages: 2,
+        }),
+      );
+
+      expect(response.body.data).toHaveLength(6);
+
+      expect(response.body.data[0]).toEqual(
+        expect.objectContaining({
+          preview: `안녕하세요 ${users[1].nickname}님! 메시지 5...`,
+          senderNickname: users[0].nickname,
+        }),
+      );
+
+      expect(response.body.data[5]).toEqual(
+        expect.objectContaining({
+          preview: '[공지] 시스템 점검 안내...',
+          senderNickname: admin.nickname,
+        }),
+      );
+    });
+
+    it('2.3: 사용자 지정 limit 파라미터 (page=1, limit=5)', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/messages')
+        .query({ page: 1, limit: 5 })
+        .set('Authorization', `Bearer ${accessTokens[1]}`)
+        .expect(200);
+
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          data: expect.any(Array),
+          currentPage: 1,
+          totalItems: 16,
+          totalPages: 4,
+        }),
+      );
+
+      expect(response.body.data).toHaveLength(5);
+    });
+
+    it('2.4: 존재하지 않는 페이지 조회 (page=999)', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/messages')
+        .query({ page: 999, limit: 10 })
+        .set('Authorization', `Bearer ${accessTokens[1]}`)
+        .expect(200);
+
+      expect(response.body).toEqual(
+        expect.objectContaining({
+          data: [],
+          currentPage: 999,
+          totalItems: 16,
+          totalPages: 2,
+        }),
+      );
+    });
+
+    it('2.5: 음수 또는 0 페이지 조회 시 기본값(1)으로 처리', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/messages')
+        .query({ page: -1, limit: 10 })
+        .set('Authorization', `Bearer ${accessTokens[1]}`)
+        .expect(200);
+
+      expect(response.body.currentPage).toBe(1);
+      expect(response.body.data).toHaveLength(10);
+    });
+
+    it('2.6: 인증되지 않은 사용자 (401 Unauthorized)', async () => {
       await request(app.getHttpServer()).get('/messages').expect(401);
     });
 
-    it('2.3: 메시지가 없는 경우 빈 배열 반환', async () => {
+    it('2.7: 메시지가 없는 경우 빈 배열 반환', async () => {
       await messageRepository.clear();
-
       const response = await request(app.getHttpServer())
         .get('/messages')
         .set('Authorization', `Bearer ${accessTokens[1]}`)
         .expect(200);
 
-      expect(response.body).toEqual([]);
+      expect(response.body).toEqual({
+        data: [],
+        currentPage: 1,
+        totalItems: 0,
+        totalPages: 0,
+      });
     });
   });
 
@@ -403,7 +450,6 @@ describe('Messages - /messages (e2e)', () => {
       messageId = response.body.id;
     });
 
-    it('3.1: 메시지 상세 조회 및 자동 읽음 처리 성공 (200 OK)', async () => {});
     it('3.1: 메시지 상세 조회 및 자동 읽음 처리 성공 (200 OK)', async () => {
       const beforeRead = await messageRepository.findOne({
         where: { id: messageId },

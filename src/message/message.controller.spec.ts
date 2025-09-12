@@ -63,7 +63,10 @@ describe('MessageController', () => {
 
   describe('create', () => {
     it('should call service.create with user and dto', async () => {
-      const dto: CreateMessageDto = { receiverId: 2, content: 'Hi' };
+      const dto: CreateMessageDto = {
+        receiverNickname: 'target',
+        content: 'Hi',
+      };
       await controller.create(dto, mockRequest);
       expect(service.create).toHaveBeenCalledWith(mockUser, dto);
     });

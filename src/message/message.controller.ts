@@ -48,10 +48,10 @@ export class MessageController {
     schema: {
       type: 'object',
       properties: {
-        receiverId: {
-          type: 'number',
-          description: '수신자 ID (공지 메시지일 경우 생략 가능)',
-          example: 2,
+        receiverNickname: {
+          type: 'string',
+          description: '수신자 닉네임 (공지 메시지일 경우 생략 가능)',
+          example: 'johndoe123',
         },
         content: {
           type: 'string',

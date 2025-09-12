@@ -300,10 +300,16 @@ export class UsersService {
     };
   }
 
+  // Use From MessageService
   async getAllActiveUsers(): Promise<User[]> {
-    // for message service
     return this.usersRepository.find({
       select: ['id', 'name', 'nickname', 'email'],
+    });
+  }
+
+  async findUserByNickname(nickname: string): Promise<User | null> {
+    return this.usersRepository.findOne({
+      where: { nickname },
     });
   }
 }

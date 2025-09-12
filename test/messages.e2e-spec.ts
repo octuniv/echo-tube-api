@@ -113,7 +113,7 @@ describe('Messages - /messages (e2e)', () => {
   describe('1. 메시지 전송 (POST /messages)', () => {
     it('1.1: 일반 사용자가 1:1 메시지 전송 성공', async () => {
       const sendMessageDto = {
-        receiverId: users[1].id,
+        receiverNickname: users[1].nickname,
         content: `안녕하세요 ${users[1].nickname}님!`,
       } satisfies CreateMessageDto;
 
@@ -189,7 +189,7 @@ describe('Messages - /messages (e2e)', () => {
 
     it('1.3: 인증되지 않은 사용자 (401 Unauthorized)', async () => {
       const sendMessageDto = {
-        receiverId: users[1].id,
+        receiverNickname: users[1].nickname,
         content: `안녕하세요 ${users[1].nickname}님!`,
       } satisfies CreateMessageDto;
 
@@ -216,8 +216,8 @@ describe('Messages - /messages (e2e)', () => {
 
     it('1.5: 존재하지 않는 수신자에게 메시지 전송 (404 Not Found)', async () => {
       const notSendingMessageDto = {
-        receiverId: 9999999,
-        content: `NOTEXIST`,
+        receiverNickname: 'NOTEXIST',
+        content: 'NOTEXIST',
       } satisfies CreateMessageDto;
 
       const response = await request(app.getHttpServer())
@@ -243,7 +243,7 @@ describe('Messages - /messages (e2e)', () => {
 
     it('1.7: 공지 메시지 전송 시 receiverId 포함 (유효성 검사)', async () => {
       const noticeMessageDto = {
-        receiverId: users[0].id,
+        receiverNickname: users[0].nickname,
         content: '시스템 점검 안내',
         isNotice: true,
       } satisfies CreateMessageDto;
@@ -282,7 +282,7 @@ describe('Messages - /messages (e2e)', () => {
       await Promise.all(
         Array.from({ length: 15 }, (_, i) => i + 1).map(async (seq) => {
           const sendMessageDto = {
-            receiverId: users[1].id,
+            receiverNickname: users[1].nickname,
             content: `안녕하세요 ${users[1].nickname}님! 메시지 ${seq}`,
           } satisfies CreateMessageDto;
           await request(app.getHttpServer())
@@ -437,7 +437,7 @@ describe('Messages - /messages (e2e)', () => {
 
     beforeEach(async () => {
       sendMessageDto = {
-        receiverId: users[1].id,
+        receiverNickname: users[1].nickname,
         content: `안녕하세요 ${users[1].nickname}님!`,
       } satisfies CreateMessageDto;
 
@@ -509,7 +509,7 @@ describe('Messages - /messages (e2e)', () => {
 
     beforeEach(async () => {
       sendMessageDto = {
-        receiverId: users[1].id,
+        receiverNickname: users[1].nickname,
         content: `안녕하세요 ${users[1].nickname}님!`,
       } satisfies CreateMessageDto;
 

@@ -26,7 +26,7 @@ export class MessageService {
   ) {}
 
   async create(sender: User, createMessageDto: CreateMessageDto) {
-    const { receiverId, content, isNotice } = createMessageDto;
+    const { receiverNickname, content, isNotice } = createMessageDto;
     if (isNotice && sender.role !== 'admin') {
       throw new ForbiddenException(MessageErrors.FORBIDDEN_NOTICE);
     }
@@ -72,14 +72,20 @@ export class MessageService {
       );
     }
 
-    const receiver = await this.usersService.getUserById(receiverId);
-    if (!receiver || receiver.deletedAt) {
+    const receiver =
+      await this.usersService.findUserByNickname(receiverNickname);
+
+    if (!receiver) {
+      throw new NotFoundException(MessageErrors.RECEIVER_NOT_FOUND);
+    }
+
+    if (receiver.deletedAt) {
       throw new NotFoundException(MessageErrors.RECEIVER_NOT_FOUND);
     }
 
     const message = this.messageRepository.create({
-      sender: sender,
-      receiver: receiver,
+      sender,
+      receiver,
       content,
       isNotice: false,
       isRead: false,

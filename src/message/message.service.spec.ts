@@ -51,7 +51,7 @@ describe('MessageService', () => {
           provide: UsersService,
           useValue: {
             getAllActiveUsers: jest.fn(),
-            getUserById: jest.fn(),
+            findUserByNickname: jest.fn(),
           },
         },
         {
@@ -82,7 +82,7 @@ describe('MessageService', () => {
   describe('create', () => {
     it('should throw ForbiddenException if non-admin tries to send notice', async () => {
       const dto: CreateMessageDto = {
-        receiverId: 2,
+        receiverNickname: 'target',
         content: 'Hi',
         isNotice: true,
       };
@@ -93,7 +93,7 @@ describe('MessageService', () => {
 
     it('should send notice to all users and return CreateNoticeResponseDto if admin', async () => {
       const dto: CreateMessageDto = {
-        receiverId: 2,
+        receiverNickname: 'target',
         content: 'System Notice',
         isNotice: true,
       };
@@ -131,7 +131,6 @@ describe('MessageService', () => {
           ...data,
           sender: mockAdmin,
           receiver,
-
           id: data.id || undefined,
           isRead: data.isRead ?? false,
           isNotice: data.isNotice ?? false,
@@ -164,14 +163,26 @@ describe('MessageService', () => {
     });
 
     it('should send 1:1 message successfully', async () => {
-      const dto: CreateMessageDto = { receiverId: 2, content: 'Hello!' };
+      const dto: CreateMessageDto = {
+        receiverNickname: 'targetuser',
+        content: 'Hello!',
+      };
+
+      const targetUser = createUserEntity({
+        id: 2,
+        nickname: 'targetuser',
+        name: 'Target User',
+        email: 'target@example.com',
+        role: UserRole.USER,
+      });
+
       jest
-        .spyOn(usersService, 'getUserById')
-        .mockResolvedValue(createUserEntity({ id: 2, name: 'Receiver' }));
+        .spyOn(usersService, 'findUserByNickname')
+        .mockResolvedValue(targetUser);
 
       const createInput = {
         senderId: mockUser.id,
-        receiverId: dto.receiverId,
+        receiverId: targetUser.id,
         content: dto.content,
         isNotice: false,
       };
@@ -183,6 +194,7 @@ describe('MessageService', () => {
         updatedAt: new Date(),
         deletedAt: null,
         sender: mockUser,
+        receiver: targetUser,
       });
       jest.spyOn(messageRepository, 'create').mockReturnValue(createdMessage);
 
@@ -198,14 +210,61 @@ describe('MessageService', () => {
 
       const result = await service.create(mockUser, dto);
 
+      expect(usersService.findUserByNickname).toHaveBeenCalledWith(
+        'targetuser',
+      );
       expect(messageRepository.create).toHaveBeenCalled();
-
       expect(isMessageDetailDto(result)).toBe(true);
+
       if (isMessageDetailDto(result)) {
         expect(result.content).toBe('Hello!');
         expect(result.isNotice).toBe(false);
         expect(result.senderNickname).toBe(mockUser.nickname);
       }
+    });
+
+    it('should throw NotFoundException if receiver by nickname not found', async () => {
+      const dto: CreateMessageDto = {
+        receiverNickname: 'nonexistent',
+        content: 'Hello!',
+        isNotice: false,
+      };
+
+      jest.spyOn(usersService, 'findUserByNickname').mockResolvedValue(null);
+
+      await expect(service.create(mockUser, dto)).rejects.toThrow(
+        new NotFoundException(MessageErrors.RECEIVER_NOT_FOUND),
+      );
+
+      expect(usersService.findUserByNickname).toHaveBeenCalledWith(
+        'nonexistent',
+      );
+    });
+
+    it('should throw NotFoundException if receiver is deleted', async () => {
+      const dto: CreateMessageDto = {
+        receiverNickname: 'deleteduser',
+        content: 'Hello!',
+        isNotice: false,
+      };
+
+      const deletedUser = createUserEntity({
+        id: 2,
+        nickname: 'deleteduser',
+        deletedAt: new Date(),
+      });
+
+      jest
+        .spyOn(usersService, 'findUserByNickname')
+        .mockResolvedValue(deletedUser);
+
+      await expect(service.create(mockUser, dto)).rejects.toThrow(
+        new NotFoundException(MessageErrors.RECEIVER_NOT_FOUND),
+      );
+
+      expect(usersService.findUserByNickname).toHaveBeenCalledWith(
+        'deleteduser',
+      );
     });
   });
 

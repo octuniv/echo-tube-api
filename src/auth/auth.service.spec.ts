@@ -196,7 +196,7 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() + 86400000),
         revoked: false,
       };
-      const mockUser: User = {
+      const mockUser: User = createUserEntity({
         id: 1,
         email: 'test@example.com',
         role: UserRole.USER,
@@ -208,7 +208,7 @@ describe('AuthService', () => {
         deletedAt: null,
         posts: [],
         comments: [],
-      };
+      });
       jest
         .spyOn(refreshTokenRepo, 'findValidToken')
         .mockResolvedValue(mockStoredToken);

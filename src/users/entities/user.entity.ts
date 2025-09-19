@@ -11,6 +11,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from './user-role.enum';
 import { Post } from '@/posts/entities/post.entity';
 import { Comment } from '@/comments/entities/comment.entity';
+import { Message } from '@/message/entities/message.entity';
 
 @Entity('users')
 export class User {
@@ -54,6 +55,18 @@ export class User {
     onDelete: 'CASCADE',
   })
   comments: Comment[];
+
+  @OneToMany(() => Message, (message) => message.sender, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  sentMessages: Message[];
+
+  @OneToMany(() => Message, (message) => message.receiver, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
+  receivedMessages: Message[];
 
   @ApiProperty({ example: '2024-01-01T00:00:00Z' })
   @CreateDateColumn({ name: 'created_at' })
